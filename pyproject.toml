@@ -53,9 +53,29 @@ line-ending = "lf"
 wrap = 120
 end_of_line = "lf"
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "-ra --strict-markers --no-migrations --no-header --tb=short"
+filterwarnings = [
+    "ignore::pydantic.PydanticDeprecatedSince20"
+]
+
+[tool.coverage.run]
+source = ["iscc_hub"]
+omit = ["*/migrations/*", "*/asgi.py", "*/wsgi.py", "*/url.py"]
+
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+skip_covered = true
+skip_empty = true
+
 [tool.poe.tasks]
 check-python = { cmd = "uv run ruff check --fix .", help = "Check python code"}
 format-python = { cmd = "uv run ruff format .", help = "Format python code"}
 format-markdown = { cmd = "uv run mdformat . notes", help = "Format python code"}
+test-python = {cmd = "uv run pytest -q --tb=short -x --cov=iscc_hub --cov-report=term-missing:skip-covered", help = "Run fast tests only (for development)"}
 
-all = ["check-python", "format-python", "format-markdown"]
+
+all = ["check-python", "format-python", "format-markdown", "test-python"]
