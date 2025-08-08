@@ -14,10 +14,10 @@ class IsccHubConfig(AppConfig):
     def ready(self):
         # type: () -> None
         """Perform app initialization when Django starts."""
-        # Validate node ID configuration
-        self.validate_node_id()
+        # Validate HUB ID configuration
+        self.validate_hub_id()
 
-    def validate_node_id(self):
+    def validate_hub_id(self):
         # type: () -> None
         """Validate that the hub id is within the 12-bit range (0-4095)."""
         hub_id = getattr(settings, "ISCC_HUB_ID", None)

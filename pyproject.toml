@@ -62,7 +62,7 @@ filterwarnings = [
 
 [tool.coverage.run]
 source = ["iscc_hub"]
-omit = ["*/migrations/*", "*/asgi.py", "*/wsgi.py", "*/url.py"]
+omit = ["*/migrations/*", "*/asgi.py", "*/wsgi.py", "*/urls.py"]
 
 
 [tool.coverage.report]
@@ -70,12 +70,12 @@ precision = 1
 show_missing = true
 skip_covered = true
 skip_empty = true
+fail_under = 100
 
 [tool.poe.tasks]
 check-python = { cmd = "uv run ruff check --fix .", help = "Check python code"}
 format-python = { cmd = "uv run ruff format .", help = "Format python code"}
 format-markdown = { cmd = "uv run mdformat . notes", help = "Format python code"}
 test-python = {cmd = "uv run pytest -q --tb=short -x --cov=iscc_hub --cov-report=term-missing:skip-covered", help = "Run fast tests only (for development)"}
-
 
 all = ["check-python", "format-python", "format-markdown", "test-python"]
