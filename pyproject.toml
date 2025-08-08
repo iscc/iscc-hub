@@ -1,0 +1,61 @@
+[project]
+name = "iscc-hub"
+version = "0.1.0"
+description = "ISCC-HUB - ISCC Declarations & Discovery"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.2.5",
+    "django-environ>=0.12.0",
+    "django-ninja>=1.4.3",
+    "gunicorn>=23.0.0",
+    "iscc-core>=1.2.1",
+    "iscc-crypto>=0.4.0",
+    "servestatic>=3.1.0",
+    "uritemplate>=4.2.0",
+    "uvicorn>=0.35.0",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "mdformat>=0.7.22",
+    "mdformat-frontmatter>=2.0.8",
+    "mdformat-gfm>=0.4.1",
+    "poethepoet>=0.36.0",
+    "pre-commit>=4.2.0",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-django>=4.11.1",
+    "ruff>=0.12.8",
+]
+
+[tool.ruff]
+line-length = 112
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mdformat]
+wrap = 120
+end_of_line = "lf"
+
+[tool.poe.tasks]
+check-python = { cmd = "uv run ruff check --fix .", help = "Check python code"}
+format-python = { cmd = "uv run ruff format .", help = "Format python code"}
+format-markdown = { cmd = "uv run mdformat . notes", help = "Format python code"}
+
+all = ["check-python", "format-python", "format-markdown"]

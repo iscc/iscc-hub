@@ -1,0 +1,3 @@
+# Robots.txt for ISCC-HUB
+User-agent: *
+Allow: /

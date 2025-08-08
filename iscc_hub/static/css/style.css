@@ -1,0 +1,17 @@
+/* ISCC Notary - Tailwind CSS Integration */
+
+/* 
+This file has been replaced by the new Tailwind CSS system
+with ISCC design tokens. See base.html for the new Tailwind
+configuration and component classes.
+
+Key improvements:
+- Reduced CSS from 980+ lines to ~50 lines
+- ISCC brand colors integrated as Tailwind utilities
+- Modular template system with base.html
+- Consistent design system across all pages
+- Better maintainability and performance
+*/
+
+/* Legacy styles - this file is no longer used */
+/* All styling is now handled via Tailwind CSS in base.html */

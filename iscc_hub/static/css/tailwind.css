@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@layer base {
+  :root {
+    --iscc-navy: #123663;
+    --iscc-blue: #0054b2;
+    --iscc-light-blue: #4596f5;
+    --iscc-cyan: #7ac2f7;
+    --iscc-coral: #f56169;
+    --iscc-green: #a6db50;
+    --iscc-yellow: #ffc300;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply font-sans text-text-primary;
+    background-color: #e5ddc8;
+    background: url('/static/img/grain.png'), linear-gradient(to right, #dfd7c2, #f7f3e9, #dfd7c2);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-normal leading-tight;
+  }
+}
+
+@layer components {
+  /* ISCC Component Badges */
+  .iscc-badge {
+    @apply inline-block px-3 py-1 rounded font-mono text-sm font-medium text-white;
+  }
+
+  .iscc-badge-meta {
+    @apply iscc-badge bg-iscc-light-blue;
+  }
+
+  .iscc-badge-semantic {
+    @apply iscc-badge bg-iscc-green;
+  }
+
+  .iscc-badge-content {
+    @apply iscc-badge bg-iscc-blue;
+  }
+
+  .iscc-badge-data {
+    @apply iscc-badge bg-iscc-cyan;
+  }
+
+  .iscc-badge-instance {
+    @apply iscc-badge bg-iscc-coral;
+  }
+
+  /* ISCC Cards */
+  .iscc-card {
+    @apply bg-white/5 border border-white/10 rounded-xl backdrop-blur-md;
+  }
+
+  .iscc-card-hover {
+    @apply iscc-card transition-all duration-300 hover:bg-white/8 hover:transform hover:-translate-y-1 hover:shadow-lg;
+  }
+
+  /* ISCC Buttons */
+  .btn-iscc-primary {
+    @apply inline-block px-8 py-3 bg-iscc-yellow text-iscc-navy font-medium rounded-md transition-all duration-200 hover:bg-yellow-400 hover:transform hover:-translate-y-0.5 hover:shadow-lg;
+  }
+
+  .btn-iscc-secondary {
+    @apply inline-block px-8 py-3 bg-transparent text-text-primary border-2 border-text-primary font-medium rounded-md transition-all duration-200 hover:bg-white/10 hover:border-iscc-yellow;
+  }
+
+  /* ISCC Code Display */
+  .iscc-code {
+    @apply font-mono text-sm bg-black/20 p-3 rounded border border-white/10 break-all;
+  }
+
+  .iscc-code-highlight {
+    @apply iscc-code text-iscc-coral font-semibold text-lg;
+  }
+
+  /* Status Indicators */
+  .status-pass {
+    @apply text-iscc-green font-semibold;
+  }
+
+  .status-fail {
+    @apply text-iscc-coral font-semibold;
+  }
+
+  .status-warn {
+    @apply text-iscc-yellow font-semibold;
+  }
+
+  /* Navigation */
+  .nav-link {
+    @apply text-text-secondary font-normal transition-colors duration-200 hover:text-iscc-yellow hover:no-underline;
+  }
+
+  /* Feature Icons */
+  .feature-icon {
+    @apply w-20 h-20 mx-auto mb-6 bg-iscc-light-blue rounded-2xl flex items-center justify-center text-white text-3xl;
+  }
+
+  .feature-icon-alt-1 {
+    @apply feature-icon bg-iscc-green;
+  }
+
+  .feature-icon-alt-2 {
+    @apply feature-icon bg-iscc-coral;
+  }
+
+  .feature-icon-alt-3 {
+    @apply feature-icon bg-iscc-cyan;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-iscc-yellow to-iscc-light-blue bg-clip-text text-transparent;
+  }
+
+  .bg-hero {
+    @apply bg-gradient-primary relative overflow-hidden;
+  }
+
+  .bg-hero::before {
+    content: "";
+    @apply absolute -top-1/2 -right-1/10 w-4/5 h-full;
+    background: radial-gradient(circle, rgba(245, 184, 0, 0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+}
