@@ -78,7 +78,7 @@ class IsccNote(Schema):
         Field(
             description="Blake3 hash of the notarized asset (hex encoded 256 bit multihash with blake3 prefix)",
             examples=["1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d"],
-            pattern="^1e20[0-9a-fA-F]{64}$",
+            pattern="^1e20[0-9a-f]{64}$",
         ),
     ]
     metahash: Annotated[
@@ -86,7 +86,7 @@ class IsccNote(Schema):
         Field(
             description="Blake3 hash of seed metadata (256-bit hex-encoded multihash with prefix `1e20`). When present, this creates a cryptographic commitment to the exact metadata state at notarization time, allowing external registries to store mutable or deletable metadata while maintaining temporal integrity.",
             examples=["1e20a0e3c5b4f7d2c1a8e9f5b3d7e2a1c4f8b6d9e3a7c2f5d8b1e4a9c7f3b6d2e1"],
-            pattern="^1e20[0-9a-fA-F]{64}$",
+            pattern="^1e20[0-9a-f]{64}$",
         ),
     ] = None
     nonce: Annotated[
@@ -94,7 +94,7 @@ class IsccNote(Schema):
         Field(
             description="Unique 128-bit hex-encoded random value (first 12-bits denote server_id for replay protection)",
             examples=["000faa3f18c7b9407a48536a9b00c4cb"],
-            pattern="^[0-9a-fA-F]{32}$",
+            pattern="^[0-9a-f]{32}$",
         ),
     ]
     timestamp: Annotated[
