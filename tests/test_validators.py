@@ -265,3 +265,57 @@ def test_validate_timestamp_with_current_time():
 
     # Should pass with default reference_time (current time)
     validators.validate_timestamp(timestamp_str, check_tolerance=True)
+
+
+def test_validate_hex_string_valid():
+    # type: () -> None
+    """Test validates a valid lowercase hex string."""
+    validators.validate_hex_string("abcdef0123456789", "test_field", 16)  # Should not raise
+
+
+def test_validate_hex_string_uppercase():
+    # type: () -> None
+    """Test raises ValueError for uppercase hex characters."""
+    with pytest.raises(ValueError, match="test_field must be lowercase"):
+        validators.validate_hex_string("ABCDEF0123456789", "test_field", 16)
+
+    # Mixed case
+    with pytest.raises(ValueError, match="test_field must be lowercase"):
+        validators.validate_hex_string("AbCdEf0123456789", "test_field", 16)
+
+
+def test_validate_hex_string_wrong_length():
+    # type: () -> None
+    """Test raises ValueError for incorrect length."""
+    # Too short
+    with pytest.raises(ValueError, match="test_field must be exactly 16 characters"):
+        validators.validate_hex_string("abcdef012345678", "test_field", 16)  # 15 chars
+
+    # Too long
+    with pytest.raises(ValueError, match="test_field must be exactly 16 characters"):
+        validators.validate_hex_string("abcdef01234567890", "test_field", 16)  # 17 chars
+
+
+def test_validate_hex_string_invalid_characters():
+    # type: () -> None
+    """Test raises ValueError for non-hex characters."""
+    # Non-hex letter
+    with pytest.raises(ValueError, match="test_field must contain only hexadecimal characters"):
+        validators.validate_hex_string("abcdefg123456789", "test_field", 16)  # 'g' is not hex
+
+    # Special character
+    with pytest.raises(ValueError, match="test_field must contain only hexadecimal characters"):
+        validators.validate_hex_string("abcdef-123456789", "test_field", 16)  # '-' is not hex
+
+
+def test_validate_hex_string_different_field_names():
+    # type: () -> None
+    """Test error messages use the correct field name."""
+    with pytest.raises(ValueError, match="nonce must be lowercase"):
+        validators.validate_hex_string("ABC", "nonce", 3)
+
+    with pytest.raises(ValueError, match="datahash must be exactly 5 characters"):
+        validators.validate_hex_string("abc", "datahash", 5)
+
+    with pytest.raises(ValueError, match="metahash must contain only hexadecimal characters"):
+        validators.validate_hex_string("xyz", "metahash", 3)
