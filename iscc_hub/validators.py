@@ -1,11 +1,13 @@
 """Custom IsccNote validation module for granular control and signature integrity preservation."""
 
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlparse
 
 import iscc_core as ic
 import iscc_crypto as icr
 import uritemplate
+from dateutil.parser import isoparse
 
 # Constants for better maintainability
 DATAHASH_PREFIX = "1e20"
@@ -13,16 +15,18 @@ HASH_LENGTH = 68
 NONCE_LENGTH = 32
 SUPPORTED_GATEWAY_VARIABLES = {"iscc_id", "iscc_code", "pubkey", "datahash"}
 SUPPORTED_URL_SCHEMES = ["http", "https"]
+TIMESTAMP_TOLERANCE_MINUTES = 10
 
 
-def validate_iscc_note(data, verify_signature=True, verify_hub_id=None):
-    # type: (dict, bool, int|None) -> dict
+def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_timestamp=True):
+    # type: (dict, bool, int|None, bool) -> dict
     """
     Validate an IsccNote request body without using Pydantic.
 
     :param data: Raw dictionary containing the IsccNote fields
     :param verify_signature: Whether to verify the cryptographic signature (default: True)
     :param verify_hub_id: Hub ID to validate nonce against (default: None, skips validation)
+    :param verify_timestamp: Whether to verify timestamp is within tolerance (default: True)
     :return: Validated IsccNote data ready for notarization
     :raises ValueError: If validation fails with detailed error information
     """
@@ -37,6 +41,9 @@ def validate_iscc_note(data, verify_signature=True, verify_hub_id=None):
 
     # Validate nonce
     validate_nonce(data["nonce"], verify_hub_id)
+
+    # Validate timestamp
+    validate_timestamp(data["timestamp"], verify_timestamp)
 
     # Validate optional fields
     validate_optional_fields(data)
@@ -99,6 +106,64 @@ def validate_nonce_hub_id(nonce, expected_hub_id):
 
     if extracted_hub_id != expected_hub_id:
         raise ValueError(f"Nonce hub_id mismatch: expected {expected_hub_id}, got {extracted_hub_id}")
+
+
+def validate_timestamp(timestamp_str, check_tolerance=True, reference_time=None):
+    # type: (str, bool, datetime|None) -> None
+    """
+    Validate timestamp format and optionally check if within tolerance.
+
+    Timestamp must be RFC 3339 formatted in UTC with millisecond precision.
+    Format: YYYY-MM-DDTHH:MM:SS.sssZ
+
+    :param timestamp_str: The timestamp string to validate
+    :param check_tolerance: Whether to check if timestamp is within ±10 minutes (default: True)
+    :param reference_time: Reference time for tolerance check (default: current UTC time)
+    :raises ValueError: If timestamp is invalid or outside tolerance
+    """
+    if not isinstance(timestamp_str, str):
+        raise ValueError("timestamp must be a string")
+
+    # Check basic requirements
+    if not timestamp_str.endswith("Z"):
+        raise ValueError("timestamp must end with 'Z' to indicate UTC")
+
+    if "." not in timestamp_str:
+        raise ValueError("timestamp must include millisecond precision")
+
+    # Parse timestamp using dateutil's RFC 3339 parser
+    try:
+        parsed_time = isoparse(timestamp_str)
+
+        # Ensure it has UTC timezone
+        if parsed_time.tzinfo is None or parsed_time.tzinfo.utcoffset(None) != timedelta(0):
+            raise ValueError("timestamp must be in UTC timezone")
+
+        # Check millisecond precision (3 decimal places)
+        ms_part = timestamp_str.split(".")[1].rstrip("Z")
+        if len(ms_part) != 3:
+            raise ValueError("timestamp must have exactly 3 digits for milliseconds")
+
+    except (ValueError, TypeError) as e:
+        if "timestamp must" in str(e):
+            raise
+        raise ValueError("timestamp must be RFC 3339 formatted (e.g., '2025-08-04T12:34:56.789Z')") from e
+
+    # Check tolerance if requested
+    if check_tolerance:
+        # Use provided reference time or current UTC time
+        ref_time = reference_time if reference_time else datetime.now(UTC)
+
+        # Calculate time difference
+        time_diff = abs((parsed_time - ref_time).total_seconds())
+
+        # Check if within tolerance (±10 minutes = 600 seconds)
+        max_tolerance_seconds = TIMESTAMP_TOLERANCE_MINUTES * 60
+        if time_diff > max_tolerance_seconds:
+            raise ValueError(
+                f"timestamp is outside ±{TIMESTAMP_TOLERANCE_MINUTES} minute tolerance: "
+                f"{time_diff / 60:.1f} minutes from reference time"
+            )
 
 
 def validate_hex_string(value, field_name, expected_length):
