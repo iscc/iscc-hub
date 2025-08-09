@@ -21,7 +21,7 @@ paths:
               full_example:
                 summary: Complete IsccNote with all optional fields
                 value:
-                  iscc_code: "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA"
+                  iscc_code: "ISCC:KACZH265WE3KJOSRJT3OCVAFMMNYPEWWFTXNHEFX66ACDIKE4HHI7VA"
                   datahash: "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d"
                   metahash: "1e20a0e3c5b4f7d2c1a8e9f5b3d7e2a1c4f8b6d9e3a7c2f5d8b1e4a9c7f3b6d2e1"
                   nonce: "000faa3f18c7b9407a48536a9b00c4cb"
@@ -40,7 +40,7 @@ paths:
               minimal_example:
                 summary: Minimal IsccNote with only required fields
                 value:
-                  iscc_code: "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA"
+                  iscc_code: "ISCC:KACZH265WE3KJOSRJT3OCVAFMMNYPEWWFTXNHEFX66ACDIKE4HHI7VA"
                   datahash: "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d"
                   nonce: "0008cbf4aa191469590593ea715a0a4c"
                   timestamp: "2025-08-04T12:34:56.789Z"
@@ -213,7 +213,7 @@ components:
           type: string
           description: The ISCC-CODE to be notarized
           pattern: "^ISCC:[A-Z0-9]{13,73}$"
-          example: "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA"
+          example: "ISCC:KACZH265WE3KJOSRJT3OCVAFMMNYPEWWFTXNHEFX66ACDIKE4HHI7VA"
         datahash:
           type: string
           description: Blake3 hash of the notarized asset (hex encoded 256 bit multihash with blake3 prefix)
@@ -259,7 +259,7 @@ components:
         signature:
           $ref: '#/components/schemas/IsccSignature'
       example:
-        iscc_code: "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA"
+        iscc_code: "ISCC:KACZH265WE3KJOSRJT3OCVAFMMNYPEWWFTXNHEFX66ACDIKE4HHI7VA"
         datahash: "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d"
         metahash: "1e20a0e3c5b4f7d2c1a8e9f5b3d7e2a1c4f8b6d9e3a7c2f5d8b1e4a9c7f3b6d2e1"
         nonce: "000faa3f18c7b9407a48536a9b00c4cb"

@@ -69,7 +69,7 @@ class IsccNote(Schema):
         str,
         Field(
             description="The ISCC-CODE to be notarized",
-            examples=["ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA"],
+            examples=["ISCC:KACZH265WE3KJOSRJT3OCVAFMMNYPEWWFTXNHEFX66ACDIKE4HHI7VA"],
             pattern="^ISCC:[A-Z0-9]{13,73}$",
         ),
     ]
