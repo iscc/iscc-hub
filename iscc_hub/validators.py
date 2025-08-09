@@ -1,6 +1,6 @@
 """Custom IsccNote validation module for granular control and signature integrity preservation."""
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
 
@@ -175,10 +175,7 @@ def validate_nonce_hub_id(nonce, expected_hub_id):
     # Extract hub ID from first 12 bits of nonce
     nonce_bytes = bytes.fromhex(nonce)
     extracted_hub_id = (nonce_bytes[0] << 4) | (nonce_bytes[1] >> 4)
-
-    # Validate extracted hub ID range
-    if not 0 <= extracted_hub_id <= MAX_HUB_ID:
-        raise ValueError(f"Invalid hub ID in nonce: {extracted_hub_id} (must be 0-{MAX_HUB_ID})")
+    # Note: extracted_hub_id is guaranteed to be 0-4095 (12 bits max)
 
     if extracted_hub_id != expected_hub_id:
         raise ValueError(f"Nonce hub_id mismatch: expected {expected_hub_id}, got {extracted_hub_id}")
@@ -370,12 +367,14 @@ def verify_signature_cryptographically(data):
     :raises ValueError: If signature verification fails or errors occur
     """
     try:
-        verification_result = icr.verify_json(data, identity_doc=None, raise_on_error=True)
-        if not verification_result.signature_valid:
-            raise ValueError("Invalid signature")
+        # Do not raise inside the verifier to allow consistent error handling here
+        verification_result = icr.verify_json(data, identity_doc=None, raise_on_error=False)
     except Exception as e:
-        # Convert any verification errors to ValueError for consistent API
-        raise ValueError(f"Invalid signature: {str(e)}") from e
+        # Normalize unexpected verifier errors
+        raise ValueError("Invalid signature") from e
+
+    if not getattr(verification_result, "signature_valid", False):
+        raise ValueError("Invalid signature")
 
 
 def validate_multihash(value, field_name):
@@ -432,7 +431,7 @@ def validate_gateway(gateway):
 
     # Create URI template and extract variables
     template = uritemplate.URITemplate(gateway)
-    variable_names = template.variable_names if hasattr(template, "variable_names") else set()
+    variable_names = set(template.variable_names) if hasattr(template, "variable_names") else set()
 
     # If it has variables, validate them
     if variable_names:
@@ -441,10 +440,8 @@ def validate_gateway(gateway):
         if unsupported:
             unsupported_list = sorted(unsupported)
             raise ValueError(f"gateway contains unsupported variables: {', '.join(unsupported_list)}")
-        # Valid template with supported variables
-        return
 
-    # If no template variables, validate as plain URL
+    # Regardless of template usage, must be a valid HTTP(S) URL
     validate_url(gateway)
 
 

@@ -1005,3 +1005,148 @@ def test_validate_iscc_note_skip_timestamp(example_nonce, example_keypair, examp
 
     # Should pass without timestamp check
     validators.validate_iscc_note(signed_note, verify_timestamp=False)
+
+
+# Tests from test_missing_coverage.py
+def test_validate_input_size_exceeds_json_limit(example_iscc_data, example_nonce, example_keypair):
+    # type: () -> None
+    """Test that oversized JSON input is rejected."""
+    # Create a note with very large strings that will exceed JSON size limit (8192 bytes)
+    # Each string is 2000 chars (under individual limit of 2048)
+    large_string = "x" * 2000
+    oversized_note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": "2025-01-01T00:00:00.000Z",
+        "gateway": large_string,
+        "metahash": "1e20" + "a" * 64,
+        "extra1": large_string,  # Add more fields to exceed 8192 bytes total
+        "extra2": large_string,
+        "extra3": large_string,
+        "signature": {
+            "version": "ISCC-SIG v1.0",
+            "proof": "z" + "A" * 100,
+            "pubkey": "z" + "B" * 100,
+            "controller": large_string,
+        },
+    }
+
+    with pytest.raises(ValueError, match="Input data exceeds maximum size"):
+        validators.validate_input_size(oversized_note)
+
+
+def test_validate_input_size_exceeds_string_limit(example_iscc_data):
+    # type: () -> None
+    """Test that oversized string fields are rejected."""
+    oversized_string = "x" * 3000  # Exceeds MAX_STRING_LENGTH (2048)
+    data = {"gateway": oversized_string}
+
+    with pytest.raises(ValueError, match="Field 'gateway' exceeds maximum string length"):
+        validators.validate_input_size(data)
+
+
+def test_validate_nonce_hub_id_out_of_range():
+    # type: () -> None
+    """Test hub ID validation with out of range value."""
+    nonce = "000faa3f18c7b9407a48536a9b00c4cb"
+
+    # Test hub ID too large
+    with pytest.raises(ValueError, match="Hub ID must be between 0 and 4095"):
+        validators.validate_nonce_hub_id(nonce, 5000)
+
+    # Test negative hub ID
+    with pytest.raises(ValueError, match="Hub ID must be between 0 and 4095"):
+        validators.validate_nonce_hub_id(nonce, -1)
+
+
+def test_validate_nonce_invalid_hub_id_in_nonce():
+    # type: () -> None
+    """Test validation when nonce contains invalid hub ID."""
+    # Create a nonce that would extract to an invalid hub ID
+    # This is tricky since we need to craft bytes that when extracted give > 4095
+    # 4095 = 0xFFF, so we need first 12 bits to be all 1s or more
+    # 0xFF 0xF0 would give us 0xFFF (4095) when extracted
+    # 0xFF 0xFF would give us 0xFFF (4095) when extracted
+    # Actually, let's use a nonce that's all FFs which would extract to 4095
+    nonce_all_f = "f" * 32  # This will extract to 4095 (0xFFF)
+
+    # This should work since 4095 is valid
+    validators.validate_nonce_hub_id(nonce_all_f, 4095)
+
+    # For the error case, we need to mock or create a scenario where extraction fails
+    # Since the extraction is: (nonce_bytes[0] << 4) | (nonce_bytes[1] >> 4)
+    # With all Fs: (0xFF << 4) | (0xFF >> 4) = 0xFF0 | 0x0F = 0xFFF = 4095
+    # This is actually valid, so let's skip this particular test as it's not possible
+    # to create a nonce that extracts to > 4095 with the current bit manipulation
+
+
+def test_validate_signature_invalid_version(example_iscc_data, example_nonce):
+    # type: () -> None
+    """Test signature validation with invalid version."""
+    signature = {
+        "version": "ISCC-SIG v2.0",  # Wrong version
+        "proof": "zSomeProof",
+        "pubkey": "zSomePubkey",
+    }
+
+    with pytest.raises(ValueError, match="Invalid signature version"):
+        validators.validate_signature_structure(signature)
+
+
+def test_verify_signature_cryptographically_valid_with_keypair(
+    example_iscc_data, example_nonce, example_keypair
+):
+    # type: () -> None
+    """Test successful cryptographic signature verification."""
+    import iscc_crypto as icr
+
+    # Create and sign a valid note
+    note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": "2025-01-01T00:00:00.000Z",
+    }
+
+    signed_note = icr.sign_json(note, example_keypair)
+
+    # This should succeed without raising
+    validators.verify_signature_cryptographically(signed_note)
+
+
+def test_validate_units_exceeds_max_size(example_iscc_data):
+    # type: () -> None
+    """Test units validation with array exceeding max size."""
+    # Create more units than allowed (MAX_UNITS_ARRAY_SIZE = 4)
+    units = [
+        "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ",
+        "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY",
+        "ISCC:GAD334BLFXWN7QWLCSBGJMLRZW73FFNV7ORVUKN23UWPKGQCWTIHQKY",
+        "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ",
+        "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY",  # 5th unit exceeds limit
+    ]
+
+    with pytest.raises(ValueError, match="units array exceeds maximum size"):
+        validators.validate_units_reconstruction(
+            units, example_iscc_data["datahash"], example_iscc_data["iscc"]
+        )
+
+
+# Tests from test_signature_exception.py
+def test_verify_signature_cryptographically_exception():
+    # type: () -> None
+    """Test that exceptions during signature verification are handled properly."""
+    from unittest.mock import patch
+
+    test_data = {
+        "iscc_code": "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
+        "signature": {"version": "ISCC-SIG v1.0", "proof": "zInvalidProof", "pubkey": "zInvalidPubkey"},
+    }
+
+    # Mock verify_json to raise an exception
+    with patch("iscc_hub.validators.icr.verify_json") as mock_verify:
+        mock_verify.side_effect = RuntimeError("Unexpected error during verification")
+
+        with pytest.raises(ValueError, match="Invalid signature"):
+            validators.verify_signature_cryptographically(test_data)
