@@ -657,6 +657,68 @@ def test_validate_units_reconstruction_mismatch():
         validators.validate_units_reconstruction(units, datahash, iscc_code)
 
 
+def test_validate_units_reconstruction_generic_exception():
+    # type: () -> None
+    """Test generic exception handler in validate_units_reconstruction."""
+    # Mock a generic exception by passing an object that will fail inside gen_iscc_code
+    import unittest.mock as mock
+
+    units = ["ISCC:AADZH265WE3KJOSR5K67QJEF5JHLF2REJJYVI4ZYKJ727JU2ZX2AHNQ"]
+    datahash = "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d"
+    iscc_code = "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA"
+
+    # Patch gen_iscc_code to raise a non-ValueError exception
+    with mock.patch("iscc_hub.validators.ic.gen_iscc_code", side_effect=RuntimeError("Unexpected error")):
+        with pytest.raises(ValueError, match="ISCC code reconstruction failed: units and datahash"):
+            validators.validate_units_reconstruction(units, datahash, iscc_code)
+
+
+def test_validate_datahash_match_wide_iscc():
+    # type: () -> None
+    """Test datahash matching for WIDE subtype ISCC (128-bit comparison)."""
+    from io import BytesIO
+
+    import iscc_core as ic
+
+    # Create test content
+    content = b"Test content for WIDE ISCC generation"
+
+    # Generate 128-bit Data and Instance codes
+    # According to deepwiki, we need to use gen_iscc_code_v0 with wide=True
+    dcode = ic.gen_data_code(BytesIO(content), bits=256)
+    icode = ic.gen_instance_code(BytesIO(content), bits=256)
+
+    # Generate WIDE ISCC-CODE using gen_iscc_code_v0 with wide=True
+    iscc_result = ic.gen_iscc_code_v0([dcode["iscc"], icode["iscc"]], wide=True)
+    iscc_code = iscc_result["iscc"]
+
+    # Use the datahash from instance code generation
+    datahash = icode["datahash"]
+
+    # Verify it's a WIDE ISCC (ST_ISCC.WIDE = 7)
+    _, subtype, _, _, _ = ic.iscc_decode(iscc_code)
+    assert subtype == ic.ST_ISCC.WIDE
+
+    # Should validate successfully with 128-bit comparison
+    validators.validate_datahash_match(iscc_code, datahash)
+
+
+def test_validate_datahash_match_invalid_iscc_error():
+    # type: () -> None
+    """Test validate_datahash_match converts iscc_core errors."""
+    # Use an invalid ISCC that will cause an error during decoding
+    # This tests line 475 where iscc_core errors are converted
+    import unittest.mock as mock
+
+    iscc_code = "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA"
+    datahash = "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d"
+
+    # Mock iscc_decode to raise a ValueError that's not our custom message
+    with mock.patch("iscc_hub.validators.ic.iscc_decode", side_effect=ValueError("Some other error")):
+        with pytest.raises(ValueError, match="Invalid ISCC code: Some other error"):
+            validators.validate_datahash_match(iscc_code, datahash)
+
+
 def test_validate_datahash_match_valid():
     # type: () -> None
     """Test valid datahash matching Instance-Code portion of ISCC."""

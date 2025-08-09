@@ -376,11 +376,8 @@ def validate_units_reconstruction(units, datahash, iscc_code):
             raise ValueError(
                 "ISCC code reconstruction failed: units and datahash do not reconstruct to provided iscc_code"
             )
-    except ValueError as e:
-        # Re-raise ISCC library validation errors as-is for better debugging
-        if "Malformed ISCC string" in str(e):
-            raise
-        # Re-raise our custom validation messages as-is
+    except ValueError:
+        # Re-raise ValueError as-is (includes iscc_core validation errors)
         raise
     except Exception as e:
         # Wrap other unexpected exceptions
