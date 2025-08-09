@@ -156,3 +156,112 @@ def test_validate_nonce_hub_id_direct():
     # Test mismatch
     with pytest.raises(ValueError, match="Nonce hub_id mismatch: expected 100, got 0"):
         validators.validate_nonce_hub_id("000aaa3f18c7b9407a48536a9b00c4cb", 100)
+
+
+def test_validate_timestamp_valid():
+    # type: () -> None
+    """Test validates a valid RFC 3339 timestamp with milliseconds."""
+    # Valid timestamp with millisecond precision
+    validators.validate_timestamp("2025-08-04T12:34:56.789Z", check_tolerance=False)
+
+
+def test_validate_timestamp_not_string():
+    # type: () -> None
+    """Test raises ValueError when timestamp is not a string."""
+    with pytest.raises(ValueError, match="timestamp must be a string"):
+        validators.validate_timestamp(12345)
+
+
+def test_validate_timestamp_missing_z():
+    # type: () -> None
+    """Test raises ValueError when timestamp doesn't end with Z."""
+    with pytest.raises(ValueError, match="timestamp must end with 'Z' to indicate UTC"):
+        validators.validate_timestamp("2025-08-04T12:34:56.789")
+
+
+def test_validate_timestamp_missing_milliseconds():
+    # type: () -> None
+    """Test raises ValueError when timestamp lacks millisecond precision."""
+    with pytest.raises(ValueError, match="timestamp must include millisecond precision"):
+        validators.validate_timestamp("2025-08-04T12:34:56Z")
+
+
+def test_validate_timestamp_wrong_millisecond_digits():
+    # type: () -> None
+    """Test raises ValueError for wrong number of millisecond digits."""
+    # Too many digits
+    with pytest.raises(ValueError, match="timestamp must have exactly 3 digits for milliseconds"):
+        validators.validate_timestamp("2025-08-04T12:34:56.1234Z")
+
+    # Too few digits
+    with pytest.raises(ValueError, match="timestamp must have exactly 3 digits for milliseconds"):
+        validators.validate_timestamp("2025-08-04T12:34:56.12Z")
+
+
+def test_validate_timestamp_invalid_format():
+    # type: () -> None
+    """Test raises ValueError for invalid timestamp format."""
+    # Invalid format but ends with Z and has a dot
+    with pytest.raises(ValueError, match="timestamp must be RFC 3339 formatted"):
+        validators.validate_timestamp("not-a-valid.123Z")
+
+
+def test_validate_timestamp_non_utc():
+    # type: () -> None
+    """Test raises ValueError for non-UTC timezone."""
+    # With timezone offset instead of Z
+    with pytest.raises(ValueError, match="timestamp must end with 'Z' to indicate UTC"):
+        validators.validate_timestamp("2025-08-04T12:34:56.789+01:00")
+
+
+def test_validate_timestamp_within_tolerance():
+    # type: () -> None
+    """Test timestamp within ±10 minute tolerance."""
+    ref_time = datetime(2025, 8, 4, 12, 30, 0, tzinfo=UTC)
+
+    # 5 minutes in the future - should pass
+    validators.validate_timestamp("2025-08-04T12:35:00.000Z", reference_time=ref_time)
+
+    # 5 minutes in the past - should pass
+    validators.validate_timestamp("2025-08-04T12:25:00.000Z", reference_time=ref_time)
+
+    # Exactly at tolerance boundary (10 minutes) - should pass
+    validators.validate_timestamp("2025-08-04T12:40:00.000Z", reference_time=ref_time)
+    validators.validate_timestamp("2025-08-04T12:20:00.000Z", reference_time=ref_time)
+
+
+def test_validate_timestamp_outside_tolerance():
+    # type: () -> None
+    """Test raises ValueError when timestamp is outside ±10 minute tolerance."""
+    ref_time = datetime(2025, 8, 4, 12, 30, 0, tzinfo=UTC)
+
+    # 11 minutes in the future
+    with pytest.raises(ValueError, match="timestamp is outside ±10 minute tolerance: 11.0 minutes"):
+        validators.validate_timestamp("2025-08-04T12:41:00.000Z", reference_time=ref_time)
+
+    # 11 minutes in the past
+    with pytest.raises(ValueError, match="timestamp is outside ±10 minute tolerance: 11.0 minutes"):
+        validators.validate_timestamp("2025-08-04T12:19:00.000Z", reference_time=ref_time)
+
+
+def test_validate_timestamp_skip_tolerance_check():
+    # type: () -> None
+    """Test skipping tolerance check allows any valid timestamp."""
+    ref_time = datetime(2025, 8, 4, 12, 30, 0, tzinfo=UTC)
+
+    # 1 hour in the future - would fail with tolerance check
+    validators.validate_timestamp("2025-08-04T13:30:00.000Z", check_tolerance=False, reference_time=ref_time)
+
+    # 1 year in the past - would fail with tolerance check
+    validators.validate_timestamp("2024-08-04T12:30:00.000Z", check_tolerance=False, reference_time=ref_time)
+
+
+def test_validate_timestamp_with_current_time():
+    # type: () -> None
+    """Test validation with current time when no reference provided."""
+    # Create a timestamp that's definitely within tolerance of now
+    current_time = datetime.now(UTC)
+    timestamp_str = current_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+    # Should pass with default reference_time (current time)
+    validators.validate_timestamp(timestamp_str, check_tolerance=True)

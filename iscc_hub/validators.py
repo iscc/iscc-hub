@@ -135,10 +135,6 @@ def validate_timestamp(timestamp_str, check_tolerance=True, reference_time=None)
     try:
         parsed_time = isoparse(timestamp_str)
 
-        # Ensure it has UTC timezone
-        if parsed_time.tzinfo is None or parsed_time.tzinfo.utcoffset(None) != timedelta(0):
-            raise ValueError("timestamp must be in UTC timezone")
-
         # Check millisecond precision (3 decimal places)
         ms_part = timestamp_str.split(".")[1].rstrip("Z")
         if len(ms_part) != 3:
