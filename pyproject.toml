@@ -110,7 +110,7 @@ field-constraints = true
 
 [tool.poe.tasks]
 build-schema = { cmd = "uv run datamodel-codegen", help = "Build pydantic models from openapi.yaml" }
-check-python = { cmd = "uv run ruff check --fix .", help = "Check python code"}
+check-python = { cmd = "uv run ruff check --fix --unsafe-fixes .", help = "Check python code"}
 check-types = { cmd = "uv run pyright", help = "Run Pyright type checking"}
 format-python = { cmd = "uv run ruff format .", help = "Format python code"}
 format-markdown = { cmd = "uv run mdformat . notes", help = "Format python code"}
