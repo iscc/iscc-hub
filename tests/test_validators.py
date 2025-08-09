@@ -140,3 +140,19 @@ def test_validate_nonce_hub_id_extraction():
     # 0x123 = 291
     nonce = "123aaa3f18c7b9407a48536a9b00c4cb"
     validators.validate_nonce(nonce, hub_id=291)  # Should not raise
+
+
+def test_validate_nonce_hub_id_direct():
+    # type: () -> None
+    """Test validate_nonce_hub_id directly for edge cases."""
+    # Test minimum hub_id (0)
+    nonce = "000aaa3f18c7b9407a48536a9b00c4cb"
+    validators.validate_nonce_hub_id(nonce, 0)  # Should not raise
+
+    # Test maximum hub_id (4095 = 0xfff)
+    nonce = "fffaaa3f18c7b9407a48536a9b00c4cb"
+    validators.validate_nonce_hub_id(nonce, 4095)  # Should not raise
+
+    # Test mismatch
+    with pytest.raises(ValueError, match="Nonce hub_id mismatch: expected 100, got 0"):
+        validators.validate_nonce_hub_id("000aaa3f18c7b9407a48536a9b00c4cb", 100)
