@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, Literal, Optional
 from uuid import UUID
 
@@ -96,10 +97,17 @@ class IsccNote(Schema):
             pattern="^[0-9a-fA-F]{32}$",
         ),
     ]
-    resolver: Annotated[
-        AnyUrl | None,
+    timestamp: Annotated[
+        datetime,
         Field(
-            description="URL where metadata and services for the notarized asset can be discovered",
+            description="RFC 3339 formatted timestamp in UTC with millisecond precision (e.g., \"2025-08-04T12:34:56.789Z\"). The 'Z' suffix MUST be used to indicate UTC. This timestamp indicates when the IsccNote was created and signed by the declaring party. HUBs MUST reject IsccNotes with timestamps outside of ±10 minutes from the HUB's current time.",
+            examples=["2025-08-04T12:34:56.789Z"],
+        ),
+    ]
+    gateway: Annotated[
+        str | None,
+        Field(
+            description="URL or URI Template (RFC 6570) pointing to a GATEWAY for metadata and service discovery",
             examples=["https://example.com/metadata"],
         ),
     ] = None
