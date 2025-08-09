@@ -17,6 +17,7 @@ dependencies = [
 
 [tool.uv]
 dev-dependencies = [
+    "django-types>=0.22.0",
     "mdformat>=0.7.22",
     "mdformat-frontmatter>=2.0.8",
     "mdformat-gfm>=0.4.1",
@@ -28,6 +29,7 @@ dev-dependencies = [
     "pytest-django>=4.11.1",
     "ruff>=0.12.8",
     "schemathesis>=4.0.23",
+    "pyright>=1.1.379",
 ]
 
 [tool.ruff]
@@ -44,11 +46,28 @@ select = [
     "C4", # flake8-comprehensions
     "UP", # pyupgrade
 ]
+ignore = ["F401"]  # Ignore unused imports
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 line-ending = "lf"
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+include = ["iscc_hub"]
+exclude = [
+    "iscc_hub/settings.py",
+    "**/__pycache__",
+    ".git",
+    ".venv",
+    "data",
+    "build",
+    "dist",
+    ".mypy_cache",
+    ".pytest_cache",
+]
 
 [tool.mdformat]
 wrap = 120
@@ -75,8 +94,9 @@ fail_under = 100
 
 [tool.poe.tasks]
 check-python = { cmd = "uv run ruff check --fix .", help = "Check python code"}
+check-types = { cmd = "uv run pyright", help = "Run Pyright type checking"}
 format-python = { cmd = "uv run ruff format .", help = "Format python code"}
 format-markdown = { cmd = "uv run mdformat . notes", help = "Format python code"}
 test-python = {cmd = "uv run pytest -q --tb=short -x --cov=iscc_hub --cov-report=term-missing:skip-covered", help = "Run fast tests only (for development)"}
 
-all = ["check-python", "format-python", "format-markdown", "test-python"]
+all = ["check-python", "format-python", "check-types", "format-markdown",  "test-python"]
