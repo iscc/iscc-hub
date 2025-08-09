@@ -319,3 +319,92 @@ def test_validate_hex_string_different_field_names():
 
     with pytest.raises(ValueError, match="metahash must contain only hexadecimal characters"):
         validators.validate_hex_string("xyz", "metahash", 3)
+
+
+def test_validate_optional_field_null_value():
+    # type: () -> None
+    """Test raises ValueError for null values."""
+    with pytest.raises(ValueError, match="Optional field 'gateway' must not be null"):
+        validators.validate_optional_field("gateway", None)
+
+
+def test_validate_optional_field_empty_string():
+    # type: () -> None
+    """Test raises ValueError for empty or whitespace-only strings."""
+    with pytest.raises(ValueError, match="Optional field 'gateway' must not be empty"):
+        validators.validate_optional_field("gateway", "")
+
+    with pytest.raises(ValueError, match="Optional field 'gateway' must not be empty"):
+        validators.validate_optional_field("gateway", "   ")
+
+    with pytest.raises(ValueError, match="Optional field 'gateway' must not be empty"):
+        validators.validate_optional_field("gateway", "\t\n")
+
+
+def test_validate_optional_field_empty_list():
+    # type: () -> None
+    """Test raises ValueError for empty lists."""
+    with pytest.raises(ValueError, match="Optional field 'units' must not be empty"):
+        validators.validate_optional_field("units", [])
+
+
+def test_validate_optional_field_valid_values():
+    # type: () -> None
+    """Test passes for valid non-empty values."""
+    # Valid string
+    validators.validate_optional_field("gateway", "https://example.com")
+
+    # Valid list
+    validators.validate_optional_field("units", ["item1", "item2"])
+
+    # Valid dict
+    validators.validate_optional_field("metadata", {"key": "value"})
+
+    # Valid number
+    validators.validate_optional_field("count", 42)
+
+    # Valid boolean
+    validators.validate_optional_field("enabled", True)
+
+
+def test_validate_optional_field_with_special_validator():
+    # type: () -> None
+    """Test applies special validators when provided."""
+
+    # Define a special validator that checks string length
+    def check_min_length(value):
+        if len(value) < 5:
+            raise ValueError("Value too short")
+
+    special_validators = {"gateway": check_min_length}
+
+    # Should pass - long enough
+    validators.validate_optional_field("gateway", "https://example.com", special_validators)
+
+    # Should fail - too short
+    with pytest.raises(ValueError, match="Value too short"):
+        validators.validate_optional_field("gateway", "http", special_validators)
+
+
+def test_validate_optional_field_special_validator_not_applied():
+    # type: () -> None
+    """Test special validators only apply to matching field names."""
+
+    def check_min_length(value):
+        if len(value) < 5:
+            raise ValueError("Value too short")
+
+    special_validators = {"gateway": check_min_length}
+
+    # Special validator should NOT apply to 'other_field'
+    validators.validate_optional_field("other_field", "abc", special_validators)  # Should not raise
+
+
+def test_validate_optional_field_no_special_validators():
+    # type: () -> None
+    """Test works without special validators."""
+    # None special_validators
+    validators.validate_optional_field("gateway", "https://example.com", None)
+
+    # Empty special_validators dict
+    validators.validate_optional_field("gateway", "https://example.com", {})
