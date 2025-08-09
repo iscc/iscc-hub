@@ -11,7 +11,7 @@ import uritemplate
 DATAHASH_PREFIX = "1e20"
 HASH_LENGTH = 68
 NONCE_LENGTH = 32
-SUPPORTED_RESOLVER_VARIABLES = {"iscc_id", "iscc_code", "pubkey", "datahash"}
+SUPPORTED_GATEWAY_VARIABLES = {"iscc_id", "iscc_code", "pubkey", "datahash"}
 SUPPORTED_URL_SCHEMES = ["http", "https"]
 
 
@@ -145,12 +145,12 @@ def validate_optional_fields(data):
     # Define special validators for specific fields
     special_validators = {
         "metahash": lambda v: validate_multihash(v, "metahash"),
-        "resolver": validate_resolver,
+        "gateway": validate_gateway,
         "units": lambda v: validate_units_reconstruction(v, data["datahash"], data["iscc_code"]),
     }
 
     # Validate optional fields in IsccNote
-    optional_fields_iscc_note = {"resolver", "units", "metahash"}
+    optional_fields_iscc_note = {"gateway", "units", "metahash"}
     for field in optional_fields_iscc_note:
         if field in data:
             validate_optional_field(field, data[field], special_validators)
@@ -219,36 +219,36 @@ def validate_multihash(value, field_name):
         raise ValueError(f"{field_name} must contain only hexadecimal characters") from e
 
 
-def validate_resolver(resolver):
+def validate_gateway(gateway):
     # type: (str) -> None
     """
-    Validate that resolver is either a valid URL or URI template.
+    Validate that gateway is either a valid URL or URI template.
 
-    :param resolver: The resolver string to validate
-    :raises ValueError: If resolver is invalid
+    :param gateway: The gateway string to validate
+    :raises ValueError: If gateway is invalid
     """
     # Check for basic template syntax errors first
-    if "{" in resolver or "}" in resolver:
+    if "{" in gateway or "}" in gateway:
         # Check for mismatched braces
-        if resolver.count("{") != resolver.count("}"):
-            raise ValueError("resolver has invalid URI template syntax")
+        if gateway.count("{") != gateway.count("}"):
+            raise ValueError("gateway has invalid URI template syntax")
 
     # Create URI template and extract variables
-    template = uritemplate.URITemplate(resolver)
+    template = uritemplate.URITemplate(gateway)
     variable_names = template.variable_names if hasattr(template, "variable_names") else set()
 
     # If it has variables, validate them
     if variable_names:
         # Check for unsupported variables
-        unsupported = variable_names - SUPPORTED_RESOLVER_VARIABLES
+        unsupported = variable_names - SUPPORTED_GATEWAY_VARIABLES
         if unsupported:
             unsupported_list = sorted(unsupported)
-            raise ValueError(f"resolver contains unsupported variables: {', '.join(unsupported_list)}")
+            raise ValueError(f"gateway contains unsupported variables: {', '.join(unsupported_list)}")
         # Valid template with supported variables
         return
 
     # If no template variables, validate as plain URL
-    validate_url(resolver)
+    validate_url(gateway)
 
 
 def validate_url(url):
@@ -261,18 +261,18 @@ def validate_url(url):
     """
     # Check for whitespace
     if url != url.strip():
-        raise ValueError("resolver must be a valid URL or URI template")
+        raise ValueError("gateway must be a valid URL or URI template")
 
     # Parse URL
     parsed = urlparse(url)
 
     # Check if it has a valid scheme
     if parsed.scheme not in SUPPORTED_URL_SCHEMES:
-        raise ValueError("resolver must be a valid URL or URI template")
+        raise ValueError("gateway must be a valid URL or URI template")
 
     # Check if it has a hostname
     if not parsed.netloc:
-        raise ValueError("resolver must be a valid URL or URI template")
+        raise ValueError("gateway must be a valid URL or URI template")
 
 
 def validate_units_reconstruction(units, datahash, iscc_code):
