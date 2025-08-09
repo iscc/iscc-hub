@@ -4,9 +4,12 @@ Pytest configuration for Django testing.
 
 import os
 import sys
+from io import BytesIO
 from pathlib import Path
 
 import django
+import iscc_core as ic
+import iscc_crypto as icr
 import pytest
 from django.conf import settings
 
@@ -54,3 +57,135 @@ def django_db_setup():
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": ":memory:",
     }
+
+
+def create_iscc_from_text(text="Hello World!"):
+    # type: (str) -> dict
+    """Create deterministic ISCC components from text."""
+    mcode = ic.gen_meta_code(text, "Test Description", bits=256)
+    ccode = ic.gen_text_code(text, bits=256)
+    dcode = ic.gen_data_code(BytesIO(text.encode("utf-8")), bits=256)
+    icode = ic.gen_instance_code(BytesIO(text.encode("utf-8")), bits=256)
+    iscc_code = ic.gen_iscc_code([mcode["iscc"], ccode["iscc"], dcode["iscc"], icode["iscc"]])["iscc"]
+
+    result = {}
+    result.update(mcode)
+    result.update(ccode)
+    result.update(dcode)
+    result.update(icode)
+    result["iscc"] = iscc_code
+    result["units"] = [mcode["iscc"], ccode["iscc"], dcode["iscc"]]
+    return result
+
+
+@pytest.fixture
+def example_keypair():
+    # type: () -> icr.KeyPair
+    """Generate a deterministic test keypair."""
+    # Use a fixed controller for deterministic output
+    controller = "did:web:example.com"
+    return icr.key_generate(controller=controller)
+
+
+@pytest.fixture
+def example_nonce():
+    # type: () -> str
+    """Return a deterministic test nonce."""
+    # First 12 bits = 0x000 = hub_id 0
+    return "000faa3f18c7b9407a48536a9b00c4cb"
+
+
+@pytest.fixture
+def example_timestamp():
+    # type: () -> str
+    """Return a deterministic test timestamp."""
+    return "2025-01-15T12:00:00.000Z"
+
+
+@pytest.fixture
+def current_timestamp():
+    # type: () -> str
+    """Return a timestamp close to current time for tolerance testing."""
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC)
+    return now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+
+@pytest.fixture
+def example_iscc_data():
+    # type: () -> dict
+    """Return deterministic ISCC data from 'Hello World!' text."""
+    return create_iscc_from_text()
+
+
+@pytest.fixture
+def minimal_iscc_note(example_nonce, example_timestamp, example_keypair, example_iscc_data):
+    # type: (str, str, icr.KeyPair, dict) -> dict
+    """Create a minimal signed IsccNote with deterministic values."""
+    minimal_note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": example_timestamp,
+    }
+
+    # Sign the note
+    signed_note = icr.sign_json(minimal_note, example_keypair)
+    return signed_note
+
+
+@pytest.fixture
+def full_iscc_note(example_nonce, example_timestamp, example_keypair, example_iscc_data):
+    # type: (str, str, icr.KeyPair, dict) -> dict
+    """Create a full signed IsccNote with all optional fields."""
+    full_note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": example_timestamp,
+        "gateway": "https://example.com/iscc_id/{iscc_id}/metadata",
+        "units": example_iscc_data["units"],
+        "metahash": example_iscc_data["metahash"],
+    }
+
+    # Sign the note
+    signed_note = icr.sign_json(full_note, example_keypair)
+    return signed_note
+
+
+@pytest.fixture
+def unsigned_iscc_note(example_nonce, example_timestamp, example_iscc_data):
+    # type: (str, str, dict) -> dict
+    """Create an unsigned IsccNote with a placeholder signature."""
+    return {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": example_timestamp,
+        "signature": {
+            "version": "ISCC-SIG v1.0",
+            "pubkey": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+            "proof": "zInvalidSignature",
+        },
+    }
+
+
+@pytest.fixture
+def invalid_signature_note(example_nonce, example_timestamp, example_keypair, example_iscc_data):
+    # type: (str, str, icr.KeyPair, dict) -> dict
+    """Create an IsccNote with a tampered signature."""
+    note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": example_timestamp,
+    }
+
+    # Sign the note
+    signed_note = icr.sign_json(note, example_keypair)
+
+    # Tamper with the data after signing
+    signed_note["nonce"] = "fffaaa3f18c7b9407a48536a9b00c4cb"
+
+    return signed_note

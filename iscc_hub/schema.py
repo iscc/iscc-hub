@@ -69,7 +69,7 @@ class IsccNote(Schema):
         str,
         Field(
             description="The ISCC-CODE to be notarized",
-            examples=["ISCC:KACZH265WE3KJOSRJT3OCVAFMMNYPEWWFTXNHEFX66ACDIKE4HHI7VA"],
+            examples=["ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"],
             pattern="^ISCC:[A-Z0-9]{13,73}$",
         ),
     ]
@@ -77,7 +77,7 @@ class IsccNote(Schema):
         str,
         Field(
             description="Blake3 hash of the notarized asset (hex encoded 256 bit multihash with blake3 prefix)",
-            examples=["1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d"],
+            examples=["1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"],
             pattern="^1e20[0-9a-f]{64}$",
         ),
     ]
@@ -85,7 +85,7 @@ class IsccNote(Schema):
         str | None,
         Field(
             description="Blake3 hash of seed metadata (256-bit hex-encoded multihash with prefix `1e20`). When present, this creates a cryptographic commitment to the exact metadata state at notarization time, allowing external registries to store mutable or deletable metadata while maintaining temporal integrity.",
-            examples=["1e20a0e3c5b4f7d2c1a8e9f5b3d7e2a1c4f8b6d9e3a7c2f5d8b1e4a9c7f3b6d2e1"],
+            examples=["1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"],
             pattern="^1e20[0-9a-f]{64}$",
         ),
     ] = None
@@ -101,7 +101,7 @@ class IsccNote(Schema):
         datetime,
         Field(
             description="RFC 3339 formatted timestamp in UTC with millisecond precision (e.g., \"2025-08-04T12:34:56.789Z\"). The 'Z' suffix MUST be used to indicate UTC. This timestamp indicates when the IsccNote was created and signed by the declaring party. HUBs MUST reject IsccNotes with timestamps outside of ±10 minutes from the HUB's current time.",
-            examples=["2025-08-04T12:34:56.789Z"],
+            examples=["2025-01-15T12:00:00.000Z"],
         ),
     ]
     gateway: Annotated[
@@ -117,9 +117,9 @@ class IsccNote(Schema):
             description="Array of decomposed ISCC-UNITs (excluding Instance-Code Unit). Only include UNITs with ISCC-BODYs larger than 64-bit for improved large-scale discovery and matching. The original ISCC-CODE can be reconstructed by converting the datahash to an Instance-Code UNIT, appending it to this array, and passing to iscc_core.gen_iscc_code.",
             examples=[
                 [
-                    "ISCC:AADZH265WE3KJOSR5K67QJEF5JHLF2REJJYVI4ZYKJ727JU2ZX2AHNQ",
-                    "ISCC:EADUZ5XBKQCWGG4HYIKX7CNPQMFTPTWEUCQLXFJWC25TKM645KYUSNQ",
-                    "ISCC:GADZFVRM53JZBN7XOOT3Y6FL372G2GY6PEKRY43JIJ6KV4GH5P7NN4A",
+                    "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ",
+                    "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY",
+                    "ISCC:GAD334BLFXWN7QWLCSBGJMLRZW73FFNV7ORVUKN23UWPKGQCWTIHQKY",
                 ]
             ],
         ),

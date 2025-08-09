@@ -678,3 +678,268 @@ def test_validate_datahash_match_mismatch():
 
     with pytest.raises(ValueError, match="datahash does not match ISCC Instance-Code"):
         validators.validate_datahash_match(iscc_code, datahash)
+
+
+def test_validate_optional_fields_with_valid_fields():
+    # type: () -> None
+    """Test validate_optional_fields with all valid optional fields."""
+    data = {
+        "iscc_code": "ISCC:KACZH265WE3KJOSRJT3OCVAFMMNYPEWWFTXNHEFX66ACDIKE4HHI7VA",
+        "datahash": "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d",
+        "gateway": "https://example.com",
+        "metahash": "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598",
+        "units": [
+            "ISCC:AADZH265WE3KJOSR5K67QJEF5JHLF2REJJYVI4ZYKJ727JU2ZX2AHNQ",
+            "ISCC:EADUZ5XBKQCWGG4HYIKX7CNPQMFTPTWEUCQLXFJWC25TKM645KYUSNQ",
+            "ISCC:GADZFVRM53JZBN7XOOT3Y6FL372G2GY6PEKRY43JIJ6KV4GH5P7NN4A",
+        ],
+    }
+    # Should not raise
+    validators.validate_optional_fields(data)
+
+
+def test_validate_optional_fields_with_invalid_metahash():
+    # type: () -> None
+    """Test validate_optional_fields raises for invalid metahash."""
+    data = {
+        "iscc_code": "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA",
+        "datahash": "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d",
+        "metahash": "invalid_hash",
+    }
+    with pytest.raises(ValueError, match="metahash must"):
+        validators.validate_optional_fields(data)
+
+
+def test_validate_optional_fields_with_invalid_gateway():
+    # type: () -> None
+    """Test validate_optional_fields raises for invalid gateway."""
+    data = {
+        "iscc_code": "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA",
+        "datahash": "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d",
+        "gateway": "not-a-url",
+    }
+    with pytest.raises(ValueError, match="gateway must be a valid URL"):
+        validators.validate_optional_fields(data)
+
+
+def test_validate_optional_fields_with_invalid_units():
+    # type: () -> None
+    """Test validate_optional_fields raises for invalid units reconstruction."""
+    data = {
+        "iscc_code": "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA",
+        "datahash": "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d",
+        "units": ["ISCC:AADZH265WE3KJOSR5K67QJEF5JHLF2REJJYVI4ZYKJ727JU2ZX2AHNQ"],  # Wrong units
+    }
+    with pytest.raises(ValueError, match="ISCC-CODE requires at least MT.DATA and MT.INSTANCE units"):
+        validators.validate_optional_fields(data)
+
+
+def test_validate_optional_fields_with_empty_values():
+    # type: () -> None
+    """Test validate_optional_fields raises for empty optional values."""
+    # Empty gateway
+    data = {
+        "iscc_code": "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA",
+        "datahash": "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d",
+        "gateway": "",
+    }
+    with pytest.raises(ValueError, match="Optional field 'gateway' must not be empty"):
+        validators.validate_optional_fields(data)
+
+    # Empty units
+    data["gateway"] = "https://example.com"
+    data["units"] = []
+    with pytest.raises(ValueError, match="Optional field 'units' must not be empty"):
+        validators.validate_optional_fields(data)
+
+
+def test_validate_signature_structure_valid():
+    # type: () -> None
+    """Test validate_signature_structure with valid signature."""
+    signature = {
+        "version": "ISCC-SIG v1.0",
+        "pubkey": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+        "proof": "z2dW4e3DVcqnweJWPvLZNyaYiYTZiaEYKHiy3PUpE6Poth2BUVzKA72Tqih6GHz9KoWvEQ2CqfXSgyjY17cR94nXu",
+    }
+    validators.validate_signature_structure(signature)  # Should not raise
+
+
+def test_validate_signature_structure_not_dict():
+    # type: () -> None
+    """Test validate_signature_structure raises for non-dict."""
+    with pytest.raises(ValueError, match="Signature must be a dictionary"):
+        validators.validate_signature_structure("not_a_dict")
+
+
+def test_validate_signature_structure_missing_fields():
+    # type: () -> None
+    """Test validate_signature_structure raises for missing required fields."""
+    # Missing proof
+    signature = {
+        "version": "ISCC-SIG v1.0",
+        "pubkey": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+    }
+    with pytest.raises(ValueError, match="Missing required field in signature: proof"):
+        validators.validate_signature_structure(signature)
+
+
+def test_validate_signature_structure_with_optional_fields():
+    # type: () -> None
+    """Test validate_signature_structure with optional fields."""
+    signature = {
+        "version": "ISCC-SIG v1.0",
+        "pubkey": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+        "proof": "z2dW4e3DVcqnweJWPvLZNyaYiYTZiaEYKHiy3PUpE6Poth2BUVzKA72Tqih6GHz9KoWvEQ2CqfXSgyjY17cR94nXu",
+        "controller": "did:web:example.com",
+        "keyid": "key-1",
+    }
+    validators.validate_signature_structure(signature)  # Should not raise
+
+
+def test_validate_signature_structure_empty_optional_fields():
+    # type: () -> None
+    """Test validate_signature_structure raises for empty optional fields."""
+    signature = {
+        "version": "ISCC-SIG v1.0",
+        "pubkey": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+        "proof": "z2dW4e3DVcqnweJWPvLZNyaYiYTZiaEYKHiy3PUpE6Poth2BUVzKA72Tqih6GHz9KoWvEQ2CqfXSgyjY17cR94nXu",
+        "controller": "",  # Empty
+    }
+    with pytest.raises(ValueError, match="Optional field 'controller' in signature must not be empty"):
+        validators.validate_signature_structure(signature)
+
+
+def test_verify_signature_cryptographically_valid(minimal_iscc_note):
+    # type: () -> None
+    """Test verify_signature_cryptographically with valid signature."""
+    # Should not raise
+    validators.verify_signature_cryptographically(minimal_iscc_note)
+
+
+def test_verify_signature_cryptographically_invalid(invalid_signature_note):
+    # type: () -> None
+    """Test verify_signature_cryptographically raises for invalid signature."""
+    with pytest.raises(ValueError, match="Invalid signature"):
+        validators.verify_signature_cryptographically(invalid_signature_note)
+
+
+def test_validate_url_valid():
+    # type: () -> None
+    """Test validate_url with valid URLs."""
+    validators.validate_url("https://example.com")
+    validators.validate_url("http://localhost:8080")
+    validators.validate_url("https://api.example.com/path?query=value")
+
+
+def test_validate_url_invalid_scheme():
+    # type: () -> None
+    """Test validate_url raises for invalid scheme."""
+    with pytest.raises(ValueError, match="gateway must be a valid URL"):
+        validators.validate_url("ftp://example.com")
+
+
+def test_validate_url_no_scheme():
+    # type: () -> None
+    """Test validate_url raises for missing scheme."""
+    with pytest.raises(ValueError, match="gateway must be a valid URL"):
+        validators.validate_url("example.com")
+
+
+def test_validate_url_no_hostname():
+    # type: () -> None
+    """Test validate_url raises for missing hostname."""
+    with pytest.raises(ValueError, match="gateway must be a valid URL"):
+        validators.validate_url("https://")
+
+
+def test_validate_url_with_whitespace():
+    # type: () -> None
+    """Test validate_url raises for URL with whitespace."""
+    with pytest.raises(ValueError, match="gateway must be a valid URL"):
+        validators.validate_url(" https://example.com ")
+
+
+def test_validate_iscc_note_full_validation(
+    example_nonce, current_timestamp, example_keypair, example_iscc_data
+):
+    # type: (str, str, Any, dict) -> None
+    """Test validate_iscc_note with full validation."""
+    # Create a note with current timestamp for tolerance testing
+    import iscc_crypto as icr
+
+    minimal_note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+
+    # Sign the note
+    signed_note = icr.sign_json(minimal_note, example_keypair)
+
+    # Should validate successfully with current timestamp
+    validated = validators.validate_iscc_note(signed_note)
+    assert validated == signed_note
+
+
+def test_validate_iscc_note_skip_signature(unsigned_iscc_note):
+    # type: () -> None
+    """Test validate_iscc_note without signature verification."""
+    validated = validators.validate_iscc_note(
+        unsigned_iscc_note, verify_signature=False, verify_timestamp=False
+    )
+    assert validated == unsigned_iscc_note
+
+
+def test_validate_iscc_note_with_hub_id():
+    # type: () -> None
+    """Test validate_iscc_note with hub ID verification."""
+    note = {
+        "iscc_code": "ISCC:KACZH265WE3KJOSRJT3OCVAFMMNYPEWWFTXNHEFX66ACDIKE4HHI7VA",
+        "datahash": "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d",
+        "nonce": "000faa3f18c7b9407a48536a9b00c4cb",  # hub_id = 0
+        "timestamp": "2025-01-15T12:00:00.000Z",
+        "signature": {
+            "version": "ISCC-SIG v1.0",
+            "pubkey": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+            "proof": "zInvalidButWeSkipVerification",
+        },
+    }
+    validators.validate_iscc_note(note, verify_signature=False, verify_hub_id=0, verify_timestamp=False)
+
+
+def test_validate_iscc_note_missing_field():
+    # type: () -> None
+    """Test validate_iscc_note raises for missing required field."""
+    note = {
+        "datahash": "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d",
+        "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
+        "timestamp": "2025-01-15T12:00:00.000Z",
+        "signature": {},
+    }
+    with pytest.raises(ValueError, match="Missing required field: iscc_code"):
+        validators.validate_iscc_note(note)
+
+
+def test_validate_iscc_note_skip_timestamp(example_nonce, example_keypair, example_iscc_data):
+    # type: (str, Any, dict) -> None
+    """Test validate_iscc_note skipping timestamp tolerance check."""
+    import iscc_crypto as icr
+
+    # Create a note with an old timestamp
+    old_note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": "2020-01-01T00:00:00.000Z",
+    }
+
+    # Sign the note with old timestamp
+    signed_note = icr.sign_json(old_note, example_keypair)
+
+    # Would fail with timestamp check
+    with pytest.raises(ValueError, match="timestamp is outside"):
+        validators.validate_iscc_note(signed_note, verify_timestamp=True)
+
+    # Should pass without timestamp check
+    validators.validate_iscc_note(signed_note, verify_timestamp=False)

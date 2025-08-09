@@ -21,33 +21,33 @@ paths:
               full_example:
                 summary: Complete IsccNote with all optional fields
                 value:
-                  iscc_code: "ISCC:KACZH265WE3KJOSRJT3OCVAFMMNYPEWWFTXNHEFX66ACDIKE4HHI7VA"
-                  datahash: "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d"
-                  metahash: "1e20a0e3c5b4f7d2c1a8e9f5b3d7e2a1c4f8b6d9e3a7c2f5d8b1e4a9c7f3b6d2e1"
+                  iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
+                  datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+                  metahash: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
                   nonce: "000faa3f18c7b9407a48536a9b00c4cb"
-                  timestamp: "2025-08-04T12:34:56.789Z"
-                  gateway: "https://example.com/metadata"
+                  timestamp: "2025-01-15T12:00:00.000Z"
+                  gateway: "https://example.com/iscc_id/{iscc_id}/metadata"
                   units:
-                  - "ISCC:AADZH265WE3KJOSR5K67QJEF5JHLF2REJJYVI4ZYKJ727JU2ZX2AHNQ"
-                  - "ISCC:EADUZ5XBKQCWGG4HYIKX7CNPQMFTPTWEUCQLXFJWC25TKM645KYUSNQ"
-                  - "ISCC:GADZFVRM53JZBN7XOOT3Y6FL372G2GY6PEKRY43JIJ6KV4GH5P7NN4A"
+                  - "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ"
+                  - "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY"
+                  - "ISCC:GAD334BLFXWN7QWLCSBGJMLRZW73FFNV7ORVUKN23UWPKGQCWTIHQKY"
                   signature:
                     version: "ISCC-SIG v1.0"
                     controller: "did:web:example.com"
-                    keyid: "key-1"
-                    pubkey: "z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1"
-                    proof: "zYsDddLFwrhcw8YfbmTQXCSiZYu5BEyCp1ULWERuvgVEVunoCiwxe5n8KF3QPA9s7W4z9eM8dUbtQML5y7mqjCDr"
+                    pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+                    proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
               minimal_example:
                 summary: Minimal IsccNote with only required fields
                 value:
-                  iscc_code: "ISCC:KACZH265WE3KJOSRJT3OCVAFMMNYPEWWFTXNHEFX66ACDIKE4HHI7VA"
-                  datahash: "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d"
-                  nonce: "0008cbf4aa191469590593ea715a0a4c"
-                  timestamp: "2025-08-04T12:34:56.789Z"
+                  iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
+                  datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+                  nonce: "000faa3f18c7b9407a48536a9b00c4cb"
+                  timestamp: "2025-01-15T12:00:00.000Z"
                   signature:
                     version: "ISCC-SIG v1.0"
-                    pubkey: "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"
-                    proof: "z2dW4e3DVcqnweJWPvLZNyaYiYTZiaEYKHiy3PUpE6Poth2BUVzKA72Tqih6GHz9KoWvEQ2CqfXSgyjY17cR94nXu"
+                    controller: "did:web:example.com"
+                    pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+                    proof: "znTcLukuu7CL8FpoaSxr6UWQpxCogZUCZ9iqx9dnP3inkzGszbUN79qrxWvpxEHnuNtLQ5Jd1rBukY7g1JSiYHVZ"
       responses:
         '201':
           description: Declaration successful
@@ -196,9 +196,8 @@ components:
       example:
         version: "ISCC-SIG v1.0"
         controller: "did:web:example.com"
-        keyid: "key-1"
-        pubkey: "z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1"
-        proof: "zYsDddLFwrhcw8YfbmTQXCSiZYu5BEyCp1ULWERuvgVEVunoCiwxe5n8KF3QPA9s7W4z9eM8dUbtQML5y7mqjCDr"
+        pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+        proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
     IsccNote:
       type: object
       description: ISCC notarization request object
@@ -213,12 +212,12 @@ components:
           type: string
           description: The ISCC-CODE to be notarized
           pattern: "^ISCC:[A-Z0-9]{13,73}$"
-          example: "ISCC:KACZH265WE3KJOSRJT3OCVAFMMNYPEWWFTXNHEFX66ACDIKE4HHI7VA"
+          example: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
         datahash:
           type: string
           description: Blake3 hash of the notarized asset (hex encoded 256 bit multihash with blake3 prefix)
           pattern: "^1e20[0-9a-f]{64}$"
-          example: "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d"
+          example: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
         metahash:
           type: string
           description: Blake3 hash of seed metadata (256-bit hex-encoded multihash with prefix `1e20`). When
@@ -226,7 +225,7 @@ components:
             allowing external registries to store mutable or deletable metadata while maintaining temporal
             integrity.
           pattern: "^1e20[0-9a-f]{64}$"
-          example: "1e20a0e3c5b4f7d2c1a8e9f5b3d7e2a1c4f8b6d9e3a7c2f5d8b1e4a9c7f3b6d2e1"
+          example: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
         nonce:
           type: string
           description: Unique 128-bit hex-encoded random value (first 12-bits denote server_id for replay
@@ -240,7 +239,7 @@ components:
             The 'Z' suffix MUST be used to indicate UTC. This timestamp indicates when the IsccNote was created
             and signed by the declaring party. HUBs MUST reject IsccNotes with timestamps outside of ±10 minutes
             from the HUB's current time.
-          example: "2025-08-04T12:34:56.789Z"
+          example: "2025-01-15T12:00:00.000Z"
         gateway:
           type: string
           description: URL or URI Template (RFC 6570) pointing to a GATEWAY for metadata and service discovery
@@ -254,24 +253,23 @@ components:
           items:
             type: string
             pattern: "^ISCC:[A-Z0-9]{10,73}$"
-          example: ["ISCC:AADZH265WE3KJOSR5K67QJEF5JHLF2REJJYVI4ZYKJ727JU2ZX2AHNQ", "ISCC:EADUZ5XBKQCWGG4HYIKX7CNPQMFTPTWEUCQLXFJWC25TKM645KYUSNQ",
-            "ISCC:GADZFVRM53JZBN7XOOT3Y6FL372G2GY6PEKRY43JIJ6KV4GH5P7NN4A"]
+          example: ["ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ", "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY",
+            "ISCC:GAD334BLFXWN7QWLCSBGJMLRZW73FFNV7ORVUKN23UWPKGQCWTIHQKY"]
         signature:
           $ref: '#/components/schemas/IsccSignature'
       example:
-        iscc_code: "ISCC:KACZH265WE3KJOSRJT3OCVAFMMNYPEWWFTXNHEFX66ACDIKE4HHI7VA"
-        datahash: "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d"
-        metahash: "1e20a0e3c5b4f7d2c1a8e9f5b3d7e2a1c4f8b6d9e3a7c2f5d8b1e4a9c7f3b6d2e1"
+        iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
+        datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+        metahash: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
         nonce: "000faa3f18c7b9407a48536a9b00c4cb"
-        timestamp: "2025-08-04T12:34:56.789Z"
-        gateway: "https://example.com/metadata"
+        timestamp: "2025-01-15T12:00:00.000Z"
+        gateway: "https://example.com/iscc_id/{iscc_id}/metadata"
         units:
-        - "ISCC:AADZH265WE3KJOSR5K67QJEF5JHLF2REJJYVI4ZYKJ727JU2ZX2AHNQ"
-        - "ISCC:EADUZ5XBKQCWGG4HYIKX7CNPQMFTPTWEUCQLXFJWC25TKM645KYUSNQ"
-        - "ISCC:GADZFVRM53JZBN7XOOT3Y6FL372G2GY6PEKRY43JIJ6KV4GH5P7NN4A"
+        - "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ"
+        - "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY"
+        - "ISCC:GAD334BLFXWN7QWLCSBGJMLRZW73FFNV7ORVUKN23UWPKGQCWTIHQKY"
         signature:
           version: "ISCC-SIG v1.0"
           controller: "did:web:example.com"
-          keyid: "key-1"
-          pubkey: "z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1"
-          proof: "zYsDddLFwrhcw8YfbmTQXCSiZYu5BEyCp1ULWERuvgVEVunoCiwxe5n8KF3QPA9s7W4z9eM8dUbtQML5y7mqjCDr"
+          pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+          proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
