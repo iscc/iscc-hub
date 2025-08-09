@@ -30,6 +30,7 @@ dev-dependencies = [
     "ruff>=0.12.8",
     "schemathesis>=4.0.23",
     "pyright>=1.1.379",
+    "datamodel-code-generator>=0.32.0",
 ]
 
 [tool.ruff]
@@ -47,6 +48,9 @@ select = [
     "UP", # pyupgrade
 ]
 ignore = ["F401"]  # Ignore unused imports
+
+[tool.ruff.lint.per-file-ignores]
+"iscc_hub/schema.py" = ["E501"]  # Ignore line length in generated file
 
 [tool.ruff.format]
 quote-style = "double"
@@ -82,8 +86,7 @@ filterwarnings = [
 
 [tool.coverage.run]
 source = ["iscc_hub"]
-omit = ["*/migrations/*", "*/asgi.py", "*/wsgi.py", "*/urls.py"]
-
+omit = ["*/migrations/*", "*/asgi.py", "*/wsgi.py", "*/urls.py", "*/schema.py"]
 
 [tool.coverage.report]
 precision = 1
@@ -92,11 +95,32 @@ skip_covered = true
 skip_empty = true
 fail_under = 100
 
+[tool.datamodel-codegen]
+input = "iscc_hub/static/openapi.yaml"
+input-file-type = "openapi"
+output = "iscc_hub/schema.py"
+output-model-type = "pydantic_v2.BaseModel"
+base-class = "ninja.Schema"
+disable-timestamp = true
+target-python-version = "3.12"
+use-subclass-enum = true
+use-standard-collections = true
+use-annotated = true
+field-constraints = true
+
 [tool.poe.tasks]
+build-schema = { cmd = "uv run datamodel-codegen", help = "Build pydantic models from openapi.yaml" }
 check-python = { cmd = "uv run ruff check --fix .", help = "Check python code"}
 check-types = { cmd = "uv run pyright", help = "Run Pyright type checking"}
 format-python = { cmd = "uv run ruff format .", help = "Format python code"}
 format-markdown = { cmd = "uv run mdformat . notes", help = "Format python code"}
 test-python = {cmd = "uv run pytest", help = "Run python tests"}
 
-all = ["check-python", "format-python", "check-types", "format-markdown",  "test-python"]
+all = [
+    "build-schema",
+    "check-python",
+    "format-python",
+    "check-types",
+    "format-markdown",
+    "test-python",
+]
