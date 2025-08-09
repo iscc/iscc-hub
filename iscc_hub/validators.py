@@ -13,23 +13,35 @@ from dateutil.parser import isoparse
 DATAHASH_PREFIX = "1e20"
 HASH_LENGTH = 68
 NONCE_LENGTH = 32
-SUPPORTED_GATEWAY_VARIABLES = {"iscc_id", "iscc_code", "pubkey", "datahash"}
+SUPPORTED_GATEWAY_VARIABLES = {"iscc_id", "iscc_code", "pubkey", "datahash", "controller"}
 SUPPORTED_URL_SCHEMES = ["http", "https"]
 TIMESTAMP_TOLERANCE_MINUTES = 10
+MAX_HUB_ID = 4095  # 12-bit maximum (2^12 - 1)
+SIGNATURE_VERSION = "ISCC-SIG v1.0"
+MAX_UNITS_ARRAY_SIZE = 4  # Prevent DOS attacks
+MAX_STRING_LENGTH = 2048  # Maximum length for string fields
+MAX_JSON_SIZE = 2048 * 4
 
 
 def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_timestamp=True):
     # type: (dict, bool, int|None, bool) -> dict
     """
-    Validate an IsccNote request body without using Pydantic.
+    Validate an IsccNote request body with comprehensive security checks.
+
+    Performs format validation, cryptographic verification, and security checks on ISCC
+    declaration data before notarization. Validates field formats, timestamps, signatures,
+    and ensures data integrity between related fields.
 
     :param data: Raw dictionary containing the IsccNote fields
     :param verify_signature: Whether to verify the cryptographic signature (default: True)
-    :param verify_hub_id: Hub ID to validate nonce against (default: None, skips validation)
+    :param verify_hub_id: Hub ID to validate nonce against (0-4095, default: None)
     :param verify_timestamp: Whether to verify timestamp is within tolerance (default: True)
     :return: Validated IsccNote data ready for notarization
     :raises ValueError: If validation fails with detailed error information
     """
+    # Validate input size limits to prevent DOS
+    validate_input_size(data)
+
     # Validate required fields
     validate_required_fields(data)
 
@@ -61,9 +73,39 @@ def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_t
     return data
 
 
+def validate_input_size(data):
+    # type: (dict) -> None
+    """
+    Validate input size limits to prevent DOS attacks.
+
+    Checks that the JSON data and individual string fields don't exceed
+    maximum allowed sizes to prevent memory exhaustion attacks.
+
+    :param data: The data dictionary to validate
+    :raises ValueError: If data exceeds size limits
+    """
+    import json
+
+    json_size = len(json.dumps(data))
+    if json_size > MAX_JSON_SIZE:
+        raise ValueError(f"Input data exceeds maximum size of {MAX_JSON_SIZE} bytes")
+
+    # Check string field lengths
+    for key, value in data.items():
+        if isinstance(value, str) and len(value) > MAX_STRING_LENGTH:
+            raise ValueError(f"Field '{key}' exceeds maximum string length of {MAX_STRING_LENGTH}")
+
+
 def validate_required_fields(data):
     # type: (dict) -> None
-    """Validate that all required fields are present."""
+    """
+    Validate presence of all required IsccNote fields.
+
+    Required fields: iscc_code, datahash, nonce, timestamp, signature
+
+    :param data: The data dictionary to validate
+    :raises ValueError: If any required field is missing
+    """
     required_fields = {"iscc_code", "datahash", "nonce", "timestamp", "signature"}
     for field in required_fields:
         if field not in data:
@@ -72,7 +114,15 @@ def validate_required_fields(data):
 
 def validate_iscc_code(iscc_code):
     # type: (str) -> None
-    """Validate ISCC code format and type."""
+    """
+    Validate ISCC code format and type.
+
+    Validates that the ISCC code is a composite ISCC-CODE (MainType ISCC).
+    Individual ISCC-UNITs should be placed in the units array field.
+
+    :param iscc_code: The ISCC code string to validate
+    :raises ValueError: If ISCC code is invalid or not composite type
+    """
     try:
         ic.iscc_validate(iscc_code, strict=True)
     except ValueError as e:
@@ -86,7 +136,16 @@ def validate_iscc_code(iscc_code):
 
 def validate_nonce(nonce, hub_id=None):
     # type: (str, int|None) -> None
-    """Validate nonce format and optionally check hub ID match."""
+    """
+    Validate nonce format and optionally check hub ID match.
+
+    Validates that nonce is a 128-bit hex string where the first 12 bits
+    match the target hub ID (for replay attack prevention).
+
+    :param nonce: The 32-character hex nonce string
+    :param hub_id: Optional hub ID (0-4095) to validate against
+    :raises ValueError: If nonce format is invalid or hub ID doesn't match
+    """
     if not isinstance(nonce, str):
         raise ValueError("nonce must be a string")
 
@@ -99,10 +158,27 @@ def validate_nonce(nonce, hub_id=None):
 
 def validate_nonce_hub_id(nonce, expected_hub_id):
     # type: (str, int) -> None
-    """Validate that nonce contains the expected hub ID."""
-    # Extract hub ID directly since we've already validated nonce format
+    """
+    Validate that nonce contains the expected hub ID.
+
+    Extracts the first 12 bits from the nonce and verifies they match the
+    expected hub ID. Hub IDs must be in range 0-4095 (12-bit values).
+
+    :param nonce: The 32-character hex nonce string
+    :param expected_hub_id: The expected hub ID (0-4095)
+    :raises ValueError: If hub ID is invalid or doesn't match
+    """
+    # Validate hub ID range
+    if not 0 <= expected_hub_id <= MAX_HUB_ID:
+        raise ValueError(f"Hub ID must be between 0 and {MAX_HUB_ID}, got {expected_hub_id}")
+
+    # Extract hub ID from first 12 bits of nonce
     nonce_bytes = bytes.fromhex(nonce)
     extracted_hub_id = (nonce_bytes[0] << 4) | (nonce_bytes[1] >> 4)
+
+    # Validate extracted hub ID range
+    if not 0 <= extracted_hub_id <= MAX_HUB_ID:
+        raise ValueError(f"Invalid hub ID in nonce: {extracted_hub_id} (must be 0-{MAX_HUB_ID})")
 
     if extracted_hub_id != expected_hub_id:
         raise ValueError(f"Nonce hub_id mismatch: expected {expected_hub_id}, got {extracted_hub_id}")
@@ -164,7 +240,17 @@ def validate_timestamp(timestamp_str, check_tolerance=True, reference_time=None)
 
 def validate_hex_string(value, field_name, expected_length):
     # type: (str, str, int) -> None
-    """Validate a hex string has correct format."""
+    """
+    Validate a hex string has correct format.
+
+    Ensures hex strings are lowercase, have the expected length, and contain
+    only valid hexadecimal characters (0-9, a-f).
+
+    :param value: The hex string to validate
+    :param field_name: Name of the field for error messages
+    :param expected_length: Expected character length of the hex string
+    :raises ValueError: If hex string format is invalid
+    """
     # Check lowercase
     if value != value.lower():
         raise ValueError(f"{field_name} must be lowercase")
@@ -182,7 +268,17 @@ def validate_hex_string(value, field_name, expected_length):
 
 def validate_optional_field(field_name, value, special_validators=None):
     # type: (str, Any, dict | None) -> None
-    """Validate an optional field value."""
+    """
+    Validate an optional field value.
+
+    Ensures optional fields are not null, empty strings, or empty arrays.
+    Applies field-specific validators when provided.
+
+    :param field_name: Name of the field being validated
+    :param value: The field value to validate
+    :param special_validators: Dictionary of field-specific validator functions
+    :raises ValueError: If field value is invalid
+    """
     # Check for null
     if value is None:
         raise ValueError(f"Optional field '{field_name}' must not be null")
@@ -202,9 +298,17 @@ def validate_optional_field(field_name, value, special_validators=None):
 
 def validate_optional_fields(data):
     # type: (dict) -> None
-    """Validate all optional fields in the data."""
-    # Define special validators for specific fields
-    special_validators = {
+    """
+    Validate all optional fields in the IsccNote data.
+
+    Validates gateway URLs/templates, metahash format, and units array.
+    Ensures optional fields meet protocol requirements when present.
+
+    :param data: The data dictionary containing optional fields
+    :raises ValueError: If any optional field validation fails
+    """
+    # Create validators dict for special field validation
+    validators = {
         "metahash": lambda v: validate_multihash(v, "metahash"),
         "gateway": validate_gateway,
         "units": lambda v: validate_units_reconstruction(v, data["datahash"], data["iscc_code"]),
@@ -214,12 +318,20 @@ def validate_optional_fields(data):
     optional_fields_iscc_note = {"gateway", "units", "metahash"}
     for field in optional_fields_iscc_note:
         if field in data:
-            validate_optional_field(field, data[field], special_validators)
+            validate_optional_field(field, data[field], validators)
 
 
 def validate_signature_structure(signature):
     # type: (dict) -> None
-    """Validate signature structure and fields."""
+    """
+    Validate signature structure, fields, and version.
+
+    Validates required fields (version, proof, pubkey) and optional fields
+    (controller, keyid). Ensures signature version matches expected format.
+
+    :param signature: The signature dictionary to validate
+    :raises ValueError: If signature structure is invalid
+    """
     if not isinstance(signature, dict):
         raise ValueError("Signature must be a dictionary")
 
@@ -228,6 +340,12 @@ def validate_signature_structure(signature):
     for field in required_signature_fields:
         if field not in signature:
             raise ValueError(f"Missing required field in signature: {field}")
+
+    # Validate signature version
+    if signature["version"] != SIGNATURE_VERSION:
+        raise ValueError(
+            f"Invalid signature version: expected '{SIGNATURE_VERSION}', got '{signature['version']}'"
+        )
 
     # Check optional fields in signature
     optional_fields_signature = {"controller", "keyid"}
@@ -242,16 +360,31 @@ def validate_signature_structure(signature):
 
 def verify_signature_cryptographically(data):
     # type: (dict) -> None
-    """Verify the cryptographic signature."""
-    verification_result = icr.verify_json(data, identity_doc=None, raise_on_error=False)
-    if not verification_result.signature_valid:
-        raise ValueError("Invalid signature")
+    """
+    Verify the cryptographic signature using Ed25519.
+
+    Performs cryptographic verification of the JSON signature against the
+    public key. Ensures data integrity and authenticity.
+
+    :param data: The complete data dictionary including signature
+    :raises ValueError: If signature verification fails or errors occur
+    """
+    try:
+        verification_result = icr.verify_json(data, identity_doc=None, raise_on_error=True)
+        if not verification_result.signature_valid:
+            raise ValueError("Invalid signature")
+    except Exception as e:
+        # Convert any verification errors to ValueError for consistent API
+        raise ValueError(f"Invalid signature: {str(e)}") from e
 
 
 def validate_multihash(value, field_name):
     # type: (str, str) -> None
     """
-    Validate a multihash string (datahash or metahash).
+    Validate a BLAKE3 multihash string (datahash or metahash).
+
+    Validates that the hash is a 256-bit BLAKE3 multihash in lowercase hex
+    format with the correct prefix (1e20).
 
     :param value: The hash value to validate
     :param field_name: Name of the field being validated (for error messages)
@@ -265,9 +398,9 @@ def validate_multihash(value, field_name):
     if value != value.lower():
         raise ValueError(f"{field_name} must be lowercase")
 
-    # Check prefix
+    # Check prefix (BLAKE3 multihash identifier)
     if not value.startswith(DATAHASH_PREFIX):
-        raise ValueError(f"{field_name} must start with '{DATAHASH_PREFIX}'")
+        raise ValueError(f"{field_name} must start with '{DATAHASH_PREFIX}' (BLAKE3 multihash prefix)")
 
     # Check length
     if len(value) != HASH_LENGTH:
@@ -285,8 +418,11 @@ def validate_gateway(gateway):
     """
     Validate that gateway is either a valid URL or URI template.
 
-    :param gateway: The gateway string to validate
-    :raises ValueError: If gateway is invalid
+    Accepts HTTP/HTTPS URLs or RFC 6570 URI templates with supported variables:
+    {iscc_id}, {iscc_code}, {pubkey}, {datahash}, {controller}
+
+    :param gateway: The gateway URL or URI template string to validate
+    :raises ValueError: If gateway is invalid or uses unsupported variables
     """
     # Check for basic template syntax errors first
     if "{" in gateway or "}" in gateway:
@@ -317,6 +453,8 @@ def validate_url(url):
     """
     Validate that a string is a valid HTTP(S) URL.
 
+    Ensures URL has a valid HTTP/HTTPS scheme and hostname.
+
     :param url: The URL string to validate
     :raises ValueError: If URL is invalid
     """
@@ -341,10 +479,9 @@ def validate_units_reconstruction(units, datahash, iscc_code):
     """
     Validate that units array and datahash can reconstruct the provided iscc_code.
 
-    This function validates the assumption that if units are provided, converting the
-    datahash to an Instance-Code ISCC-UNIT and appending it to the units array should
-    allow reconstruction of an ISCC-CODE identical to the provided iscc_code using
-    ic.gen_iscc_code.
+    Validates that the provided ISCC-UNITs plus the Instance-Code derived from
+    datahash can reconstruct the original ISCC-CODE. Ensures units have ISCC-BODYs
+    larger than 64-bit for improved discovery. Limits array size to prevent DOS.
 
     :param units: List of ISCC unit strings (excluding Instance-Code)
     :param datahash: Pre-validated datahash string
@@ -355,7 +492,9 @@ def validate_units_reconstruction(units, datahash, iscc_code):
     if not isinstance(units, list):
         raise ValueError("units must be a list")
 
-    # Empty check is already done by _validate_optional_field
+    # Check array size limit
+    if len(units) > MAX_UNITS_ARRAY_SIZE:
+        raise ValueError(f"units array exceeds maximum size of {MAX_UNITS_ARRAY_SIZE}")
 
     # Validate that all units are strings
     for i, unit in enumerate(units):
@@ -391,13 +530,11 @@ def datahash_to_instance_code(datahash):
     """
     Convert a pre-validated datahash to an Instance-Code ISCC-UNIT.
 
-    This function expects a pre-validated datahash string that:
-    - Is a valid multihash with prefix "1e20"
-    - Contains only lowercase hexadecimal characters
-    - Has the correct length (68 characters)
+    Removes the multihash prefix and encodes the hash as an ISCC Instance-Code
+    unit for use in ISCC-CODE reconstruction.
 
-    :param datahash: Pre-validated datahash string (with multihash prefix)
-    :return: The Instance-Code ISCC-UNIT string
+    :param datahash: Pre-validated datahash string (68 chars with 1e20 prefix)
+    :return: The Instance-Code ISCC-UNIT string (e.g. "ISCC:IAA...")
     """
     # Remove multihash prefix (first 4 characters: "1e20")
     hash_hex = datahash[4:]
@@ -422,11 +559,9 @@ def validate_datahash_match(iscc_code, datahash):
     """
     Validate that datahash matches the Instance-Code portion of the ISCC-CODE.
 
-    For normal ISCCs: last 64 bits of ISCC must match first 64 bits of datahash.
-    For WIDE ISCCs: last 128 bits of ISCC must match first 128 bits of datahash.
-
-    Assumes both iscc_code and datahash have been pre-validated and that the
-    ISCC-CODE was validated to be a composite ISCC (MainType ISCC).
+    For standard ISCCs: Compares first 64 bits of datahash with Instance-Code.
+    For WIDE ISCCs: Compares first 128 bits of datahash with Instance-Code.
+    This ensures the ISCC-CODE was derived from the declared content hash.
 
     :param iscc_code: Pre-validated ISCC-CODE string
     :param datahash: Pre-validated datahash string (with "1e20" prefix)

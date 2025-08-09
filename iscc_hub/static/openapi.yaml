@@ -177,7 +177,7 @@ components:
         version:
           type: string
           const: "ISCC-SIG v1.0"
-          description: Version of the ISCC Signature format
+          description: Version of the ISCC Signature format (must be exactly "ISCC-SIG v1.0")
         controller:
           type: string
           format: uri
@@ -215,12 +215,12 @@ components:
           example: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
         datahash:
           type: string
-          description: Blake3 hash of the notarized asset (hex encoded 256 bit multihash with blake3 prefix)
+          description: Blake3 hash of the notarized asset (lowercase hex encoded 256 bit multihash with blake3 prefix)
           pattern: "^1e20[0-9a-f]{64}$"
           example: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
         metahash:
           type: string
-          description: Blake3 hash of seed metadata (256-bit hex-encoded multihash with prefix `1e20`). When
+          description: Blake3 hash of seed metadata (256-bit lowercase hex-encoded multihash with prefix `1e20`). When
             present, this creates a cryptographic commitment to the exact metadata state at notarization time,
             allowing external registries to store mutable or deletable metadata while maintaining temporal
             integrity.
@@ -228,8 +228,8 @@ components:
           example: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
         nonce:
           type: string
-          description: Unique 128-bit hex-encoded random value (first 12-bits denote server_id for replay
-            protection)
+          description: Unique 128-bit lowercase hex-encoded random value (first 12-bits denote hub_id 0-4095
+            for replay protection)
           pattern: "^[0-9a-f]{32}$"
           example: "000faa3f18c7b9407a48536a9b00c4cb"
         timestamp:
@@ -242,17 +242,20 @@ components:
           example: "2025-01-15T12:00:00.000Z"
         gateway:
           type: string
-          description: URL or URI Template (RFC 6570) pointing to a GATEWAY for metadata and service discovery
+          description: URL or URI Template (RFC 6570) pointing to a GATEWAY for metadata and service discovery.
+            Supported template variables are {iscc_id}, {iscc_code}, {pubkey}, {datahash}, {controller}.
+            Must use HTTP or HTTPS scheme.
           example: "https://example.com/metadata"
         units:
           type: array
           description: Array of decomposed ISCC-UNITs (excluding Instance-Code Unit). Only include UNITs with
             ISCC-BODYs larger than 64-bit for improved large-scale discovery and matching. The original
             ISCC-CODE can be reconstructed by converting the datahash to an Instance-Code UNIT, appending it to
-            this array, and passing to iscc_core.gen_iscc_code.
+            this array, and passing to iscc_core.gen_iscc_code. Maximum array size is 100 items.
           items:
             type: string
             pattern: "^ISCC:[A-Z0-9]{10,73}$"
+          maxItems: 4
           example: ["ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ", "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY",
             "ISCC:GAD334BLFXWN7QWLCSBGJMLRZW73FFNV7ORVUKN23UWPKGQCWTIHQKY"]
         signature:

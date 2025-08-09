@@ -34,7 +34,7 @@ class Proof(Schema):
 class IsccSignature(Schema):
     version: Annotated[
         Literal["ISCC-SIG v1.0"],
-        Field(description="Version of the ISCC Signature format"),
+        Field(description='Version of the ISCC Signature format (must be exactly "ISCC-SIG v1.0")'),
     ]
     controller: Annotated[
         AnyUrl | None,
@@ -76,7 +76,7 @@ class IsccNote(Schema):
     datahash: Annotated[
         str,
         Field(
-            description="Blake3 hash of the notarized asset (hex encoded 256 bit multihash with blake3 prefix)",
+            description="Blake3 hash of the notarized asset (lowercase hex encoded 256 bit multihash with blake3 prefix)",
             examples=["1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"],
             pattern="^1e20[0-9a-f]{64}$",
         ),
@@ -84,7 +84,7 @@ class IsccNote(Schema):
     metahash: Annotated[
         str | None,
         Field(
-            description="Blake3 hash of seed metadata (256-bit hex-encoded multihash with prefix `1e20`). When present, this creates a cryptographic commitment to the exact metadata state at notarization time, allowing external registries to store mutable or deletable metadata while maintaining temporal integrity.",
+            description="Blake3 hash of seed metadata (256-bit lowercase hex-encoded multihash with prefix `1e20`). When present, this creates a cryptographic commitment to the exact metadata state at notarization time, allowing external registries to store mutable or deletable metadata while maintaining temporal integrity.",
             examples=["1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"],
             pattern="^1e20[0-9a-f]{64}$",
         ),
@@ -92,7 +92,7 @@ class IsccNote(Schema):
     nonce: Annotated[
         str,
         Field(
-            description="Unique 128-bit hex-encoded random value (first 12-bits denote server_id for replay protection)",
+            description="Unique 128-bit lowercase hex-encoded random value (first 12-bits denote hub_id 0-4095 for replay protection)",
             examples=["000faa3f18c7b9407a48536a9b00c4cb"],
             pattern="^[0-9a-f]{32}$",
         ),
@@ -107,14 +107,14 @@ class IsccNote(Schema):
     gateway: Annotated[
         str | None,
         Field(
-            description="URL or URI Template (RFC 6570) pointing to a GATEWAY for metadata and service discovery",
+            description="URL or URI Template (RFC 6570) pointing to a GATEWAY for metadata and service discovery. Supported template variables are {iscc_id}, {iscc_code}, {pubkey}, {datahash}, {controller}. Must use HTTP or HTTPS scheme.",
             examples=["https://example.com/metadata"],
         ),
     ] = None
     units: Annotated[
         list[Unit] | None,
         Field(
-            description="Array of decomposed ISCC-UNITs (excluding Instance-Code Unit). Only include UNITs with ISCC-BODYs larger than 64-bit for improved large-scale discovery and matching. The original ISCC-CODE can be reconstructed by converting the datahash to an Instance-Code UNIT, appending it to this array, and passing to iscc_core.gen_iscc_code.",
+            description="Array of decomposed ISCC-UNITs (excluding Instance-Code Unit). Only include UNITs with ISCC-BODYs larger than 64-bit for improved large-scale discovery and matching. The original ISCC-CODE can be reconstructed by converting the datahash to an Instance-Code UNIT, appending it to this array, and passing to iscc_core.gen_iscc_code. Maximum array size is 100 items.",
             examples=[
                 [
                     "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ",
@@ -122,6 +122,7 @@ class IsccNote(Schema):
                     "ISCC:GAD334BLFXWN7QWLCSBGJMLRZW73FFNV7ORVUKN23UWPKGQCWTIHQKY",
                 ]
             ],
+            max_length=4,
         ),
     ] = None
     signature: IsccSignature
