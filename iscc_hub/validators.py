@@ -15,14 +15,14 @@ SUPPORTED_GATEWAY_VARIABLES = {"iscc_id", "iscc_code", "pubkey", "datahash"}
 SUPPORTED_URL_SCHEMES = ["http", "https"]
 
 
-def validate_iscc_note(data, verify_signature=True, verify_node_id=None):
+def validate_iscc_note(data, verify_signature=True, verify_hub_id=None):
     # type: (dict, bool, int|None) -> dict
     """
     Validate an IsccNote request body without using Pydantic.
 
     :param data: Raw dictionary containing the IsccNote fields
     :param verify_signature: Whether to verify the cryptographic signature (default: True)
-    :param verify_node_id: Node ID to validate nonce against (default: None, skips validation)
+    :param verify_hub_id: Hub ID to validate nonce against (default: None, skips validation)
     :return: Validated IsccNote data ready for notarization
     :raises ValueError: If validation fails with detailed error information
     """
@@ -36,7 +36,7 @@ def validate_iscc_note(data, verify_signature=True, verify_node_id=None):
     validate_multihash(data["datahash"], "datahash")
 
     # Validate nonce
-    validate_nonce(data["nonce"], verify_node_id)
+    validate_nonce(data["nonce"], verify_hub_id)
 
     # Validate optional fields
     validate_optional_fields(data)
@@ -77,28 +77,28 @@ def validate_iscc_code(iscc_code):
         raise ValueError("ISCC code must be of MainType ISCC")
 
 
-def validate_nonce(nonce, node_id=None):
+def validate_nonce(nonce, hub_id=None):
     # type: (str, int|None) -> None
-    """Validate nonce format and optionally check node ID match."""
+    """Validate nonce format and optionally check hub ID match."""
     if not isinstance(nonce, str):
         raise ValueError("nonce must be a string")
 
     validate_hex_string(nonce, "nonce", NONCE_LENGTH)
 
-    # Validate node ID if provided
-    if node_id is not None:
-        validate_nonce_node_id(nonce, node_id)
+    # Validate hub ID if provided
+    if hub_id is not None:
+        validate_nonce_hub_id(nonce, hub_id)
 
 
-def validate_nonce_node_id(nonce, expected_node_id):
+def validate_nonce_hub_id(nonce, expected_hub_id):
     # type: (str, int) -> None
-    """Validate that nonce contains the expected node ID."""
-    # Extract node ID directly since we've already validated nonce format
+    """Validate that nonce contains the expected hub ID."""
+    # Extract hub ID directly since we've already validated nonce format
     nonce_bytes = bytes.fromhex(nonce)
-    extracted_node_id = (nonce_bytes[0] << 4) | (nonce_bytes[1] >> 4)
+    extracted_hub_id = (nonce_bytes[0] << 4) | (nonce_bytes[1] >> 4)
 
-    if extracted_node_id != expected_node_id:
-        raise ValueError(f"Nonce node_id mismatch: expected {expected_node_id}, got {extracted_node_id}")
+    if extracted_hub_id != expected_hub_id:
+        raise ValueError(f"Nonce hub_id mismatch: expected {expected_hub_id}, got {extracted_hub_id}")
 
 
 def validate_hex_string(value, field_name, expected_length):
