@@ -180,7 +180,6 @@ components:
           description: Version of the ISCC Signature format (must be exactly "ISCC-SIG v1.0")
         controller:
           type: string
-          format: uri
           description: URI that identifies the key controller (e.g., DID or CID)
         keyid:
           type: string
@@ -215,6 +214,8 @@ components:
           example: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
         datahash:
           type: string
+          minLength: 68
+          maxLength: 68
           description: Blake3 hash of the declared asset (lowercase hex encoded 256 bit multihash with blake3 prefix)
           pattern: "^1e20[0-9a-f]{64}$"
           example: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
@@ -228,6 +229,8 @@ components:
           example: "2025-01-15T12:00:00.000Z"
         nonce:
           type: string
+          minLength: 32
+          maxLength: 32
           description: Unique 128-bit lowercase hex-encoded random value (first 12-bits denote hub_id 0-4095
             for replay protection)
           pattern: "^[0-9a-f]{32}$"
@@ -236,6 +239,7 @@ components:
           $ref: '#/components/schemas/IsccSignature'
         units:
             type: array
+            minItems: 1
             description: Array of expanded ISCC-UNITs of the declared ISCC-CODE. For for improved large-scale
                 discovery and matching it is recommended to include 256-bit ISCC-UNITs.
                 **Don´t include the Instance-Code as this can be derived from the required
@@ -245,6 +249,7 @@ components:
             items:
                 type: string
                 pattern: "^ISCC:[A-Z0-9]{10,73}$"
+                minLength: 14  # Enforce minimum valid ISCC unit length
             maxItems: 4
             example: [
                 "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ",
@@ -253,6 +258,8 @@ components:
             ]
         metahash:
           type: string
+          minLength: 68
+          maxLength: 68
           description: Blake3 hash of seed metadata (256-bit lowercase hex-encoded multihash with prefix `1e20`). When
             present, this creates a cryptographic commitment to the exact metadata state at declaration time,
             allowing external registries to store mutable or deletable metadata while maintaining temporal
@@ -261,6 +268,9 @@ components:
           example: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
         gateway:
           type: string
+          minLength: 8
+          maxLength: 2048    # Minimum valid URL length
+          pattern: "^https?://[^\\s]+"  # Only HTTP/HTTPS schemes, no whitespace
           description: URL or URI Template (RFC 6570) pointing to a GATEWAY for metadata and service discovery.
             Supported template variables are {iscc_id}, {iscc_code}, {pubkey}, {datahash}, {controller}.
             Must use HTTP or HTTPS scheme.

@@ -46,7 +46,7 @@ class IsccSignature(Schema):
         Field(description='Version of the ISCC Signature format (must be exactly "ISCC-SIG v1.0")'),
     ]
     controller: Annotated[
-        AnyUrl | None,
+        str | None,
         Field(description="URI that identifies the key controller (e.g., DID or CID)"),
     ] = None
     keyid: Annotated[
@@ -70,7 +70,7 @@ class IsccSignature(Schema):
 
 
 class Unit(RootModel[str]):
-    root: Annotated[str, Field(pattern="^ISCC:[A-Z0-9]{10,73}$")]
+    root: Annotated[str, Field(min_length=14, pattern="^ISCC:[A-Z0-9]{10,73}$")]
 
 
 class IsccNote(Schema):
@@ -90,6 +90,8 @@ class IsccNote(Schema):
         Field(
             description="Blake3 hash of the declared asset (lowercase hex encoded 256 bit multihash with blake3 prefix)",
             examples=["1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"],
+            max_length=68,
+            min_length=68,
             pattern="^1e20[0-9a-f]{64}$",
         ),
     ]
@@ -105,6 +107,8 @@ class IsccNote(Schema):
         Field(
             description="Unique 128-bit lowercase hex-encoded random value (first 12-bits denote hub_id 0-4095 for replay protection)",
             examples=["000faa3f18c7b9407a48536a9b00c4cb"],
+            max_length=32,
+            min_length=32,
             pattern="^[0-9a-f]{32}$",
         ),
     ]
@@ -121,6 +125,7 @@ class IsccNote(Schema):
                 ]
             ],
             max_length=4,
+            min_length=1,
         ),
     ] = None
     metahash: Annotated[
@@ -128,6 +133,8 @@ class IsccNote(Schema):
         Field(
             description="Blake3 hash of seed metadata (256-bit lowercase hex-encoded multihash with prefix `1e20`). When present, this creates a cryptographic commitment to the exact metadata state at declaration time, allowing external registries to store mutable or deletable metadata while maintaining temporal integrity.",
             examples=["1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"],
+            max_length=68,
+            min_length=68,
             pattern="^1e20[0-9a-f]{64}$",
         ),
     ] = None
@@ -136,6 +143,9 @@ class IsccNote(Schema):
         Field(
             description="URL or URI Template (RFC 6570) pointing to a GATEWAY for metadata and service discovery. Supported template variables are {iscc_id}, {iscc_code}, {pubkey}, {datahash}, {controller}. Must use HTTP or HTTPS scheme.",
             examples=["https://example.com/metadata"],
+            max_length=2048,
+            min_length=8,
+            pattern="^https?://[^\\s]+",
         ),
     ] = None
 
