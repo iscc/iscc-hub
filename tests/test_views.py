@@ -61,3 +61,26 @@ async def test_health_view_with_custom_version():
             # Check the context has custom version
             context = mock_render.call_args[0][2]
             assert context["version"] == "2.0.0"
+
+
+@pytest.mark.asyncio
+async def test_homepage_view_returns_html():
+    # type: () -> None
+    """Test that homepage view returns HTML with correct template."""
+    # Create a request
+    factory = RequestFactory()
+    request = factory.get("/")
+
+    # Mock the render function
+    with patch("iscc_hub.views.render") as mock_render:
+        mock_response = MagicMock()
+        mock_render.return_value = mock_response
+
+        # Call the view
+        response = await views.homepage(request)
+
+        # Verify render was called with correct arguments
+        mock_render.assert_called_once_with(request, "iscc_hub/homepage.html")
+
+        # Check the response
+        assert response == mock_response

@@ -7,6 +7,17 @@ from django.shortcuts import render
 import iscc_hub
 
 
+async def homepage(request):
+    # type: (HttpRequest) -> HttpResponse
+    """
+    Homepage view that displays the ISCC logo centered on the page.
+
+    :param request: The incoming HTTP request
+    :return: HTML page with centered ISCC logo
+    """
+    return render(request, "iscc_hub/homepage.html")
+
+
 async def health(request):
     # type: (HttpRequest) -> HttpResponse
     """

@@ -7,6 +7,7 @@ from django.views.generic import RedirectView
 from iscc_hub import views
 
 urlpatterns = [
+    path("", views.homepage, name="homepage"),
     path("admin", RedirectView.as_view(url="/admin/", permanent=True)),  # Convenience redirect
     path("admin/", admin.site.urls),  # Keep trailing slash for admin compatibility
     path("health", views.health, name="health"),
