@@ -8,16 +8,22 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from ninja import Schema
-from pydantic import AnyUrl, Field, RootModel
+from pydantic import AnyUrl, ConfigDict, Field, RootModel
 
 
 class ErrorResponse(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
     error: Annotated[str, Field(description="Human-readable error message")]
     detail: Annotated[str | None, Field(description="Additional error details (optional)")] = None
     request_id: Annotated[UUID | None, Field(description="Unique request identifier for debugging")] = None
 
 
 class Proof(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
     type: Literal["DataIntegrityProof"]
     cryptosuite: Literal["eddsa-jcs-2022"]
     verificationMethod: Annotated[AnyUrl, Field(description="DID URL of the HUB's signing key")]
@@ -32,6 +38,9 @@ class Proof(Schema):
 
 
 class IsccSignature(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
     version: Annotated[
         Literal["ISCC-SIG v1.0"],
         Field(description='Version of the ISCC Signature format (must be exactly "ISCC-SIG v1.0")'),
@@ -65,6 +74,9 @@ class Unit(RootModel[str]):
 
 
 class IsccNote(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
     iscc_code: Annotated[
         str,
         Field(
@@ -129,6 +141,9 @@ class IsccNote(Schema):
 
 
 class Declaration(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
     seq: Annotated[int, Field(description="Sequence number in the event log (starting at 0)", ge=0)]
     iscc_id: Annotated[
         str,
@@ -141,6 +156,9 @@ class Declaration(Schema):
 
 
 class CredentialSubject(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
     id: Annotated[
         AnyUrl,
         Field(
@@ -152,6 +170,9 @@ class CredentialSubject(Schema):
 
 
 class IsccReceipt(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
     field_context: Annotated[
         list[str],
         Field(

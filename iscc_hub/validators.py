@@ -95,6 +95,21 @@ def validate_input_size(data):
         if isinstance(value, str) and len(value) > MAX_STRING_LENGTH:
             raise ValueError(f"Field '{key}' exceeds maximum string length of {MAX_STRING_LENGTH}")
 
+    # Check for unknown fields at the top level
+    allowed_fields = {
+        "iscc_code",
+        "datahash",
+        "nonce",
+        "timestamp",
+        "signature",
+        "units",
+        "metahash",
+        "gateway",
+    }
+    unknown_fields = set(data.keys()) - allowed_fields
+    if unknown_fields:
+        raise ValueError(f"Unknown fields not allowed: {', '.join(sorted(unknown_fields))}")
+
 
 def validate_required_fields(data):
     # type: (dict) -> None
@@ -353,6 +368,14 @@ def validate_signature_structure(signature):
             except ValueError as e:
                 # Re-raise with "in signature" suffix for clarity
                 raise ValueError(str(e).replace(f"'{field}'", f"'{field}' in signature")) from e
+
+    # Check for unknown fields in signature
+    allowed_signature_fields = required_signature_fields | optional_fields_signature
+    unknown_signature_fields = set(signature.keys()) - allowed_signature_fields
+    if unknown_signature_fields:
+        raise ValueError(
+            f"Unknown fields in signature not allowed: {', '.join(sorted(unknown_signature_fields))}"
+        )
 
 
 def verify_signature_cryptographically(data):

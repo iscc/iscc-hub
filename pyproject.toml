@@ -108,6 +108,7 @@ use-standard-collections = true
 use-annotated = true
 field-constraints = true
 use-union-operator = true
+extra-fields = "forbid"
 
 [tool.poe.tasks]
 build-schema = { cmd = "uv run datamodel-codegen", help = "Build pydantic models from openapi.yaml" }

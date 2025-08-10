@@ -1150,3 +1150,31 @@ def test_verify_signature_cryptographically_exception():
 
         with pytest.raises(ValueError, match="Invalid signature"):
             validators.verify_signature_cryptographically(test_data)
+
+
+def test_validator_rejects_extra_fields(unsigned_iscc_note):
+    # type: (dict) -> None
+    """Test that custom validator rejects unknown top-level fields."""
+    unsigned_iscc_note["unknown_field"] = "should_cause_error"
+
+    with pytest.raises(ValueError, match="Unknown fields not allowed: unknown_field"):
+        validators.validate_iscc_note(unsigned_iscc_note, verify_signature=False, verify_timestamp=False)
+
+
+def test_validator_rejects_extra_signature_fields(unsigned_iscc_note):
+    # type: (dict) -> None
+    """Test that custom validator rejects unknown signature fields."""
+    unsigned_iscc_note["signature"]["extra_sig_field"] = "should_cause_error"
+
+    with pytest.raises(ValueError, match="Unknown fields in signature not allowed: extra_sig_field"):
+        validators.validate_iscc_note(unsigned_iscc_note, verify_signature=False, verify_timestamp=False)
+
+
+def test_validator_accepts_all_valid_fields(full_iscc_note):
+    # type: (dict) -> None
+    """Test that validator accepts all valid optional fields."""
+    # Should not raise any exception
+    result = validators.validate_iscc_note(full_iscc_note, verify_signature=False, verify_timestamp=False)
+    assert result["gateway"] == full_iscc_note["gateway"]
+    assert result["metahash"] == full_iscc_note["metahash"]
+    assert result["units"] == full_iscc_note["units"]
