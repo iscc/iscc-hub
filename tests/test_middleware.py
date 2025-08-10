@@ -30,10 +30,12 @@ def test_middleware_format_param_json(request_factory):
     request = request_factory.get("/?format=json")
 
     # Process request
-    middleware(request)
+    response = middleware(request)
 
     # Check that urlconf was set correctly
     assert request.urlconf == "iscc_hub.urls_api"
+    # Check Vary header was added
+    assert "Accept" in response.get("Vary", "")
     get_response.assert_called_once_with(request)
 
 
@@ -44,9 +46,10 @@ def test_middleware_format_param_html(request_factory):
     middleware = ContentNegotiationMiddleware(get_response)
 
     request = request_factory.get("/?format=html")
-    middleware(request)
+    response = middleware(request)
 
     assert request.urlconf == "iscc_hub.urls_views"
+    assert "Accept" in response.get("Vary", "")
     get_response.assert_called_once_with(request)
 
 
@@ -57,9 +60,10 @@ def test_middleware_accept_header_json(request_factory):
     middleware = ContentNegotiationMiddleware(get_response)
 
     request = request_factory.get("/", HTTP_ACCEPT="application/json")
-    middleware(request)
+    response = middleware(request)
 
     assert request.urlconf == "iscc_hub.urls_api"
+    assert "Accept" in response.get("Vary", "")
     get_response.assert_called_once_with(request)
 
 
@@ -70,9 +74,10 @@ def test_middleware_accept_header_vendor_json(request_factory):
     middleware = ContentNegotiationMiddleware(get_response)
 
     request = request_factory.get("/", HTTP_ACCEPT="application/vnd.api+json")
-    middleware(request)
+    response = middleware(request)
 
     assert request.urlconf == "iscc_hub.urls_api"
+    assert "Accept" in response.get("Vary", "")
     get_response.assert_called_once_with(request)
 
 
@@ -83,9 +88,10 @@ def test_middleware_accept_header_html(request_factory):
     middleware = ContentNegotiationMiddleware(get_response)
 
     request = request_factory.get("/", HTTP_ACCEPT="text/html")
-    middleware(request)
+    response = middleware(request)
 
     assert request.urlconf == "iscc_hub.urls_views"
+    assert "Accept" in response.get("Vary", "")
     get_response.assert_called_once_with(request)
 
 
@@ -100,9 +106,10 @@ def test_middleware_no_accept_header(request_factory):
     if "HTTP_ACCEPT" in request.META:
         del request.META["HTTP_ACCEPT"]
 
-    middleware(request)
+    response = middleware(request)
 
     assert request.urlconf == "iscc_hub.urls_views"
+    assert "Accept" in response.get("Vary", "")
     get_response.assert_called_once_with(request)
 
 
@@ -113,9 +120,10 @@ def test_middleware_mixed_accept_header(request_factory):
     middleware = ContentNegotiationMiddleware(get_response)
 
     request = request_factory.get("/", HTTP_ACCEPT="text/html, application/json;q=0.9")
-    middleware(request)
+    response = middleware(request)
 
     assert request.urlconf == "iscc_hub.urls_api"
+    assert "Accept" in response.get("Vary", "")
     get_response.assert_called_once_with(request)
 
 
@@ -127,9 +135,10 @@ def test_middleware_format_param_overrides_accept(request_factory):
 
     # Request with JSON Accept header but format=html parameter
     request = request_factory.get("/?format=html", HTTP_ACCEPT="application/json")
-    middleware(request)
+    response = middleware(request)
 
     assert request.urlconf == "iscc_hub.urls_views"
+    assert "Accept" in response.get("Vary", "")
     get_response.assert_called_once_with(request)
 
 
@@ -153,10 +162,11 @@ async def test_middleware_async_format_json(request_factory):
     request = request_factory.get("/?format=json")
 
     # Process request
-    await middleware(request)
+    response = await middleware(request)
 
     # Check that urlconf was set correctly
     assert request.urlconf == "iscc_hub.urls_api"
+    assert "Accept" in response.get("Vary", "")
     get_response.assert_called_once_with(request)
 
 
@@ -174,9 +184,10 @@ async def test_middleware_async_accept_json(request_factory):
     middleware = ContentNegotiationMiddleware(get_response)
 
     request = request_factory.get("/", HTTP_ACCEPT="application/json")
-    await middleware(request)
+    response = await middleware(request)
 
     assert request.urlconf == "iscc_hub.urls_api"
+    assert "Accept" in response.get("Vary", "")
     get_response.assert_called_once_with(request)
 
 
@@ -194,9 +205,10 @@ async def test_middleware_async_default_html(request_factory):
     middleware = ContentNegotiationMiddleware(get_response)
 
     request = request_factory.get("/", HTTP_ACCEPT="text/html")
-    await middleware(request)
+    response = await middleware(request)
 
     assert request.urlconf == "iscc_hub.urls_views"
+    assert "Accept" in response.get("Vary", "")
     get_response.assert_called_once_with(request)
 
 
@@ -223,8 +235,73 @@ def test_middleware_invalid_format_param(request_factory):
 
     # Invalid format parameter should be ignored
     request = request_factory.get("/?format=xml", HTTP_ACCEPT="application/json")
-    middleware(request)
+    response = middleware(request)
 
     # Should fall back to Accept header
     assert request.urlconf == "iscc_hub.urls_api"
+    assert "Accept" in response.get("Vary", "")
     get_response.assert_called_once_with(request)
+
+
+def test_middleware_format_param_case_insensitive(request_factory):
+    # type: (RequestFactory) -> None
+    """Test format parameter is case-insensitive."""
+    get_response = Mock(return_value=HttpResponse("OK"))
+    middleware = ContentNegotiationMiddleware(get_response)
+
+    # Test uppercase JSON
+    request = request_factory.get("/?format=JSON")
+    response = middleware(request)
+    assert request.urlconf == "iscc_hub.urls_api"
+    assert "Accept" in response.get("Vary", "")
+
+    # Test mixed case HTML
+    request = request_factory.get("/?format=Html")
+    response = middleware(request)
+    assert request.urlconf == "iscc_hub.urls_views"
+    assert "Accept" in response.get("Vary", "")
+
+
+def test_middleware_accept_header_case_insensitive(request_factory):
+    # type: (RequestFactory) -> None
+    """Test Accept header matching is case-insensitive."""
+    get_response = Mock(return_value=HttpResponse("OK"))
+    middleware = ContentNegotiationMiddleware(get_response)
+
+    # Test uppercase APPLICATION/JSON
+    request = request_factory.get("/", HTTP_ACCEPT="APPLICATION/JSON")
+    response = middleware(request)
+    assert request.urlconf == "iscc_hub.urls_api"
+    assert "Accept" in response.get("Vary", "")
+
+    # Test mixed case
+    request = request_factory.get("/", HTTP_ACCEPT="Application/Json")
+    response = middleware(request)
+    assert request.urlconf == "iscc_hub.urls_api"
+    assert "Accept" in response.get("Vary", "")
+
+
+def test_middleware_wildcard_accept_with_json_content_type(request_factory):
+    # type: (RequestFactory) -> None
+    """Test wildcard Accept header uses Content-Type as hint."""
+    get_response = Mock(return_value=HttpResponse("OK"))
+    middleware = ContentNegotiationMiddleware(get_response)
+
+    # Wildcard Accept with JSON Content-Type should route to API
+    request = request_factory.post("/", HTTP_ACCEPT="*/*", content_type="application/json")
+    response = middleware(request)
+    assert request.urlconf == "iscc_hub.urls_api"
+    assert "Accept" in response.get("Vary", "")
+
+
+def test_middleware_wildcard_accept_without_json_content(request_factory):
+    # type: (RequestFactory) -> None
+    """Test wildcard Accept without JSON content defaults to HTML."""
+    get_response = Mock(return_value=HttpResponse("OK"))
+    middleware = ContentNegotiationMiddleware(get_response)
+
+    # Wildcard Accept without JSON Content-Type should default to HTML
+    request = request_factory.get("/", HTTP_ACCEPT="*/*")
+    response = middleware(request)
+    assert request.urlconf == "iscc_hub.urls_views"
+    assert "Accept" in response.get("Vary", "")
