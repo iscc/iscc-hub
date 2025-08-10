@@ -55,17 +55,6 @@ def django_db_use_migrations():
     return False
 
 
-@pytest.fixture(scope="session")
-def django_db_modify_db_settings():
-    """
-    Modify database settings for testing.
-
-    Ensures test database is created in our data directory.
-    """
-    # This fixture is called before Django's test database setup
-    # The settings are already configured via environment variables in pytest_configure
-
-
 @pytest.fixture
 def api_client():
     """Provide Django Ninja TestAsyncClient for API testing."""

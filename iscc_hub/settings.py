@@ -78,6 +78,15 @@ DATABASES = {
             "transaction_mode": "IMMEDIATE",  # Required for gapless sequences !!!
             "init_command": ("PRAGMA journal_mode=WAL;PRAGMA synchronous=FULL;PRAGMA busy_timeout=5000;"),
         },
+        "TEST": {
+            "NAME": DATA_DIR / "test_db.sqlite3",  # Use persisted file, not in-memory
+            "SERIALIZE": True,  # Serialize database state for proper transaction testing
+            # Explicitly set OPTIONS for test database to match production settings
+            "OPTIONS": {
+                "transaction_mode": "IMMEDIATE",  # Required for gapless sequences !!!
+                "init_command": ("PRAGMA journal_mode=WAL;PRAGMA synchronous=FULL;PRAGMA busy_timeout=5000;"),
+            },
+        },
     }
 }
 
