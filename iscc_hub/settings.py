@@ -39,6 +39,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "servestatic.middleware.ServeStaticMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "iscc_hub.middleware.ContentNegotiationMiddleware",  # Content negotiation must come early
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -46,7 +47,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "iscc_hub.urls"
+ROOT_URLCONF = "iscc_hub.urls_views"
 
 TEMPLATES = [
     {

@@ -86,7 +86,7 @@ filterwarnings = [
 
 [tool.coverage.run]
 source = ["iscc_hub"]
-omit = ["*/migrations/*", "*/asgi.py", "*/wsgi.py", "*/urls.py", "*/schema.py"]
+omit = ["*/migrations/*", "*/asgi.py", "*/wsgi.py", "*/urls*.py", "*/schema.py"]
 
 [tool.coverage.report]
 precision = 1

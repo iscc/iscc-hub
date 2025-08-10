@@ -57,8 +57,9 @@ async def test_health_check_content_negotiation_json(api_client):
 
 @pytest.mark.asyncio
 async def test_health_check_content_negotiation_html(api_client):
-    """Test that health check returns HTML for browsers."""
+    """Test that health check returns HTML for browsers when Accept header specifies HTML."""
     # Test browser request with HTML Accept header
+    # With the content negotiation middleware, this should route to the HTML view
     response = await api_client.get(
         "/health",
         headers={"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"},

@@ -1,6 +1,5 @@
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.http import HttpRequest
 from ninja import NinjaAPI
 
 import iscc_hub
@@ -14,27 +13,17 @@ api = NinjaAPI(
 
 @api.get("/health")
 async def health(request):
-    # type: (HttpRequest) -> HttpResponse | JsonResponse
+    # type: (HttpRequest) -> dict
     """
     Health check endpoint to verify service status.
 
-    Returns JSON for API clients or HTML for browsers based on Accept header.
+    Returns JSON status information for API clients.
 
     :param request: The incoming HTTP request
-    :return: HealthResponse JSON or HTML page based on content negotiation
+    :return: HealthResponse JSON with status, version, and description
     """
     status = "pass"
     version = getattr(settings, "VERSION", iscc_hub.__version__)
     description = "ISCC-HUB service is healthy"
 
-    result = {"status": status, "version": version, "description": description}
-
-    # Content negotiation based on Accept header
-    accept_header = request.headers.get("Accept", "").lower()
-
-    if "text/html" in accept_header:
-        # Return HTML for browsers using Django template
-
-        return render(request, "iscc_hub/health.html", result)
-
-    return JsonResponse(result)
+    return {"status": status, "version": version, "description": description}
