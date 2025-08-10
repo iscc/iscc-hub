@@ -107,6 +107,7 @@ use-subclass-enum = true
 use-standard-collections = true
 use-annotated = true
 field-constraints = true
+use-union-operator = true
 
 [tool.poe.tasks]
 build-schema = { cmd = "uv run datamodel-codegen", help = "Build pydantic models from openapi.yaml" }
