@@ -8,6 +8,7 @@ import pytest
 from django.utils import timezone
 
 from iscc_hub.models import Event, IsccDeclaration
+from tests.conftest import generate_test_iscc_id
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
@@ -32,9 +33,9 @@ def test_event_gapless_sequence(minimal_iscc_note):
     Test that Event model maintains gapless sequence numbers.
     """
     # Create multiple events
-    event1 = Event.objects.create(iscc_id="ISCC:TEST1", iscc_note=minimal_iscc_note)
-    event2 = Event.objects.create(iscc_id="ISCC:TEST2", iscc_note=minimal_iscc_note)
-    event3 = Event.objects.create(iscc_id="ISCC:TEST3", iscc_note=minimal_iscc_note)
+    event1 = Event.objects.create(iscc_id=generate_test_iscc_id(seq=1), iscc_note=minimal_iscc_note)
+    event2 = Event.objects.create(iscc_id=generate_test_iscc_id(seq=2), iscc_note=minimal_iscc_note)
+    event3 = Event.objects.create(iscc_id=generate_test_iscc_id(seq=3), iscc_note=minimal_iscc_note)
 
     # Verify sequence is gapless
     assert event1.seq == 1
@@ -55,18 +56,18 @@ def test_event_types(minimal_iscc_note):
     Test different event types.
     """
     # Test CREATED (default)
-    created_event = Event.objects.create(iscc_id="ISCC:CREATED", iscc_note=minimal_iscc_note)
+    created_event = Event.objects.create(iscc_id=generate_test_iscc_id(seq=10), iscc_note=minimal_iscc_note)
     assert created_event.event_type == Event.EventType.CREATED
 
     # Test UPDATED
     updated_event = Event.objects.create(
-        event_type=Event.EventType.UPDATED, iscc_id="ISCC:UPDATED", iscc_note=minimal_iscc_note
+        event_type=Event.EventType.UPDATED, iscc_id=generate_test_iscc_id(seq=11), iscc_note=minimal_iscc_note
     )
     assert updated_event.event_type == Event.EventType.UPDATED
 
     # Test DELETED
     deleted_event = Event.objects.create(
-        event_type=Event.EventType.DELETED, iscc_id="ISCC:DELETED", iscc_note=minimal_iscc_note
+        event_type=Event.EventType.DELETED, iscc_id=generate_test_iscc_id(seq=12), iscc_note=minimal_iscc_note
     )
     assert deleted_event.event_type == Event.EventType.DELETED
 
@@ -83,20 +84,21 @@ def test_event_str_representation(minimal_iscc_note):
     Test Event model string representation.
     """
     # Test CREATED event
-    event = Event.objects.create(iscc_id="ISCC:TESTID", iscc_note=minimal_iscc_note)
-    assert str(event) == "Event #1: Created ISCC:TESTID"
+    test_id = generate_test_iscc_id(seq=20)
+    event = Event.objects.create(iscc_id=test_id, iscc_note=minimal_iscc_note)
+    assert str(event) == f"Event #1: Created {test_id}"
 
     # Test UPDATED event
     event2 = Event.objects.create(
-        event_type=Event.EventType.UPDATED, iscc_id="ISCC:TESTID", iscc_note=minimal_iscc_note
+        event_type=Event.EventType.UPDATED, iscc_id=test_id, iscc_note=minimal_iscc_note
     )
-    assert str(event2) == "Event #2: Updated ISCC:TESTID"
+    assert str(event2) == f"Event #2: Updated {test_id}"
 
     # Test DELETED event
     event3 = Event.objects.create(
-        event_type=Event.EventType.DELETED, iscc_id="ISCC:TESTID", iscc_note=minimal_iscc_note
+        event_type=Event.EventType.DELETED, iscc_id=test_id, iscc_note=minimal_iscc_note
     )
-    assert str(event3) == "Event #3: Deleted ISCC:TESTID"
+    assert str(event3) == f"Event #3: Deleted {test_id}"
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
@@ -105,7 +107,7 @@ def test_event_non_unique_iscc_id(minimal_iscc_note, full_iscc_note):
     """
     Test that multiple events can have the same ISCC-ID (for updates).
     """
-    iscc_id = "ISCC:SAMEID"
+    iscc_id = generate_test_iscc_id(seq=30)
 
     # Create multiple events with same ISCC-ID
     Event.objects.create(iscc_id=iscc_id, iscc_note=minimal_iscc_note)
@@ -133,16 +135,19 @@ def test_event_indexes(minimal_iscc_note):
     Test that indexes are properly applied.
     """
     # Create events to populate indexes
+    test_ids = []
     for i in range(5):
+        test_id = generate_test_iscc_id(seq=40 + i)
+        test_ids.append(test_id)
         Event.objects.create(
-            iscc_id=f"ISCC:TEST{i}",
+            iscc_id=test_id,
             iscc_note=minimal_iscc_note,
             event_type=(i % 3) + 1,  # Cycle through event types
         )
 
     # Test queries that should use indexes
     # Query by iscc_id (indexed)
-    results = Event.objects.filter(iscc_id="ISCC:TEST0")
+    results = Event.objects.filter(iscc_id=test_ids[0])
     assert results.count() == 1
 
     # Query by event_type (indexed)
@@ -201,10 +206,10 @@ def test_event_with_full_iscc_note(full_iscc_note):
     """
     Test Event model with full IsccNote including optional fields.
     """
-    event = Event.objects.create(iscc_id="ISCC:FULLNOTE", iscc_note=full_iscc_note)
+    event = Event.objects.create(iscc_id=generate_test_iscc_id(seq=50), iscc_note=full_iscc_note)
 
     assert event.seq == 1
-    assert event.iscc_id == "ISCC:FULLNOTE"
+    assert event.iscc_id == generate_test_iscc_id(seq=50)
     assert event.event_type == Event.EventType.CREATED
     assert event.iscc_note == full_iscc_note
     assert "units" in event.iscc_note
@@ -275,7 +280,7 @@ def test_iscc_declaration_str_representation():
 
     # Test active declaration
     active_declaration = IsccDeclaration.objects.create(
-        iscc_id="ISCC:ACTIVE123",
+        iscc_id=generate_test_iscc_id(seq=60),
         event_seq=1,
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
@@ -285,11 +290,11 @@ def test_iscc_declaration_str_representation():
         created_at=now,
         deleted=False,
     )
-    assert str(active_declaration) == "ISCC:ACTIVE123 (active)"
+    assert str(active_declaration) == f"{generate_test_iscc_id(seq=60)} (active)"
 
     # Test deleted declaration
     deleted_declaration = IsccDeclaration.objects.create(
-        iscc_id="ISCC:DELETED123",
+        iscc_id=generate_test_iscc_id(seq=61),
         event_seq=2,
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
@@ -299,7 +304,7 @@ def test_iscc_declaration_str_representation():
         created_at=now,
         deleted=True,
     )
-    assert str(deleted_declaration) == "ISCC:DELETED123 (deleted)"
+    assert str(deleted_declaration) == f"{generate_test_iscc_id(seq=61)} (deleted)"
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
@@ -312,7 +317,7 @@ def test_iscc_declaration_unique_constraints():
 
     # Create first declaration
     IsccDeclaration.objects.create(
-        iscc_id="ISCC:TEST1",
+        iscc_id=generate_test_iscc_id(seq=70),
         event_seq=1,
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
@@ -327,7 +332,7 @@ def test_iscc_declaration_unique_constraints():
 
     with pytest.raises(IntegrityError):
         IsccDeclaration.objects.create(
-            iscc_id="ISCC:TEST1",  # Duplicate
+            iscc_id=generate_test_iscc_id(seq=70),  # Duplicate
             event_seq=2,
             iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
             datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
@@ -340,7 +345,7 @@ def test_iscc_declaration_unique_constraints():
     # Test event_seq uniqueness
     with pytest.raises(IntegrityError):
         IsccDeclaration.objects.create(
-            iscc_id="ISCC:TEST2",
+            iscc_id=generate_test_iscc_id(seq=71),
             event_seq=1,  # Duplicate
             iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
             datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
@@ -353,7 +358,7 @@ def test_iscc_declaration_unique_constraints():
     # Test nonce uniqueness
     with pytest.raises(IntegrityError):
         IsccDeclaration.objects.create(
-            iscc_id="ISCC:TEST3",
+            iscc_id=generate_test_iscc_id(seq=72),
             event_seq=3,
             iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
             datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
@@ -374,7 +379,7 @@ def test_iscc_declaration_soft_delete():
 
     # Create declaration
     declaration = IsccDeclaration.objects.create(
-        iscc_id="ISCC:SOFTDELETE",
+        iscc_id=generate_test_iscc_id(seq=80),
         event_seq=1,
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
@@ -392,12 +397,12 @@ def test_iscc_declaration_soft_delete():
     declaration.save()
 
     # Verify soft delete
-    declaration = IsccDeclaration.objects.get(iscc_id="ISCC:SOFTDELETE")
+    declaration = IsccDeclaration.objects.get(iscc_id=generate_test_iscc_id(seq=80))
     assert declaration.deleted is True
 
     # Verify filtering active declarations
     active_declarations = IsccDeclaration.objects.filter(deleted=False)
-    assert "ISCC:SOFTDELETE" not in [d.iscc_id for d in active_declarations]
+    assert generate_test_iscc_id(seq=80) not in [d.iscc_id for d in active_declarations]
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
@@ -411,7 +416,7 @@ def test_iscc_declaration_indexes():
     # Create multiple declarations
     for i in range(5):
         IsccDeclaration.objects.create(
-            iscc_id=f"ISCC:TEST{i}",
+            iscc_id=generate_test_iscc_id(seq=90 + i),
             event_seq=i + 1,
             iscc_code=f"ISCC:CODE{i % 2}",  # Two different codes
             datahash=f"1e20{'a' * 64}" if i % 2 == 0 else f"1e20{'b' * 64}",
@@ -458,7 +463,7 @@ def test_iscc_declaration_update():
 
     # Create initial declaration
     declaration = IsccDeclaration.objects.create(
-        iscc_id="ISCC:UPDATE",
+        iscc_id=generate_test_iscc_id(seq=100),
         event_seq=1,
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
@@ -480,7 +485,7 @@ def test_iscc_declaration_update():
     declaration.save()
 
     # Verify updates
-    declaration = IsccDeclaration.objects.get(iscc_id="ISCC:UPDATE")
+    declaration = IsccDeclaration.objects.get(iscc_id=generate_test_iscc_id(seq=100))
     assert declaration.event_seq == 2
     assert declaration.iscc_code == "ISCC:NEWCODE"
     assert declaration.datahash == "1e20ffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
@@ -531,7 +536,7 @@ def test_iscc_declaration_duplicate_content_allowed():
 
     # Create first declaration
     declaration1 = IsccDeclaration.objects.create(
-        iscc_id="ISCC:FIRST",
+        iscc_id=generate_test_iscc_id(seq=110),
         event_seq=1,
         iscc_code=iscc_code,
         datahash=datahash,
@@ -544,7 +549,7 @@ def test_iscc_declaration_duplicate_content_allowed():
     # Create second declaration with same actor, iscc_code, and datahash
     # This should succeed as we removed unique constraints
     declaration2 = IsccDeclaration.objects.create(
-        iscc_id="ISCC:SECOND",
+        iscc_id=generate_test_iscc_id(seq=111),
         event_seq=2,
         iscc_code=iscc_code,  # Same code
         datahash=datahash,  # Same hash
@@ -555,8 +560,8 @@ def test_iscc_declaration_duplicate_content_allowed():
     )
 
     # Verify both exist
-    assert declaration1.iscc_id == "ISCC:FIRST"
-    assert declaration2.iscc_id == "ISCC:SECOND"
+    assert declaration1.iscc_id == generate_test_iscc_id(seq=110)
+    assert declaration2.iscc_id == generate_test_iscc_id(seq=111)
 
     # Query declarations by actor and iscc_code
     declarations = IsccDeclaration.objects.filter(actor=actor, iscc_code=iscc_code)

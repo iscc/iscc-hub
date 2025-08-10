@@ -93,6 +93,17 @@ def example_keypair():
     return icr.key_generate(controller=controller)
 
 
+def generate_test_iscc_id(hub_id=1, seq=1):
+    # type: (int, int) -> str
+    """Generate a valid test ISCC-ID with deterministic timestamp."""
+    from iscc_hub.iscc_id import IsccID
+
+    # Use a base timestamp (2025-01-01) plus sequence number for uniqueness
+    base_timestamp_us = 1735689600_000_000  # 2025-01-01 00:00:00 UTC
+    timestamp_us = base_timestamp_us + seq
+    return str(IsccID.from_timestamp(timestamp_us, hub_id))
+
+
 @pytest.fixture
 def example_nonce():
     # type: () -> str

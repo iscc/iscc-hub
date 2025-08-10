@@ -4,11 +4,10 @@ Django models for ISCC Hub.
 
 from django.db import models
 
-from iscc_hub.fields import SequenceField
+from iscc_hub.fields import IsccIDField, SequenceField
 
 
 class IsccDeclaration(models.Model):
-    # type: () -> None
     """
     Active ISCC declaration record.
 
@@ -18,9 +17,7 @@ class IsccDeclaration(models.Model):
     """
 
     # Primary identifier
-    iscc_id = models.CharField(
-        max_length=64, primary_key=True, help_text="ISCC-ID - the unique timestamp identifier"
-    )
+    iscc_id = IsccIDField(primary_key=True, help_text="ISCC-ID - the unique timestamp identifier")
 
     # Event tracking
     event_seq = models.BigIntegerField(
@@ -96,7 +93,6 @@ class IsccDeclaration(models.Model):
 
 
 class Event(models.Model):
-    # type: () -> None
     """
     Append-only event log for ISCC declarations.
 
@@ -105,7 +101,6 @@ class Event(models.Model):
     """
 
     class EventType(models.IntegerChoices):
-        # type: () -> None
         """
         Event types for ISCC declarations.
         """
@@ -126,7 +121,7 @@ class Event(models.Model):
     )
 
     # ISCC-ID assigned to the declaration (can be non-unique for updates)
-    iscc_id = models.CharField(max_length=64, db_index=True, help_text="ISCC-ID assigned to the declaration")
+    iscc_id = IsccIDField(db_index=True, help_text="ISCC-ID assigned to the declaration")
 
     # The IsccNote stored as JSON
     iscc_note = models.JSONField(help_text="The logged IsccNote as JSON")
