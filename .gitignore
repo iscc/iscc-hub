@@ -202,6 +202,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Data
+data/
+
 # AI
 CLAUDE.local.md
 .mcp.json

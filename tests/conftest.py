@@ -11,31 +11,59 @@ import django
 import iscc_core as ic
 import iscc_crypto as icr
 import pytest
-from django.conf import settings
 
 # Add project root to Python path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
+# Test data directory
+DATA_DIR = BASE_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)
+
 
 def pytest_configure(config):
     """Configure Django settings for testing."""
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "iscc_hub.settings")
-
     # Set test environment variables
-    os.environ["DJANGO_DEBUG"] = "True"
-    os.environ["DJANGO_SECRET_KEY"] = "test-secret-key-for-testing-only"
-    os.environ["ISCC_HUB_DB_NAME"] = "test_db.sqlite3"
-    os.environ["ISCC_HUB_DOMAIN"] = "testserver"
-    os.environ["ISCC_HUB_SECKEY"] = "test-hub-secret-key"
-    os.environ["ISCC_HUB_ID"] = "1"
-    os.environ["DJANGO_ALLOWED_HOSTS"] = "testserver,localhost"
+    test_env_vars = {
+        "DJANGO_SETTINGS_MODULE": "iscc_hub.settings",
+        "DJANGO_DEBUG": "True",
+        "DJANGO_SECRET_KEY": "test-secret-key-for-testing-only",
+        "ISCC_HUB_DB_NAME": str(DATA_DIR / "test_db.sqlite3"),
+        "ISCC_HUB_DOMAIN": "testserver",
+        "ISCC_HUB_SECKEY": "test-hub-secret-key",
+        "ISCC_HUB_ID": "1",
+        "DJANGO_ALLOWED_HOSTS": "testserver,localhost",
+        "NINJA_SKIP_REGISTRY": "1",  # Skip Ninja registry check for testing
+    }
 
-    # Skip Ninja registry check for testing
-    os.environ["NINJA_SKIP_REGISTRY"] = "1"
+    # Override environment
+    for key, value in test_env_vars.items():
+        os.environ[key] = value
 
     # Setup Django
     django.setup()
+
+
+@pytest.fixture(scope="session")
+def django_db_use_migrations():
+    """
+    Disable migrations for test database creation.
+
+    This makes test database setup faster by creating tables directly from models
+    rather than running all migrations.
+    """
+    return False
+
+
+@pytest.fixture(scope="session")
+def django_db_modify_db_settings():
+    """
+    Modify database settings for testing.
+
+    Ensures test database is created in our data directory.
+    """
+    # This fixture is called before Django's test database setup
+    # The settings are already configured via environment variables in pytest_configure
 
 
 @pytest.fixture
@@ -46,17 +74,6 @@ def api_client():
     from iscc_hub.api import api
 
     return TestAsyncClient(api)
-
-
-@pytest.fixture
-def django_db_setup():
-    """Override Django's database setup for tests."""
-
-    # Use in-memory database for tests
-    settings.DATABASES["default"] = {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
-    }
 
 
 def create_iscc_from_text(text="Hello World!"):
