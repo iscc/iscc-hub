@@ -13,7 +13,7 @@ def test_hub_context_returns_hub_id():
     with patch("iscc_hub.context.settings", ISCC_HUB_ID=42, DEBUG=True):
         result = hub_context(request)
 
-        assert result["notary_node_id"] == 42
+        assert result["hub_id"] == 42
         assert result["debug_mode"] is True
 
 
@@ -28,5 +28,5 @@ def test_hub_context_with_missing_settings():
     with patch("iscc_hub.context.settings", mock_settings):
         result = hub_context(request)
 
-        assert result["notary_node_id"] == 0
+        assert result["hub_id"] == 0
         assert result["debug_mode"] is False
