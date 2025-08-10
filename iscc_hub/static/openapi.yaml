@@ -65,7 +65,7 @@ components:
   schemas:
     ErrorResponse:
       type: object
-      description: Error response for notary operations
+      description: Error response for operations
       required:
       - error
       properties:
@@ -82,7 +82,7 @@ components:
 
     IsccReceipt:
       type: object
-      description: W3C Verifiable Credential for ISCC notarization
+      description: W3C Verifiable Credential for ISCC declaration
       required:
       - '@context'
       - type
@@ -107,23 +107,23 @@ components:
         issuer:
           type: string
           format: uri
-          description: DID of the notary server issuing this credential
-          example: "did:web:notary.example.com"
+          description: DID of the ISCC-HUB issuing this credential
+          example: "did:web:hub.example.com"
         credentialSubject:
           type: object
           description: Claims about the subject of the credential
           required:
           - id
-          - notarization
+          - declaration
           properties:
             id:
               type: string
               format: uri
               description: DID of the subject (signer of the IsccNote)
               example: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
-            notarization:
+            declaration:
               type: object
-              description: Notarization details
+              description: Declaration details
               required:
               - seq
               - iscc_id
@@ -131,17 +131,17 @@ components:
               properties:
                 seq:
                   type: integer
-                  description: Sequence number in the notary log (starting at 0)
+                  description: Sequence number in the event log (starting at 0)
                   minimum: 0
                 iscc_id:
                   type: string
-                  description: Unique ISCC-ID assigned by the notary
+                  description: Unique ISCC-ID assigned by the ISCC-HUB
                   pattern: "^ISCC:[A-Z0-9]{10,}$"
                 iscc_note:
                   $ref: '#/components/schemas/IsccNote'
         proof:
           type: object
-          description: W3C Data Integrity proof created by notary server
+          description: W3C Data Integrity proof created by ISCC-HUB
           required:
           - type
           - cryptosuite
@@ -158,7 +158,7 @@ components:
             verificationMethod:
               type: string
               format: uri
-              description: DID URL of the notary's signing key
+              description: DID URL of the HUB's signing key
             proofPurpose:
               type: string
               const: "assertionMethod"
@@ -200,7 +200,7 @@ components:
         proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
     IsccNote:
       type: object
-      description: ISCC notarization request object
+      description: ISCC decaration request object
       required:
       - iscc_code
       - datahash
@@ -210,28 +210,14 @@ components:
       properties:
         iscc_code:
           type: string
-          description: The ISCC-CODE to be notarized
+          description: The ISCC-CODE to be declared
           pattern: "^ISCC:[A-Z0-9]{13,73}$"
           example: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
         datahash:
           type: string
-          description: Blake3 hash of the notarized asset (lowercase hex encoded 256 bit multihash with blake3 prefix)
+          description: Blake3 hash of the declared asset (lowercase hex encoded 256 bit multihash with blake3 prefix)
           pattern: "^1e20[0-9a-f]{64}$"
           example: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
-        metahash:
-          type: string
-          description: Blake3 hash of seed metadata (256-bit lowercase hex-encoded multihash with prefix `1e20`). When
-            present, this creates a cryptographic commitment to the exact metadata state at notarization time,
-            allowing external registries to store mutable or deletable metadata while maintaining temporal
-            integrity.
-          pattern: "^1e20[0-9a-f]{64}$"
-          example: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
-        nonce:
-          type: string
-          description: Unique 128-bit lowercase hex-encoded random value (first 12-bits denote hub_id 0-4095
-            for replay protection)
-          pattern: "^[0-9a-f]{32}$"
-          example: "000faa3f18c7b9407a48536a9b00c4cb"
         timestamp:
           type: string
           format: date-time
@@ -240,26 +226,45 @@ components:
             and signed by the declaring party. HUBs MUST reject IsccNotes with timestamps outside of ±10 minutes
             from the HUB's current time.
           example: "2025-01-15T12:00:00.000Z"
+        nonce:
+          type: string
+          description: Unique 128-bit lowercase hex-encoded random value (first 12-bits denote hub_id 0-4095
+            for replay protection)
+          pattern: "^[0-9a-f]{32}$"
+          example: "000faa3f18c7b9407a48536a9b00c4cb"
+        signature:
+          $ref: '#/components/schemas/IsccSignature'
+        units:
+            type: array
+            description: Array of expanded ISCC-UNITs of the declared ISCC-CODE. For for improved large-scale
+                discovery and matching it is recommended to include 256-bit ISCC-UNITs.
+                **Don´t include the Instance-Code as this can be derived from the required
+                `datahash` property.** The ISCC-HUB will validate that the declared ISCC-CODE can be
+                reconstructed from the ISCC-UNITs by converting the datahash to an Instance-Code UNIT,
+                appending it to this array, and passing it to iscc_core.gen_iscc_code.
+            items:
+                type: string
+                pattern: "^ISCC:[A-Z0-9]{10,73}$"
+            maxItems: 4
+            example: [
+                "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ",
+                "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY",
+                "ISCC:GAD334BLFXWN7QWLCSBGJMLRZW73FFNV7ORVUKN23UWPKGQCWTIHQKY",
+            ]
+        metahash:
+          type: string
+          description: Blake3 hash of seed metadata (256-bit lowercase hex-encoded multihash with prefix `1e20`). When
+            present, this creates a cryptographic commitment to the exact metadata state at declaration time,
+            allowing external registries to store mutable or deletable metadata while maintaining temporal
+            integrity.
+          pattern: "^1e20[0-9a-f]{64}$"
+          example: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
         gateway:
           type: string
           description: URL or URI Template (RFC 6570) pointing to a GATEWAY for metadata and service discovery.
             Supported template variables are {iscc_id}, {iscc_code}, {pubkey}, {datahash}, {controller}.
             Must use HTTP or HTTPS scheme.
           example: "https://example.com/metadata"
-        units:
-          type: array
-          description: Array of decomposed ISCC-UNITs (excluding Instance-Code Unit). Only include UNITs with
-            ISCC-BODYs larger than 64-bit for improved large-scale discovery and matching. The original
-            ISCC-CODE can be reconstructed by converting the datahash to an Instance-Code UNIT, appending it to
-            this array, and passing to iscc_core.gen_iscc_code. Maximum array size is 100 items.
-          items:
-            type: string
-            pattern: "^ISCC:[A-Z0-9]{10,73}$"
-          maxItems: 4
-          example: ["ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ", "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY",
-            "ISCC:GAD334BLFXWN7QWLCSBGJMLRZW73FFNV7ORVUKN23UWPKGQCWTIHQKY"]
-        signature:
-          $ref: '#/components/schemas/IsccSignature'
       example:
         iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
         datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"

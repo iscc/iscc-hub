@@ -20,7 +20,7 @@ class ErrorResponse(Schema):
 class Proof(Schema):
     type: Literal["DataIntegrityProof"]
     cryptosuite: Literal["eddsa-jcs-2022"]
-    verificationMethod: Annotated[AnyUrl, Field(description="DID URL of the notary's signing key")]
+    verificationMethod: Annotated[AnyUrl, Field(description="DID URL of the HUB's signing key")]
     proofPurpose: Literal["assertionMethod"]
     proofValue: Annotated[
         str,
@@ -68,7 +68,7 @@ class IsccNote(Schema):
     iscc_code: Annotated[
         str,
         Field(
-            description="The ISCC-CODE to be notarized",
+            description="The ISCC-CODE to be declared",
             examples=["ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"],
             pattern="^ISCC:[A-Z0-9]{13,73}$",
         ),
@@ -76,25 +76,9 @@ class IsccNote(Schema):
     datahash: Annotated[
         str,
         Field(
-            description="Blake3 hash of the notarized asset (lowercase hex encoded 256 bit multihash with blake3 prefix)",
+            description="Blake3 hash of the declared asset (lowercase hex encoded 256 bit multihash with blake3 prefix)",
             examples=["1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"],
             pattern="^1e20[0-9a-f]{64}$",
-        ),
-    ]
-    metahash: Annotated[
-        str | None,
-        Field(
-            description="Blake3 hash of seed metadata (256-bit lowercase hex-encoded multihash with prefix `1e20`). When present, this creates a cryptographic commitment to the exact metadata state at notarization time, allowing external registries to store mutable or deletable metadata while maintaining temporal integrity.",
-            examples=["1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"],
-            pattern="^1e20[0-9a-f]{64}$",
-        ),
-    ] = None
-    nonce: Annotated[
-        str,
-        Field(
-            description="Unique 128-bit lowercase hex-encoded random value (first 12-bits denote hub_id 0-4095 for replay protection)",
-            examples=["000faa3f18c7b9407a48536a9b00c4cb"],
-            pattern="^[0-9a-f]{32}$",
         ),
     ]
     timestamp: Annotated[
@@ -104,17 +88,19 @@ class IsccNote(Schema):
             examples=["2025-01-15T12:00:00.000Z"],
         ),
     ]
-    gateway: Annotated[
-        str | None,
+    nonce: Annotated[
+        str,
         Field(
-            description="URL or URI Template (RFC 6570) pointing to a GATEWAY for metadata and service discovery. Supported template variables are {iscc_id}, {iscc_code}, {pubkey}, {datahash}, {controller}. Must use HTTP or HTTPS scheme.",
-            examples=["https://example.com/metadata"],
+            description="Unique 128-bit lowercase hex-encoded random value (first 12-bits denote hub_id 0-4095 for replay protection)",
+            examples=["000faa3f18c7b9407a48536a9b00c4cb"],
+            pattern="^[0-9a-f]{32}$",
         ),
-    ] = None
+    ]
+    signature: IsccSignature
     units: Annotated[
         list[Unit] | None,
         Field(
-            description="Array of decomposed ISCC-UNITs (excluding Instance-Code Unit). Only include UNITs with ISCC-BODYs larger than 64-bit for improved large-scale discovery and matching. The original ISCC-CODE can be reconstructed by converting the datahash to an Instance-Code UNIT, appending it to this array, and passing to iscc_core.gen_iscc_code. Maximum array size is 100 items.",
+            description="Array of expanded ISCC-UNITs of the declared ISCC-CODE. For for improved large-scale discovery and matching it is recommended to include 256-bit ISCC-UNITs. **Don´t include the Instance-Code as this can be derived from the required `datahash` property.** The ISCC-HUB will validate that the declared ISCC-CODE can be reconstructed from the ISCC-UNITs by converting the datahash to an Instance-Code UNIT, appending it to this array, and passing it to iscc_core.gen_iscc_code.",
             examples=[
                 [
                     "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ",
@@ -125,18 +111,29 @@ class IsccNote(Schema):
             max_length=4,
         ),
     ] = None
-    signature: IsccSignature
+    metahash: Annotated[
+        str | None,
+        Field(
+            description="Blake3 hash of seed metadata (256-bit lowercase hex-encoded multihash with prefix `1e20`). When present, this creates a cryptographic commitment to the exact metadata state at declaration time, allowing external registries to store mutable or deletable metadata while maintaining temporal integrity.",
+            examples=["1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"],
+            pattern="^1e20[0-9a-f]{64}$",
+        ),
+    ] = None
+    gateway: Annotated[
+        str | None,
+        Field(
+            description="URL or URI Template (RFC 6570) pointing to a GATEWAY for metadata and service discovery. Supported template variables are {iscc_id}, {iscc_code}, {pubkey}, {datahash}, {controller}. Must use HTTP or HTTPS scheme.",
+            examples=["https://example.com/metadata"],
+        ),
+    ] = None
 
 
-class Notarization(Schema):
-    seq: Annotated[
-        int,
-        Field(description="Sequence number in the notary log (starting at 0)", ge=0),
-    ]
+class Declaration(Schema):
+    seq: Annotated[int, Field(description="Sequence number in the event log (starting at 0)", ge=0)]
     iscc_id: Annotated[
         str,
         Field(
-            description="Unique ISCC-ID assigned by the notary",
+            description="Unique ISCC-ID assigned by the ISCC-HUB",
             pattern="^ISCC:[A-Z0-9]{10,}$",
         ),
     ]
@@ -151,7 +148,7 @@ class CredentialSubject(Schema):
             examples=["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
         ),
     ]
-    notarization: Annotated[Notarization, Field(description="Notarization details")]
+    declaration: Annotated[Declaration, Field(description="Declaration details")]
 
 
 class IsccReceipt(Schema):
@@ -175,12 +172,12 @@ class IsccReceipt(Schema):
     issuer: Annotated[
         AnyUrl,
         Field(
-            description="DID of the notary server issuing this credential",
-            examples=["did:web:notary.example.com"],
+            description="DID of the ISCC-HUB issuing this credential",
+            examples=["did:web:hub.example.com"],
         ),
     ]
     credentialSubject: Annotated[
         CredentialSubject,
         Field(description="Claims about the subject of the credential"),
     ]
-    proof: Annotated[Proof, Field(description="W3C Data Integrity proof created by notary server")]
+    proof: Annotated[Proof, Field(description="W3C Data Integrity proof created by ISCC-HUB")]
