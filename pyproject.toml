@@ -7,6 +7,7 @@ dependencies = [
     "django>=5.2.5",
     "django-environ>=0.12.0",
     "django-ninja>=1.4.3",
+    "django-unfold>=0.63.0",
     "gunicorn>=23.0.0",
     "iscc-core>=1.2.1",
     "iscc-crypto>=0.4.0",

@@ -7,13 +7,13 @@ from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html
+from unfold.admin import ModelAdmin
 
-from .models import Event, IsccDeclaration
+from iscc_hub.models import Event, IsccDeclaration
 
 
 @admin.register(IsccDeclaration)
-class IsccDeclarationAdmin(admin.ModelAdmin):
-    # type: (type[admin.ModelAdmin]) -> None
+class IsccDeclarationAdmin(ModelAdmin):
     """Admin interface for IsccDeclaration model."""
 
     list_display = [
@@ -122,8 +122,7 @@ class IsccDeclarationAdmin(admin.ModelAdmin):
 
 
 @admin.register(Event)
-class EventAdmin(admin.ModelAdmin):
-    # type: (type[admin.ModelAdmin]) -> None
+class EventAdmin(ModelAdmin):
     """Admin interface for Event model (read-only)."""
 
     list_display = [
