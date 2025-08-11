@@ -1,0 +1,212 @@
+[
+  {
+    "model": "iscc_hub.isccdeclaration",
+    "pk": "ISCC:MAIWFKM3UDDAAAAB",
+    "fields": {
+      "event_seq": 1,
+      "iscc_code": "ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY",
+      "datahash": "1e2096f9b1a0a319442e21361cd6c9286bffa064181e0d8d78879b49fb69db9e8c68",
+      "nonce": "001faa3f18c7b9407a48536a9b00c4cb",
+      "actor": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+      "gateway": "https://example.com/iscc_id/{iscc_id}/metadata",
+      "metahash": "1e202b82b69f20bb8c8a3c93f51e630e11dc67e3f618f936f0e7e5adacef18c20e02",
+      "declared_at": "2025-01-15T12:00:00Z",
+      "created_at": "2025-01-15T12:00:00Z",
+      "updated_at": "2025-01-15T12:00:00Z",
+      "deleted": false
+    }
+  },
+  {
+    "model": "iscc_hub.isccdeclaration",
+    "pk": "ISCC:MAIWFKM3UG5CIAAB",
+    "fields": {
+      "event_seq": 2,
+      "iscc_code": "ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY",
+      "datahash": "1e2096f9b1a0a319442e21361cd6c9286bffa064181e0d8d78879b49fb69db9e8c68",
+      "nonce": "002faa3f18c7b9407a48536a9b00c4cb",
+      "actor": "z6MkpFv5jPDY8Lj8mJFQCCvs9V3TkQaJGWK2QsLTGy2aXTHV",
+      "gateway": "",
+      "metahash": "",
+      "declared_at": "2025-01-16T10:30:00Z",
+      "created_at": "2025-01-16T10:30:00Z",
+      "updated_at": "2025-01-16T10:30:00Z",
+      "deleted": false
+    }
+  },
+  {
+    "model": "iscc_hub.isccdeclaration",
+    "pk": "ISCC:MAIWFKM3UKXEQAAB",
+    "fields": {
+      "event_seq": 3,
+      "iscc_code": "ISCC:KADYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQZ",
+      "datahash": "1e20a6f9b1a0a319442e21361cd6c9286bffa064181e0d8d78879b49fb69db9e8c69",
+      "nonce": "003faa3f18c7b9407a48536a9b00c4cb",
+      "actor": "z6MkrGShVRQhUdNwMZy3LX9K8zMvMhLxyBxRWFNqFXVAKDKR",
+      "gateway": "https://gateway.example.org/api/v1/{iscc_id}",
+      "metahash": "1e203b82b69f20bb8c8a3c93f51e630e11dc67e3f618f936f0e7e5adacef18c20e03",
+      "declared_at": "2025-01-17T14:45:00Z",
+      "created_at": "2025-01-17T14:45:00Z",
+      "updated_at": "2025-01-17T14:45:00Z",
+      "deleted": false
+    }
+  },
+  {
+    "model": "iscc_hub.isccdeclaration",
+    "pk": "ISCC:MAIWFKM3UORGYAAB",
+    "fields": {
+      "event_seq": 5,
+      "iscc_code": "ISCC:KAEPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQX",
+      "datahash": "1e20b6f9b1a0a319442e21361cd6c9286bffa064181e0d8d78879b49fb69db9e8c6a",
+      "nonce": "004faa3f18c7b9407a48536a9b00c4cb",
+      "actor": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+      "gateway": "",
+      "metahash": "",
+      "declared_at": "2025-01-18T09:15:00Z",
+      "created_at": "2025-01-18T09:15:00Z",
+      "updated_at": "2025-01-20T11:30:00Z",
+      "deleted": false
+    }
+  },
+  {
+    "model": "iscc_hub.isccdeclaration",
+    "pk": "ISCC:MAIWFKM3USLJAAAB",
+    "fields": {
+      "event_seq": 6,
+      "iscc_code": "ISCC:KAFPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQW",
+      "datahash": "1e20c6f9b1a0a319442e21361cd6c9286bffa064181e0d8d78879b49fb69db9e8c6b",
+      "nonce": "005faa3f18c7b9407a48536a9b00c4cb",
+      "actor": "z6MkpFv5jPDY8Lj8mJFQCCvs9V3TkQaJGWK2QsLTGy2aXTHV",
+      "gateway": "https://content.provider.net/metadata/{iscc_id}",
+      "metahash": "1e204b82b69f20bb8c8a3c93f51e630e11dc67e3f618f936f0e7e5adacef18c20e04",
+      "declared_at": "2025-01-19T16:20:00Z",
+      "created_at": "2025-01-19T16:20:00Z",
+      "updated_at": "2025-01-19T16:20:00Z",
+      "deleted": true
+    }
+  },
+  {
+    "model": "iscc_hub.event",
+    "pk": 1,
+    "fields": {
+      "event_type": 1,
+      "iscc_id": "ISCC:MAIWFKM3UDDAAAAB",
+      "iscc_note": {
+        "iscc_code": "ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY",
+        "datahash": "1e2096f9b1a0a319442e21361cd6c9286bffa064181e0d8d78879b49fb69db9e8c68",
+        "nonce": "001faa3f18c7b9407a48536a9b00c4cb",
+        "timestamp": "2025-01-15T12:00:00.000Z",
+        "gateway": "https://example.com/iscc_id/{iscc_id}/metadata",
+        "metahash": "1e202b82b69f20bb8c8a3c93f51e630e11dc67e3f618f936f0e7e5adacef18c20e02",
+        "signature": {
+          "version": "ISCC-SIG v1.0",
+          "pubkey": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+          "proof": "zExampleSignature1"
+        }
+      },
+      "timestamp": "2025-01-15T12:00:00Z"
+    }
+  },
+  {
+    "model": "iscc_hub.event",
+    "pk": 2,
+    "fields": {
+      "event_type": 1,
+      "iscc_id": "ISCC:MAIWFKM3UG5CIAAB",
+      "iscc_note": {
+        "iscc_code": "ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY",
+        "datahash": "1e2096f9b1a0a319442e21361cd6c9286bffa064181e0d8d78879b49fb69db9e8c68",
+        "nonce": "002faa3f18c7b9407a48536a9b00c4cb",
+        "timestamp": "2025-01-16T10:30:00.000Z",
+        "signature": {
+          "version": "ISCC-SIG v1.0",
+          "pubkey": "z6MkpFv5jPDY8Lj8mJFQCCvs9V3TkQaJGWK2QsLTGy2aXTHV",
+          "proof": "zExampleSignature2"
+        }
+      },
+      "timestamp": "2025-01-16T10:30:00Z"
+    }
+  },
+  {
+    "model": "iscc_hub.event",
+    "pk": 3,
+    "fields": {
+      "event_type": 1,
+      "iscc_id": "ISCC:MAIWFKM3UKXEQAAB",
+      "iscc_note": {
+        "iscc_code": "ISCC:KADYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQZ",
+        "datahash": "1e20a6f9b1a0a319442e21361cd6c9286bffa064181e0d8d78879b49fb69db9e8c69",
+        "nonce": "003faa3f18c7b9407a48536a9b00c4cb",
+        "timestamp": "2025-01-17T14:45:00.000Z",
+        "gateway": "https://gateway.example.org/api/v1/{iscc_id}",
+        "metahash": "1e203b82b69f20bb8c8a3c93f51e630e11dc67e3f618f936f0e7e5adacef18c20e03",
+        "signature": {
+          "version": "ISCC-SIG v1.0",
+          "pubkey": "z6MkrGShVRQhUdNwMZy3LX9K8zMvMhLxyBxRWFNqFXVAKDKR",
+          "proof": "zExampleSignature3"
+        }
+      },
+      "timestamp": "2025-01-17T14:45:00Z"
+    }
+  },
+  {
+    "model": "iscc_hub.event",
+    "pk": 4,
+    "fields": {
+      "event_type": 1,
+      "iscc_id": "ISCC:MAIWFKM3UORGYAAB",
+      "iscc_note": {
+        "iscc_code": "ISCC:KAEPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQX",
+        "datahash": "1e20b6f9b1a0a319442e21361cd6c9286bffa064181e0d8d78879b49fb69db9e8c6a",
+        "nonce": "004faa3f18c7b9407a48536a9b00c4cb",
+        "timestamp": "2025-01-18T09:15:00.000Z",
+        "signature": {
+          "version": "ISCC-SIG v1.0",
+          "pubkey": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+          "proof": "zExampleSignature4"
+        }
+      },
+      "timestamp": "2025-01-18T09:15:00Z"
+    }
+  },
+  {
+    "model": "iscc_hub.event",
+    "pk": 5,
+    "fields": {
+      "event_type": 2,
+      "iscc_id": "ISCC:MAIWFKM3UORGYAAB",
+      "iscc_note": {
+        "iscc_code": "ISCC:KAEPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQX",
+        "datahash": "1e20b6f9b1a0a319442e21361cd6c9286bffa064181e0d8d78879b49fb69db9e8c6a",
+        "nonce": "044faa3f18c7b9407a48536a9b00c4cb",
+        "timestamp": "2025-01-20T11:30:00.000Z",
+        "gateway": "https://new.gateway.com/{iscc_id}",
+        "signature": {
+          "version": "ISCC-SIG v1.0",
+          "pubkey": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+          "proof": "zExampleSignature5"
+        }
+      },
+      "timestamp": "2025-01-20T11:30:00Z"
+    }
+  },
+  {
+    "model": "iscc_hub.event",
+    "pk": 6,
+    "fields": {
+      "event_type": 3,
+      "iscc_id": "ISCC:MAIWFKM3USLJAAAB",
+      "iscc_note": {
+        "iscc_code": "ISCC:KAFPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQW",
+        "datahash": "1e20c6f9b1a0a319442e21361cd6c9286bffa064181e0d8d78879b49fb69db9e8c6b",
+        "nonce": "005faa3f18c7b9407a48536a9b00c4cb",
+        "timestamp": "2025-01-19T16:20:00.000Z",
+        "signature": {
+          "version": "ISCC-SIG v1.0",
+          "pubkey": "z6MkpFv5jPDY8Lj8mJFQCCvs9V3TkQaJGWK2QsLTGy2aXTHV",
+          "proof": "zExampleSignature6"
+        }
+      },
+      "timestamp": "2025-01-21T08:00:00Z"
+    }
+  }
+]
