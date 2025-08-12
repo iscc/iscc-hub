@@ -9,7 +9,6 @@ serializability and monotonic ordering.
 import random
 import time
 
-from dateutil.parser import isoparse
 from django.conf import settings
 from django.db import OperationalError, connection, transaction
 
@@ -113,16 +112,6 @@ def materialize_declaration(event, iscc_note, actor):
     :param actor: The actor's public key
     :return: Created or updated IsccDeclaration
     """
-    # Parse the declared_at timestamp
-    declared_at = isoparse(iscc_note["timestamp"])
-
-    # Check if declaration exists to preserve created_at
-    try:
-        existing = IsccDeclaration.objects.get(iscc_id=event.iscc_id)
-        created_at = existing.created_at
-    except IsccDeclaration.DoesNotExist:
-        created_at = event.timestamp
-
     # Get or create the declaration
     declaration, created = IsccDeclaration.objects.update_or_create(
         iscc_id=event.iscc_id,
@@ -134,8 +123,6 @@ def materialize_declaration(event, iscc_note, actor):
             "actor": actor,
             "gateway": iscc_note.get("gateway", ""),
             "metahash": iscc_note.get("metahash", ""),
-            "declared_at": declared_at,
-            "created_at": created_at,
             "deleted": event.event_type == Event.EventType.DELETED,
         },
     )
@@ -258,11 +245,12 @@ def delete_declaration(iscc_id, actor):
                 raise SequencerError("Cannot delete declaration owned by another actor")
 
             # Reconstruct the iscc_note from the declaration
+            # Note: timestamp is not needed for deletion events as it's in the ISCC-ID
             iscc_note = {
                 "iscc_code": declaration.iscc_code,
                 "datahash": declaration.datahash,
                 "nonce": declaration.nonce,
-                "timestamp": declaration.declared_at.isoformat(),
+                "timestamp": "2025-01-01T00:00:00Z",  # Placeholder - not used in deletion
             }
 
             if declaration.gateway:

@@ -37,8 +37,6 @@ class TestStateValidation:
             datahash="1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
             nonce="fedcba9876543210fedcba9876543210",
             actor="7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
-            declared_at="2024-01-01T00:00:00Z",
-            created_at="2024-01-01T00:00:00Z",
         )
 
         # Should raise for existing nonce
@@ -65,8 +63,6 @@ class TestStateValidation:
             datahash="1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
             nonce="fedcba9876543210fedcba9876543210",
             actor="7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
-            declared_at="2024-01-01T00:00:00Z",
-            created_at="2024-01-01T00:00:00Z",
             deleted=False,
         )
 
@@ -90,8 +86,6 @@ class TestStateValidation:
             datahash="1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
             nonce="fedcba9876543210fedcba9876543210",
             actor="7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
-            declared_at="2024-01-01T00:00:00Z",
-            created_at="2024-01-01T00:00:00Z",
             deleted=True,  # Marked as deleted
         )
 
@@ -118,8 +112,6 @@ class TestStateValidation:
             datahash="1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
             nonce="fedcba9876543210fedcba9876543210",
             actor="7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
-            declared_at="2024-01-01T00:00:00Z",
-            created_at="2024-01-01T00:00:00Z",
             deleted=False,
         )
 
@@ -143,8 +135,6 @@ class TestStateValidation:
             datahash="1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
             nonce="fedcba9876543210fedcba9876543210",
             actor="7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
-            declared_at="2024-01-01T00:00:00Z",
-            created_at="2024-01-01T00:00:00Z",
         )
 
         assert check_iscc_id_exists(b"12345678") is True
@@ -163,8 +153,6 @@ class TestStateValidation:
             datahash="1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
             nonce="fedcba9876543210fedcba9876543210",
             actor="7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
-            declared_at="2024-01-01T00:00:00Z",
-            created_at="2024-01-01T00:00:00Z",
         )
 
         result = get_declaration_by_iscc_id(b"12345678")
@@ -201,8 +189,6 @@ class TestStateValidation:
             datahash="1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
             nonce="fedcba9876543210fedcba9876543210",
             actor="7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
-            declared_at="2024-01-01T00:00:00Z",
-            created_at="2024-01-01T00:00:00Z",
         )
 
         iscc_note = {
@@ -225,8 +211,6 @@ class TestStateValidation:
             datahash="1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
             nonce="fedcba9876543210fedcba9876543210",
             actor="7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
-            declared_at="2024-01-01T00:00:00Z",
-            created_at="2024-01-01T00:00:00Z",
         )
 
         iscc_note = {
@@ -276,8 +260,6 @@ class TestStateValidation:
             datahash="1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
             nonce="fedcba9876543210fedcba9876543210",
             actor="7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
-            declared_at="2024-01-01T00:00:00Z",
-            created_at="2024-01-01T00:00:00Z",
         )
 
         IsccDeclaration.objects.create(
@@ -287,8 +269,6 @@ class TestStateValidation:
             datahash="1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6d",
             nonce="existingnonce123456789abcdef0123",
             actor="7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
-            declared_at="2024-01-01T00:00:00Z",
-            created_at="2024-01-01T00:00:00Z",
         )
 
         iscc_note = {

@@ -40,6 +40,8 @@ def create_iscc():
 def create_note_min(nonce=None, timestamp=None, keypair=None):
     """Create a minimal IsccNote"""
     nonce = nonce or icr.create_nonce(0)
+    # Client-side timestamp with millisecond precision (3 decimal places) for cross-platform compatibility
+    # The hub will generate its own microsecond-precision timestamp in the ISCC-ID
     timestamp = timestamp or datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
     keypair = keypair or icr.key_generate()
     data = create_iscc()
@@ -57,6 +59,8 @@ def create_note_min(nonce=None, timestamp=None, keypair=None):
 def create_note_full(nonce=None, timestamp=None, keypair=None, controller=None):
     """Create a full IsccNote"""
     nonce = nonce or icr.create_nonce(0)
+    # Client-side timestamp with millisecond precision (3 decimal places) for cross-platform compatibility
+    # The hub will generate its own microsecond-precision timestamp in the ISCC-ID
     timestamp = timestamp or datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
     controller = controller or "did:web:example.com"
     keypair = keypair or icr.key_generate(controller=controller)

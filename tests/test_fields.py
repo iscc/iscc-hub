@@ -238,3 +238,25 @@ def test_isccid_field_formfield_with_kwargs():
     assert isinstance(form_field, CharField)
     assert form_field.max_length == 30
     assert form_field.help_text == "Custom help"
+
+
+def test_iscc_id_field_value_to_string():
+    # type: () -> None
+    """Test value_to_string method for serialization."""
+    field = IsccIDField()
+
+    # Create a mock object with ISCC-ID value
+    class MockObject:
+        iscc_id = b"\x19h\xb9%\x16\x10\xd0\x00"  # 8-byte binary representation
+
+    obj = MockObject()
+
+    # Test with valid value
+    field.attname = "iscc_id"
+    result = field.value_to_string(obj)
+    assert result == "ISCC:MAIRS2FZEULBBUAA"
+
+    # Test with None value
+    obj.iscc_id = None
+    result = field.value_to_string(obj)
+    assert result is None

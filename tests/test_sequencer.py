@@ -134,9 +134,7 @@ def test_materialize_declaration_updates_existing(minimal_iscc_note, example_key
     initial_event = Event.objects.create(
         event_type=Event.EventType.CREATED, iscc_id=b"12345678", iscc_note=minimal_iscc_note
     )
-    initial_decl = materialize_declaration(initial_event, minimal_iscc_note, actor)
-    initial_created_at = initial_decl.created_at
-
+    materialize_declaration(initial_event, minimal_iscc_note, actor)
     # Create update event with new nonce
     updated_note = minimal_iscc_note.copy()
     updated_note["nonce"] = "111faa3f18c7b9407a48536a9b00c4cb"
@@ -150,7 +148,7 @@ def test_materialize_declaration_updates_existing(minimal_iscc_note, example_key
     assert IsccID(updated_decl.iscc_id).bytes_body == b"12345678"
     assert updated_decl.event_seq == update_event.seq
     assert updated_decl.nonce == updated_note["nonce"]
-    assert updated_decl.created_at == initial_created_at  # Created_at should not change
+    # ISCC-ID should remain the same (contains creation timestamp)
 
 
 @pytest.mark.django_db

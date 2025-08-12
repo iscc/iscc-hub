@@ -41,9 +41,13 @@ class Event(models.Model):
     # The IsccNote stored as JSON
     iscc_note = models.JSONField(help_text="The logged IsccNote as JSON")
 
-    # Auto-generated timestamp when the event is created
-    timestamp = models.DateTimeField(
-        auto_now_add=True, db_index=True, help_text="Timestamp when the event was logged"
+    # Event timestamp - when this specific event occurred
+    # For CREATED events: same as ISCC-ID timestamp (initial declaration time)
+    # For UPDATED/DELETED events: when the update/deletion happened
+    event_time = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        help_text="When this event was logged (for updates/deletes, differs from ISCC-ID timestamp)",
     )
 
     class Meta:
@@ -51,10 +55,10 @@ class Event(models.Model):
         ordering = ["seq"]
         indexes = [
             models.Index(fields=["iscc_id", "seq"]),
-            models.Index(fields=["timestamp"]),
+            models.Index(fields=["event_time"]),
         ]
-        verbose_name = "ISCC Event"
-        verbose_name_plural = "ISCC Events"
+        verbose_name = "Event"
+        verbose_name_plural = "Events"
 
     def __str__(self):
         # type: () -> str
@@ -111,12 +115,6 @@ class IsccDeclaration(models.Model):
     )
 
     # Timestamps
-    declared_at = models.DateTimeField(
-        db_index=True, help_text="Declaration timestamp from the signed IsccNote"
-    )
-
-    created_at = models.DateTimeField(db_index=True, help_text="When this ISCC-ID was first created")
-
     updated_at = models.DateTimeField(
         auto_now=True, db_index=True, help_text="When this declaration was last modified"
     )
@@ -128,16 +126,18 @@ class IsccDeclaration(models.Model):
 
     class Meta:
         db_table = "iscc_declaration"
+        verbose_name = "Declaration"
+        verbose_name_plural = "Declarations"
         indexes = [
-            # Discovery queries
-            models.Index(fields=["iscc_code", "-created_at"]),
-            models.Index(fields=["datahash", "-created_at"]),
+            # Discovery queries (use iscc_id for chronological ordering)
+            models.Index(fields=["iscc_code", "-iscc_id"]),
+            models.Index(fields=["datahash", "-iscc_id"]),
             # Actor queries
-            models.Index(fields=["actor", "-created_at"]),
+            models.Index(fields=["actor", "-iscc_id"]),
             models.Index(fields=["actor", "iscc_code"]),
             models.Index(fields=["actor", "datahash"]),
             # Active declarations
-            models.Index(fields=["deleted", "-created_at"]),
+            models.Index(fields=["deleted", "-iscc_id"]),
             # Event reconstruction
             models.Index(fields=["event_seq", "deleted"]),
         ]

@@ -113,14 +113,19 @@ extra-fields = "forbid"
 strict-nullable = true
 
 [tool.poe.tasks]
+# Code quality tasks
 build-schema = { cmd = "uv run datamodel-codegen", help = "Build pydantic models from openapi.yaml" }
 check-python = { cmd = "uv run ruff check --fix --unsafe-fixes .", help = "Check python code"}
 check-types = { cmd = "uv run pyright", help = "Run Pyright type checking"}
 format-python = { cmd = "uv run ruff format .", help = "Format python code"}
 format-markdown = { cmd = "uv run mdformat . notes", help = "Format python code"}
 test-python = {cmd = "uv run pytest", help = "Run python tests"}
-load-fixtures = { cmd = "uv run python manage.py loaddata test_data", help = "Load initial fixture data for testing" }
+
+# Development tasks
+reset = { cmd = "uv run python scripts/reset_dev_db.py", help = "Reset dev database with migrations, demo user, and fixtures" }
 serve = { cmd = "uv run uvicorn iscc_hub.asgi:application --host localhost --port 8000 --reload --use-colors", help = "Serve with uvicorn for development" }
+fixtures-load = { cmd = "uv run python manage.py loaddata test_data", help = "Load fixture data for testing" }
+fixtures-generate = { cmd = "uv run python scripts/generate_fixtures.py", help = "Generate realistic fixture data from valid IsccNotes" }
 
 all = [
     "build-schema",

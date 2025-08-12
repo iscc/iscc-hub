@@ -31,7 +31,8 @@ APPEND_SLASH = False
 
 
 INSTALLED_APPS = [
-    "unfold",  # before django.contrib.admin
+    "unfold",
+    "unfold.contrib.filters",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",

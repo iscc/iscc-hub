@@ -1,6 +1,17 @@
 """
 Convenience class for ISCC-ID
 
+Timestamp Precision:
+    The ISCC-ID encodes a 52-bit microsecond timestamp representing the hub's
+    declaration/logging time with microsecond precision. This is distinct from
+    the client-side "timestamp" field in IsccNote, which uses millisecond
+    precision for cross-platform compatibility.
+
+    - Client timestamp (IsccNote.timestamp): Millisecond precision (3 decimal places)
+      Time when the client created/signed the declaration
+    - Hub timestamp (ISCC-ID): Microsecond precision (6 decimal places)
+      Time when the hub sequenced/logged the declaration
+
 The ISCC-IDv1 has the following format:
 - Scheme Prefix: `ISCC:`
 - Base32-Encoded concatenation of:

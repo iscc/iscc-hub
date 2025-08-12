@@ -2,10 +2,7 @@
 Tests for Django models.
 """
 
-from datetime import datetime
-
 import pytest
-from django.utils import timezone
 
 from iscc_hub.models import Event, IsccDeclaration
 from tests.conftest import generate_test_iscc_id
@@ -23,7 +20,7 @@ def test_event_model_creation(minimal_iscc_note):
     assert event.iscc_id == "ISCC:MEAJU3PC4ICWCTYI"
     assert event.event_type == Event.EventType.CREATED
     assert event.iscc_note == minimal_iscc_note
-    assert event.timestamp is not None
+    assert event.event_time is not None
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
@@ -154,10 +151,15 @@ def test_event_indexes(minimal_iscc_note):
     results = Event.objects.filter(event_type=Event.EventType.CREATED)
     assert results.count() >= 1
 
-    # Query by timestamp (indexed)
+    # Query by event_time (indexed)
     first_event = Event.objects.first()
-    results = Event.objects.filter(timestamp__gte=first_event.timestamp)
+    results = Event.objects.filter(event_time__gte=first_event.event_time)
     assert results.count() == 5
+
+    # Test chronological ordering via iscc_id
+    events = list(Event.objects.all())
+    assert len(events) == 5
+    # Events should be ordered by sequence
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
@@ -173,8 +175,8 @@ def test_event_model_meta():
     assert Event._meta.ordering == ["seq"]
 
     # Test verbose names
-    assert Event._meta.verbose_name == "ISCC Event"
-    assert Event._meta.verbose_name_plural == "ISCC Events"
+    assert Event._meta.verbose_name == "Event"
+    assert Event._meta.verbose_name_plural == "Events"
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
@@ -226,7 +228,6 @@ def test_iscc_declaration_creation():
     """
     Test basic IsccDeclaration model creation.
     """
-    now = timezone.now()
     declaration = IsccDeclaration.objects.create(
         iscc_id="ISCC:MEAJU3PC4ICWCTYI",
         event_seq=1,
@@ -234,8 +235,6 @@ def test_iscc_declaration_creation():
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="000abcd1234567890abcdef123456789",
         actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
-        declared_at=now,
-        created_at=now,
     )
 
     assert declaration.iscc_id == "ISCC:MEAJU3PC4ICWCTYI"
@@ -252,7 +251,6 @@ def test_iscc_declaration_with_optional_fields():
     """
     Test IsccDeclaration with optional fields.
     """
-    now = timezone.now()
     declaration = IsccDeclaration.objects.create(
         iscc_id="ISCC:MEAJU3PC4ICWCTYI",
         event_seq=1,
@@ -262,8 +260,6 @@ def test_iscc_declaration_with_optional_fields():
         actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
         gateway="https://gateway.example.com",
         metahash="1e20abcd1234567890abcdef1234567890abcdef1234567890abcdef12345678",
-        declared_at=now,
-        created_at=now,
     )
 
     assert declaration.gateway == "https://gateway.example.com"
@@ -276,8 +272,6 @@ def test_iscc_declaration_str_representation():
     """
     Test IsccDeclaration string representation.
     """
-    now = timezone.now()
-
     # Test active declaration
     active_declaration = IsccDeclaration.objects.create(
         iscc_id=generate_test_iscc_id(seq=60),
@@ -286,8 +280,6 @@ def test_iscc_declaration_str_representation():
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="000abcd1234567890abcdef123456789",
         actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
-        declared_at=now,
-        created_at=now,
         deleted=False,
     )
     assert str(active_declaration) == f"{generate_test_iscc_id(seq=60)} (active)"
@@ -300,8 +292,6 @@ def test_iscc_declaration_str_representation():
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="001abcd1234567890abcdef123456789",
         actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
-        declared_at=now,
-        created_at=now,
         deleted=True,
     )
     assert str(deleted_declaration) == f"{generate_test_iscc_id(seq=61)} (deleted)"
@@ -313,8 +303,6 @@ def test_iscc_declaration_unique_constraints():
     """
     Test unique constraints on IsccDeclaration.
     """
-    now = timezone.now()
-
     # Create first declaration
     IsccDeclaration.objects.create(
         iscc_id=generate_test_iscc_id(seq=70),
@@ -323,8 +311,6 @@ def test_iscc_declaration_unique_constraints():
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="000abcd1234567890abcdef123456789",
         actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
-        declared_at=now,
-        created_at=now,
     )
 
     # Test iscc_id uniqueness (primary key)
@@ -338,8 +324,6 @@ def test_iscc_declaration_unique_constraints():
             datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
             nonce="001abcd1234567890abcdef123456789",
             actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
-            declared_at=now,
-            created_at=now,
         )
 
     # Test event_seq uniqueness
@@ -351,8 +335,6 @@ def test_iscc_declaration_unique_constraints():
             datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
             nonce="002abcd1234567890abcdef123456789",
             actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
-            declared_at=now,
-            created_at=now,
         )
 
     # Test nonce uniqueness
@@ -364,8 +346,6 @@ def test_iscc_declaration_unique_constraints():
             datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
             nonce="000abcd1234567890abcdef123456789",  # Duplicate
             actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
-            declared_at=now,
-            created_at=now,
         )
 
 
@@ -375,8 +355,6 @@ def test_iscc_declaration_soft_delete():
     """
     Test soft delete functionality.
     """
-    now = timezone.now()
-
     # Create declaration
     declaration = IsccDeclaration.objects.create(
         iscc_id=generate_test_iscc_id(seq=80),
@@ -385,8 +363,6 @@ def test_iscc_declaration_soft_delete():
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="000abcd1234567890abcdef123456789",
         actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
-        declared_at=now,
-        created_at=now,
     )
 
     # Initially not deleted
@@ -411,8 +387,6 @@ def test_iscc_declaration_indexes():
     """
     Test that indexes work for efficient queries.
     """
-    now = timezone.now()
-
     # Create multiple declarations
     for i in range(5):
         IsccDeclaration.objects.create(
@@ -422,8 +396,6 @@ def test_iscc_declaration_indexes():
             datahash=f"1e20{'a' * 64}" if i % 2 == 0 else f"1e20{'b' * 64}",
             nonce=f"{i:03d}abcd1234567890abcdef123456789",
             actor=f"actor{i % 3}",  # Three different actors
-            declared_at=now,
-            created_at=now,
             deleted=(i == 4),  # Last one is deleted
         )
 
@@ -459,8 +431,6 @@ def test_iscc_declaration_update():
     """
     Test updating an IsccDeclaration (full replacement).
     """
-    now = timezone.now()
-
     # Create initial declaration
     declaration = IsccDeclaration.objects.create(
         iscc_id=generate_test_iscc_id(seq=100),
@@ -470,8 +440,6 @@ def test_iscc_declaration_update():
         nonce="000abcd1234567890abcdef123456789",
         actor="actor1",
         gateway="https://old.gateway.com",
-        declared_at=now,
-        created_at=now,
     )
 
     original_updated_at = declaration.updated_at
@@ -503,6 +471,10 @@ def test_iscc_declaration_model_meta():
     # Test db_table
     assert IsccDeclaration._meta.db_table == "iscc_declaration"
 
+    # Test verbose names
+    assert IsccDeclaration._meta.verbose_name == "Declaration"
+    assert IsccDeclaration._meta.verbose_name_plural == "Declarations"
+
     # Test primary key
     pk_field = IsccDeclaration._meta.pk
     assert pk_field.name == "iscc_id"
@@ -513,12 +485,12 @@ def test_iscc_declaration_model_meta():
         index_fields.append(index.fields)
 
     # Verify expected indexes are present
-    assert ["iscc_code", "-created_at"] in index_fields
-    assert ["datahash", "-created_at"] in index_fields
-    assert ["actor", "-created_at"] in index_fields
+    assert ["iscc_code", "-iscc_id"] in index_fields
+    assert ["datahash", "-iscc_id"] in index_fields
+    assert ["actor", "-iscc_id"] in index_fields
     assert ["actor", "iscc_code"] in index_fields
     assert ["actor", "datahash"] in index_fields
-    assert ["deleted", "-created_at"] in index_fields
+    assert ["deleted", "-iscc_id"] in index_fields
     assert ["event_seq", "deleted"] in index_fields
 
 
@@ -529,7 +501,6 @@ def test_iscc_declaration_duplicate_content_allowed():
     Test that the same actor can declare the same content multiple times.
     This verifies no database constraints prevent duplicate declarations.
     """
-    now = timezone.now()
     actor = "z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1"
     iscc_code = "ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ"
     datahash = "1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c"
@@ -542,8 +513,6 @@ def test_iscc_declaration_duplicate_content_allowed():
         datahash=datahash,
         nonce="000abcd1234567890abcdef123456789",
         actor=actor,
-        declared_at=now,
-        created_at=now,
     )
 
     # Create second declaration with same actor, iscc_code, and datahash
@@ -555,8 +524,6 @@ def test_iscc_declaration_duplicate_content_allowed():
         datahash=datahash,  # Same hash
         nonce="001abcd1234567890abcdef123456789",  # Different nonce
         actor=actor,  # Same actor
-        declared_at=now,
-        created_at=now,
     )
 
     # Verify both exist

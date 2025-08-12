@@ -43,7 +43,6 @@ def iscc_declaration():
         gateway="https://example.com",
         metahash="test_metahash",
         event_seq=1,
-        declared_at=datetime.now(),
         deleted=False,
     )
 
@@ -76,7 +75,8 @@ class TestIsccDeclarationAdmin:
             "iscc_code_short",
             "actor_short",
             "gateway",
-            "declared_at",
+            "creation_time",
+            "updated_at",
             "is_deleted",
         ]
         assert admin_obj.list_display == expected
@@ -139,6 +139,20 @@ class TestIsccDeclarationAdmin:
         result = admin_obj.is_deleted(iscc_declaration)
         assert "✓ Active" in result
         assert "color: green" in result
+
+    def test_creation_time(self, iscc_declaration):
+        # type: (IsccDeclaration) -> None
+        """Test creation time extraction from ISCC-ID."""
+        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
+        # Test with valid ISCC-ID
+        iscc_declaration.iscc_id = "ISCC:MEAJU3PC4ICWCTYI"
+        result = admin_obj.creation_time(iscc_declaration)
+        assert result == "2056-02-02T20:12:57.217556Z"
+
+        # Test with None ISCC-ID
+        iscc_declaration.iscc_id = None
+        result = admin_obj.creation_time(iscc_declaration)
+        assert result == "—"
 
     def test_get_actions(self, admin_request):
         # type: (HttpRequest) -> None
@@ -254,6 +268,20 @@ class TestEventAdmin:
         result = admin_obj.iscc_id_display(event)
         assert "<code>ISCC:KAA777777UJZXHQ2</code>" in result
 
+    def test_iscc_id_timestamp(self, event):
+        # type: (Event) -> None
+        """Test ISCC-ID timestamp extraction."""
+        admin_obj = EventAdmin(Event, site)
+        # Test with valid ISCC-ID
+        event.iscc_id = "ISCC:MEAJU3PC4ICWCTYI"
+        result = admin_obj.iscc_id_timestamp(event)
+        assert result == "2056-02-02T20:12:57.217556Z"
+
+        # Test with None ISCC-ID
+        event.iscc_id = None
+        result = admin_obj.iscc_id_timestamp(event)
+        assert result == "—"
+
     def test_iscc_note_formatted_valid_json(self, event):
         # type: (Event) -> None
         """Test JSON formatting for valid data."""
@@ -286,3 +314,19 @@ class TestEventAdmin:
         iscc_hub.admin.json.dumps = original_dumps
 
         assert result == "fallback_string"
+
+    def test_event_time_iso_with_time(self, event):
+        # type: (Event) -> None
+        """Test event time ISO formatting with timestamp."""
+        admin_obj = EventAdmin(Event, site)
+        event.event_time = datetime(2025, 8, 12, 10, 30, 45, 123456)
+        result = admin_obj.event_time_iso(event)
+        assert result == "2025-08-12T10:30:45.123Z"
+
+    def test_event_time_iso_without_time(self, event):
+        # type: (Event) -> None
+        """Test event time ISO formatting without timestamp."""
+        admin_obj = EventAdmin(Event, site)
+        event.event_time = None
+        result = admin_obj.event_time_iso(event)
+        assert result == "—"

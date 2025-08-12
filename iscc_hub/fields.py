@@ -114,6 +114,15 @@ class IsccIDField(models.BinaryField):
 
         return bytes(IsccID(python_value))
 
+    def value_to_string(self, obj):
+        # type: (object) -> str | None
+        """Convert field value to string for serialization."""
+        value = self.value_from_object(obj)  # type: ignore[arg-type]
+        if value is None:
+            return None
+        # Return the ISCC-ID string representation for serialization
+        return str(IsccID(value))
+
     def formfield(self, **kwargs):
         # type: (**object) -> CharField
         """Return a CharField for forms and admin interface."""

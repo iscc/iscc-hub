@@ -8,6 +8,7 @@ from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin
+from unfold.contrib.filters.admin import ChoicesRadioFilter
 
 from iscc_hub.models import Event, IsccDeclaration
 
@@ -21,14 +22,13 @@ class IsccDeclarationAdmin(ModelAdmin):
         "iscc_code_short",
         "actor_short",
         "gateway",
-        "declared_at",
+        "creation_time",
+        "updated_at",
         "is_deleted",
     ]
 
     list_filter = [
         "deleted",
-        "declared_at",
-        "created_at",
         "updated_at",
     ]
 
@@ -43,7 +43,7 @@ class IsccDeclarationAdmin(ModelAdmin):
     readonly_fields = [
         "iscc_id",
         "event_seq",
-        "created_at",
+        "creation_time",
         "updated_at",
     ]
 
@@ -51,12 +51,12 @@ class IsccDeclarationAdmin(ModelAdmin):
         ("Core Identification", {"fields": ("iscc_id", "iscc_code", "datahash", "nonce")}),
         ("Actor Information", {"fields": ("actor", "gateway")}),
         ("Metadata", {"fields": ("metahash", "event_seq")}),
-        ("Timestamps", {"fields": ("declared_at", "created_at", "updated_at"), "classes": ("collapse",)}),
+        ("Timestamps", {"fields": ("creation_time", "updated_at"), "classes": ("collapse",)}),
         ("Status", {"fields": ("deleted",)}),
     )
 
     list_per_page = 50
-    date_hierarchy = "declared_at"
+    date_hierarchy = "updated_at"
 
     def iscc_id_display(self, obj):
         # type: (IsccDeclaration) -> str
@@ -96,6 +96,19 @@ class IsccDeclarationAdmin(ModelAdmin):
     is_deleted.short_description = "Status"
     is_deleted.admin_order_field = "deleted"
 
+    def creation_time(self, obj):
+        # type: (IsccDeclaration) -> str
+        """Extract creation timestamp from ISCC-ID."""
+        if obj.iscc_id:
+            from iscc_hub.iscc_id import IsccID
+
+            iscc_obj = IsccID(obj.iscc_id)
+            return iscc_obj.timestamp_iso
+        return "—"
+
+    creation_time.short_description = "Created"
+    creation_time.admin_order_field = "iscc_id"
+
     def get_actions(self, request):
         # type: (HttpRequest) -> dict[str, Any]
         """Add custom batch actions."""
@@ -129,13 +142,16 @@ class EventAdmin(ModelAdmin):
         "seq",
         "event_type_display",
         "iscc_id_display",
-        "timestamp",
+        "iscc_id_timestamp",
+        "event_time_iso",
     ]
 
     list_filter = [
         "event_type",
-        "timestamp",
     ]
+
+    list_filter_sheet = False
+    list_filter_submit = False
 
     search_fields = [
         "seq",
@@ -146,17 +162,18 @@ class EventAdmin(ModelAdmin):
         "seq",
         "event_type",
         "iscc_id",
+        "iscc_id_timestamp",
+        "event_time",
         "iscc_note_formatted",
-        "timestamp",
     ]
 
     fieldsets = (
-        ("Event Information", {"fields": ("seq", "event_type", "iscc_id", "timestamp")}),
+        ("Event Information", {"fields": ("seq", "event_type", "iscc_id", "iscc_id_timestamp", "event_time")}),
         ("Event Data", {"fields": ("iscc_note_formatted",), "classes": ("wide",)}),
     )
 
     list_per_page = 100
-    date_hierarchy = "timestamp"
+    date_hierarchy = "event_time"
     ordering = ["-seq"]
 
     def has_add_permission(self, request):
@@ -195,6 +212,29 @@ class EventAdmin(ModelAdmin):
 
     iscc_id_display.short_description = "ISCC-ID"
     iscc_id_display.admin_order_field = "iscc_id"
+
+    def iscc_id_timestamp(self, obj):
+        # type: (Event) -> str
+        """Extract initial declaration timestamp from ISCC-ID."""
+        if obj.iscc_id:
+            from iscc_hub.iscc_id import IsccID
+
+            iscc_obj = IsccID(obj.iscc_id)
+            return iscc_obj.timestamp_iso
+        return "—"
+
+    iscc_id_timestamp.short_description = "Declaration Time (ISCC-ID)"
+    iscc_id_timestamp.admin_order_field = "iscc_id"
+
+    def event_time_iso(self, obj):
+        # type: (Event) -> str
+        """Display event time in ISO format with millisecond precision."""
+        if obj.event_time:
+            return obj.event_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        return "—"
+
+    event_time_iso.short_description = "Event Time"
+    event_time_iso.admin_order_field = "event_time"
 
     def iscc_note_formatted(self, obj):
         # type: (Event) -> str
