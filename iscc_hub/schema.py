@@ -17,7 +17,7 @@ class ErrorResponse(Schema):
     )
     error: Annotated[str, Field(description="Human-readable error message\n")]
     detail: Annotated[str | None, Field(description="Additional error details (optional)\n")] = None
-    request_id: Annotated[UUID | None, Field(description="Unique request identifier for debugging")] = None
+    request_id: Annotated[UUID | None, Field(description="Unique request identifier for debugging\n")] = None
 
 
 class Proof(Schema):
@@ -38,7 +38,15 @@ class Proof(Schema):
 
 
 class Unit(RootModel[str]):
-    root: Annotated[str, Field(min_length=14, pattern="^ISCC:[A-Z0-9]{10,73}$")]
+    root: Annotated[
+        str,
+        Field(
+            description="Individual ISCC-UNIT (Meta, Content, Data, Instance, or Semantic)\n**Length:** 21 characters (64-bit) or 60+ characters (256-bit)\n",
+            max_length=73,
+            min_length=21,
+            pattern="^ISCC:[A-Z0-9]{16,68}$",
+        ),
+    ]
 
 
 class IsccSignature(Schema):
@@ -52,7 +60,7 @@ class IsccSignature(Schema):
     controller: Annotated[
         str | None,
         Field(
-            description="URI that identifies the key controller\n\n**Examples:**\n- DID: `did:web:example.com`\n- CID Document URL: `https://controller.example/101`\n"
+            description="URI that identifies the key controller\n\n**Examples:**\n- DID: `did:web:example.com`\n- W3C CID Document URL: `https://controller.example/101`\n\n**Note:** CID refers to W3C Controlled Identifier Document, not IPFS CID.\n"
         ),
     ] = None
     keyid: Annotated[
@@ -82,16 +90,25 @@ class IsccNote(Schema):
     iscc_code: Annotated[
         str,
         Field(
-            description="The ISCC-CODE to be declared\n\n**Format:** `ISCC:` followed by 13-73 alphanumeric characters\n",
-            examples=["ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"],
-            pattern="^ISCC:[A-Z0-9]{13,73}$",
+            description="The ISCC-CODE to be declared\n\n**Format:** `ISCC:` followed by alphanumeric characters\n**Note:** Must be a composite ISCC-CODE, not an individual ISCC-UNIT\n**Length:** 34-73 characters total (minimum: Data-Code + Instance-Code 64-bit each)\n",
+            examples=[
+                "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
+                "ISCC:KACXGDR3R7NA44D6RTDMPXW7FBNJS6MYMHYM6JIK7THYC6D2P6KUPCI",
+                "ISCC:KUABKF53JEQIDQQ7YU7LB4VHCHGWU",
+            ],
+            max_length=73,
+            min_length=34,
+            pattern="^ISCC:[A-Z0-9]{29,68}$",
         ),
     ]
     datahash: Annotated[
         str,
         Field(
             description="Blake3 hash of the declared asset\n\n**Format:** 256-bit lowercase hex-encoded multihash\n**Prefix:** `1e20` (Blake3 identifier)\n**Length:** Exactly 68 characters\n",
-            examples=["1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"],
+            examples=[
+                "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
+                "1e201234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            ],
             max_length=68,
             min_length=68,
             pattern="^1e20[0-9a-f]{64}$",
@@ -101,14 +118,17 @@ class IsccNote(Schema):
         datetime,
         Field(
             description="RFC 3339 formatted timestamp in UTC with millisecond precision\n\n**Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`\n**Example:** `2025-08-04T12:34:56.789Z`\n\n**Requirements:**\n- The `Z` suffix MUST be used to indicate UTC\n- Indicates when the IsccNote was created and signed\n- HUBs MUST reject timestamps outside ±10 minutes from current time\n",
-            examples=["2025-01-15T12:00:00.000Z"],
+            examples=["2025-01-15T12:00:00.000Z", "2025-08-12T14:30:00.123Z"],
         ),
     ]
     nonce: Annotated[
         str,
         Field(
             description="Unique 128-bit random value for replay protection\n\n**Format:** 32 lowercase hex characters\n**Structure:** First 12 bits encode the target hub_id (0-4095)\n",
-            examples=["000faa3f18c7b9407a48536a9b00c4cb"],
+            examples=[
+                "000faa3f18c7b9407a48536a9b00c4cb",
+                "001234567890abcdef1234567890abcd",
+            ],
             max_length=32,
             min_length=32,
             pattern="^[0-9a-f]{32}$",
@@ -133,8 +153,11 @@ class IsccNote(Schema):
     metahash: Annotated[
         str | None,
         Field(
-            description="Blake3 hash of seed metadata (optional)\n\nCreates a cryptographic commitment to the exact metadata state at declaration time.\n\n**Use case:** Allows external registries to store mutable or deletable metadata \nwhile maintaining temporal integrity.\n\n**Format:** 256-bit lowercase hex-encoded multihash\n**Prefix:** `1e20` (Blake3 identifier)\n",
-            examples=["1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"],
+            description="Blake3 hash of seed metadata (optional)\n\nCreates a cryptographic commitment to the exact metadata state at declaration time.\n\n**Use case:** Allows external registries to store mutable or deletable metadata\nwhile maintaining temporal integrity.\n\n**Format:** 256-bit lowercase hex-encoded multihash\n**Prefix:** `1e20` (Blake3 identifier)\n",
+            examples=[
+                "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598",
+                "1e20abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+            ],
             max_length=68,
             min_length=68,
             pattern="^1e20[0-9a-f]{64}$",
@@ -144,7 +167,11 @@ class IsccNote(Schema):
         str | None,
         Field(
             description="URL or URI Template (RFC 6570) for metadata and service discovery\n\n**Supported template variables:**\n- `{iscc_id}` - The assigned ISCC-ID\n- `{iscc_code}` - The declared ISCC-CODE\n- `{pubkey}` - The public key from signature\n- `{datahash}` - The data hash\n- `{controller}` - The key controller from signature\n\n**Requirements:** Must use HTTP or HTTPS scheme\n",
-            examples=["https://example.com/metadata"],
+            examples=[
+                "https://example.com/metadata",
+                "https://gateway.iscc.io/iscc_id/{iscc_id}",
+                "https://api.example.com/content/{datahash}/metadata",
+            ],
             max_length=2048,
             min_length=8,
             pattern="^https?://[^\\s]+",
@@ -166,8 +193,10 @@ class Declaration(Schema):
     iscc_id: Annotated[
         str,
         Field(
-            description="Unique ISCC-ID assigned by the ISCC-HUB\n\n**Format:** `ISCC:` followed by encoded timestamp and hub ID\n",
-            pattern="^ISCC:[A-Z0-9]{10,}$",
+            description="Unique ISCC-ID assigned by the ISCC-HUB\n\n**Format:** `ISCC:` followed by 16 characters encoding timestamp and hub ID\n**Structure:** 64-bit identifier (52-bit timestamp + 12-bit hub ID)\n",
+            max_length=21,
+            min_length=21,
+            pattern="^ISCC:[A-Z0-9]{16}$",
         ),
     ]
     iscc_note: IsccNote

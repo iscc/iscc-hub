@@ -1,3 +1,6 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "http://purl.org/iscc/schema/iscc-signature.json"
+title: "ISCC Signature"
 type: object
 description: |
   ISCC Signature object providing cryptographic integrity and optional identity attribution.
@@ -20,7 +23,9 @@ properties:
 
       **Examples:**
       - DID: `did:web:example.com`
-      - CID Document URL: `https://controller.example/101`
+      - W3C CID Document URL: `https://controller.example/101`
+
+      **Note:** CID refers to W3C Controlled Identifier Document, not IPFS CID.
   keyid:
     type: string
     description: |
@@ -41,8 +46,16 @@ properties:
       **Format:** z-base58-btc encoding
       **Pattern:** `^z[1-9A-HJ-NP-Za-km-z]+$`
     pattern: "^z[1-9A-HJ-NP-Za-km-z]+$"
-example:
-  version: "ISCC-SIG v1.0"
-  controller: "did:web:example.com"
-  pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
-  proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
+examples:
+  - version: "ISCC-SIG v1.0"
+    controller: "did:web:example.com"
+    pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+    proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
+  - version: "ISCC-SIG v1.0"
+    pubkey: "z6MkfrQkTJTQzDNVbj7gPYGZvL89vVBEFfK4zePNKhRMPYBk"
+    proof: "z4xJfGKHyiUvq123ABC456DEF789GHI012JKL345MNO678PQR901STU234VWX567YZA890"
+  - version: "ISCC-SIG v1.0"
+    controller: "https://controller.example/101"
+    keyid: "key-1"
+    pubkey: "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+    proof: "z3yW8rT4qP9uX7vS6mN1oL2kJ5hG8fD3cB9zA4xE7yV1qM8nR6pW2tY5iU0oP3mL9kJ8hG5fD2cB1zA6xE9yV3qM"

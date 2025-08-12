@@ -1,7 +1,10 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "http://purl.org/iscc/schema/iscc-receipt.json"
+title: "ISCC Receipt"
 type: object
 description: |
   W3C Verifiable Credential for ISCC declaration
-  
+
   Issued by the ISCC-HUB as proof of declaration with timestamp and sequence number.
 required:
   - '@context'
@@ -22,7 +25,7 @@ properties:
     type: array
     description: |
       Types of the credential
-      
+
       Must include at least `VerifiableCredential` and `IsccReceipt`
     items:
       type: string
@@ -61,7 +64,7 @@ properties:
             type: integer
             description: |
               Gapless sequence number in the event log
-              
+
               **Start:** 0 (first declaration)
               **Guarantee:** No gaps in sequence
             minimum: 0
@@ -69,16 +72,19 @@ properties:
             type: string
             description: |
               Unique ISCC-ID assigned by the ISCC-HUB
-              
-              **Format:** `ISCC:` followed by encoded timestamp and hub ID
-            pattern: "^ISCC:[A-Z0-9]{10,}$"
+
+              **Format:** `ISCC:` followed by 16 characters encoding timestamp and hub ID
+              **Structure:** 64-bit identifier (52-bit timestamp + 12-bit hub ID)
+            pattern: "^ISCC:[A-Z0-9]{16}$"
+            minLength: 21
+            maxLength: 21
           iscc_note:
-            $ref: './IsccNote.yaml'
+            $ref: "./IsccNote.yaml"
   proof:
     type: object
     description: |
       W3C Data Integrity proof created by ISCC-HUB
-      
+
       Uses **EdDSA-JCS-2022** cryptosuite with Ed25519 signatures.
     required:
       - type
@@ -105,6 +111,6 @@ properties:
         type: string
         description: |
           Multibase-encoded signature value
-          
+
           **Format:** z-base58-btc encoding
         pattern: "^z[1-9A-HJ-NP-Za-km-z]+$"
