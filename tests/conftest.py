@@ -30,7 +30,7 @@ def pytest_configure(config):
         "DJANGO_SECRET_KEY": "test-secret-key-for-testing-only",
         "ISCC_HUB_DB_NAME": str(DATA_DIR / "test_db.sqlite3"),
         "ISCC_HUB_DOMAIN": "testserver",
-        "ISCC_HUB_SECKEY": "test-hub-secret-key",
+        "ISCC_HUB_SECKEY": "z3u2hnGm6Vp6zXdB4x51vp2VMGqHfB6BcF3cvgkC5aDxPsJR",
         "ISCC_HUB_ID": "1",
         "DJANGO_ALLOWED_HOSTS": "testserver,localhost",
         "NINJA_SKIP_REGISTRY": "1",  # Skip Ninja registry check for testing

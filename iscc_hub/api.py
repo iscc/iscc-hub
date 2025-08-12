@@ -1,5 +1,6 @@
+import iscc_crypto as icr
 from django.conf import settings
-from django.http import HttpRequest
+from django.http import HttpRequest, JsonResponse
 from ninja import NinjaAPI
 
 import iscc_hub
@@ -27,3 +28,27 @@ async def health(request):
     description = "ISCC-HUB service is healthy"
 
     return {"status": status, "version": version, "description": description}
+
+
+@api.get("/.well-known/did.json")
+def did_document(request):
+    # type: (object) -> JsonResponse
+    """
+    Serve the notary's DID document for DID:WEB resolution.
+
+    Implements W3C DID Method Web specification requirements:
+    - Always returns application/json content type
+    - Includes CORS headers for cross-origin access
+
+    :param request: The incoming HTTP request
+    :return: JsonResponse with DID document or error
+    """
+    controller = f"did:web:{settings.ISCC_HUB_DOMAIN}"
+    keypair = icr.key_from_secret(settings.ISCC_HUB_SECKEY, controller=controller)
+
+    response = JsonResponse(keypair.controller_document, content_type="application/json")
+
+    # Add CORS header as required by W3C DID Method Web spec
+    response["Access-Control-Allow-Origin"] = "*"
+
+    return response

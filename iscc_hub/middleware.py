@@ -26,6 +26,11 @@ def ContentNegotiationMiddleware(get_response):
     def determine_urlconf(request):
         # type: (HttpRequest) -> None
         """Determine and set the appropriate URL configuration."""
+        # Always serve .well-known/did.json as JSON API per W3C DID Method Web spec
+        if request.path == "/.well-known/did.json":
+            request.urlconf = "iscc_hub.urls_api"  # type: ignore
+            return
+
         # Check for explicit format override via query parameter
         format_param = request.GET.get("format")
         if format_param:

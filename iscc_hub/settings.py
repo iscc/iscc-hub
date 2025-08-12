@@ -21,6 +21,9 @@ ISCC_HUB_DOMAIN = env("ISCC_HUB_DOMAIN")
 ISCC_HUB_SECKEY = env("ISCC_HUB_SECKEY")
 ISCC_HUB_ID = env.int("ISCC_HUB_ID")
 
+####################################################################################################
+
+
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=(ISCC_HUB_DOMAIN,))
 
 # Disable automatic trailing slash appending for clean URLs
