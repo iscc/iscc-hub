@@ -52,7 +52,7 @@ class IsccSignature(Schema):
     controller: Annotated[
         str | None,
         Field(
-            description="URI that identifies the key controller\n\n**Examples:**\n- DID: `did:web:example.com`\n- CID: `ipfs://QmXyz...`\n"
+            description="URI that identifies the key controller\n\n**Examples:**\n- DID: `did:web:example.com`\n- CID Document URL: `https://controller.example/101`\n"
         ),
     ] = None
     keyid: Annotated[

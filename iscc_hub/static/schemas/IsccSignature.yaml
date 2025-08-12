@@ -1,7 +1,7 @@
 type: object
 description: |
   ISCC Signature object providing cryptographic integrity and optional identity attribution.
-  
+
   The signature follows the **ISCC-SIG v1.0** specification for Ed25519 signatures.
 required:
   - version
@@ -17,10 +17,10 @@ properties:
     type: string
     description: |
       URI that identifies the key controller
-      
+
       **Examples:**
       - DID: `did:web:example.com`
-      - CID: `ipfs://QmXyz...`
+      - CID Document URL: `https://controller.example/101`
   keyid:
     type: string
     description: |
@@ -29,7 +29,7 @@ properties:
     type: string
     description: |
       Ed25519 public key in multibase format
-      
+
       **Format:** z-base58-btc with ED01 prefix
       **Pattern:** `^z[1-9A-HJ-NP-Za-km-z]+$`
     pattern: "^z[1-9A-HJ-NP-Za-km-z]+$"
@@ -37,7 +37,7 @@ properties:
     type: string
     description: |
       EdDSA signature in multibase format
-      
+
       **Format:** z-base58-btc encoding
       **Pattern:** `^z[1-9A-HJ-NP-Za-km-z]+$`
     pattern: "^z[1-9A-HJ-NP-Za-km-z]+$"
