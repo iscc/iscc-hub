@@ -60,8 +60,8 @@ class IsccDeclarationAdmin(ModelAdmin):
 
     def iscc_id_display(self, obj):
         # type: (IsccDeclaration) -> str
-        """Display ISCC-ID with monospace formatting."""
-        return format_html("<code>{}</code>", obj.iscc_id)
+        """Display ISCC-ID."""
+        return str(obj.iscc_id)
 
     iscc_id_display.short_description = "ISCC-ID"
     iscc_id_display.admin_order_field = "iscc_id"
@@ -207,8 +207,8 @@ class EventAdmin(ModelAdmin):
 
     def iscc_id_display(self, obj):
         # type: (Event) -> str
-        """Display ISCC-ID with monospace formatting."""
-        return format_html("<code>{}</code>", obj.iscc_id)
+        """Display ISCC-ID."""
+        return str(obj.iscc_id)
 
     iscc_id_display.short_description = "ISCC-ID"
     iscc_id_display.admin_order_field = "iscc_id"

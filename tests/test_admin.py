@@ -83,10 +83,10 @@ class TestIsccDeclarationAdmin:
 
     def test_iscc_id_display(self, iscc_declaration):
         # type: (IsccDeclaration) -> None
-        """Test ISCC-ID display formatting."""
+        """Test ISCC-ID display."""
         admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
         result = admin_obj.iscc_id_display(iscc_declaration)
-        assert "<code>ISCC:KAA777777UJZXHQ2</code>" in result
+        assert result == "ISCC:KAA777777UJZXHQ2"
 
     def test_iscc_code_short_truncated(self, iscc_declaration):
         # type: (IsccDeclaration) -> None
@@ -263,10 +263,10 @@ class TestEventAdmin:
 
     def test_iscc_id_display(self, event):
         # type: (Event) -> None
-        """Test ISCC-ID display formatting."""
+        """Test ISCC-ID display."""
         admin_obj = EventAdmin(Event, site)
         result = admin_obj.iscc_id_display(event)
-        assert "<code>ISCC:KAA777777UJZXHQ2</code>" in result
+        assert result == "ISCC:KAA777777UJZXHQ2"
 
     def test_iscc_id_timestamp(self, event):
         # type: (Event) -> None
