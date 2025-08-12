@@ -23,6 +23,7 @@ from iscc_hub.sequencer import (
     sequence_declaration,
     sequence_declaration_with_retry,
 )
+from iscc_hub.statecheck import StateValidationError
 
 
 @pytest.mark.django_db
@@ -464,3 +465,65 @@ def test_sequence_declaration_with_retry_exhausts_retries():
         sequence_declaration_with_retry({}, "actor", max_retries=0)
 
     assert "Failed to sequence after 0 attempts" in str(exc_info.value)
+
+
+@pytest.mark.django_db
+def test_sequence_declaration_validates_state(minimal_iscc_note, example_keypair):
+    # type: (dict, object) -> None
+    """Test that sequence_declaration validates state within transaction."""
+    actor = example_keypair.public_key
+
+    # First declaration should succeed
+    event, declaration = sequence_declaration(minimal_iscc_note, actor)
+    assert event.seq is not None
+    assert declaration.iscc_code == minimal_iscc_note["iscc_code"]
+
+    # Duplicate nonce should fail
+    with pytest.raises(StateValidationError) as exc_info:
+        sequence_declaration(minimal_iscc_note, actor)
+    assert "Nonce already used" in str(exc_info.value)
+
+    # Change nonce but keep same iscc_code - should fail due to duplicate declaration
+    minimal_iscc_note["nonce"] = "000faa3f18c7b9407a48536a9b00c4cc"  # Different nonce
+    with pytest.raises(StateValidationError) as exc_info:
+        sequence_declaration(minimal_iscc_note, actor)
+    assert "ISCC-CODE already declared" in str(exc_info.value)
+
+
+@pytest.mark.django_db
+def test_sequence_declaration_atomic_validation(minimal_iscc_note, example_keypair):
+    # type: (dict, object) -> None
+    """Test that validation and sequencing are atomic."""
+    actor = example_keypair.public_key
+
+    # This test verifies that no partial state is left if validation fails
+    initial_event_count = Event.objects.count()
+    initial_declaration_count = IsccDeclaration.objects.count()
+
+    # Create first declaration
+    event, declaration = sequence_declaration(minimal_iscc_note, actor)
+    assert Event.objects.count() == initial_event_count + 1
+    assert IsccDeclaration.objects.count() == initial_declaration_count + 1
+
+    # Try to create duplicate - should fail atomically
+    with pytest.raises(StateValidationError):
+        sequence_declaration(minimal_iscc_note, actor)
+
+    # Verify no new records were created
+    assert Event.objects.count() == initial_event_count + 1
+    assert IsccDeclaration.objects.count() == initial_declaration_count + 1
+
+
+@pytest.mark.django_db
+def test_sequence_declaration_with_retry_handles_validation_errors(minimal_iscc_note, example_keypair):
+    # type: (dict, object) -> None
+    """Test that retry function doesn't retry validation errors."""
+    actor = example_keypair.public_key
+
+    # Create first declaration
+    sequence_declaration_with_retry(minimal_iscc_note, actor)
+
+    # Try duplicate - should fail immediately without retries
+    with pytest.raises(StateValidationError) as exc_info:
+        sequence_declaration_with_retry(minimal_iscc_note, actor)
+    assert "Nonce already used" in str(exc_info.value)

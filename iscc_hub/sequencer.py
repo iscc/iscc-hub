@@ -14,6 +14,7 @@ from django.db import OperationalError, connection, transaction
 
 from iscc_hub.iscc_id import IsccID
 from iscc_hub.models import Event, IsccDeclaration
+from iscc_hub.statecheck import StateValidationError, validate_state
 
 
 class SequencerError(Exception):
@@ -135,14 +136,14 @@ def sequence_declaration(iscc_note, actor, update_iscc_id=None):
     """
     Atomically sequence an ISCC declaration.
 
-    Performs the following operations atomically:
-    1. Generates a monotonic ISCC-ID
-    2. Creates an Event log entry
-    3. Materializes the IsccDeclaration
+    Performs the following operations atomically within a single transaction:
+    1. Validates state (nonce uniqueness, duplicate checks)
+    2. Generates a monotonic ISCC-ID
+    3. Creates an Event log entry
+    4. Materializes the IsccDeclaration
 
-    This function should be called within a transaction context.
-    Django's transaction management or sequence_declaration_with_retry
-    should be used to ensure proper transaction handling.
+    All operations are performed within an explicit transaction to ensure
+    strict serializability and prevent race conditions.
 
     :param iscc_note: The validated IsccNote dictionary
     :param actor: The actor's public key
@@ -150,35 +151,43 @@ def sequence_declaration(iscc_note, actor, update_iscc_id=None):
     :return: Tuple of (Event, IsccDeclaration)
     :raises SequencerError: If sequencing fails
     :raises RetryTransaction: If transaction should be retried
+    :raises StateValidationError: If state validation fails
     """
-    try:
-        # Get the last ISCC-ID
-        last_iscc_id_bytes = get_last_iscc_id()
+    with transaction.atomic():
+        try:
+            # Validate state within the transaction to prevent race conditions
+            validate_state(iscc_note, actor, update_iscc_id)
 
-        # Determine event type
-        if update_iscc_id:
-            event_type = Event.EventType.UPDATED
-            # For updates, use the existing ISCC-ID
-            iscc_id_bytes = IsccID(update_iscc_id).bytes_body
-        else:
-            event_type = Event.EventType.CREATED
-            # Generate new ISCC-ID
-            iscc_id_bytes = generate_iscc_id(last_iscc_id_bytes)
+            # Get the last ISCC-ID
+            last_iscc_id_bytes = get_last_iscc_id()
 
-        # Create Event log entry
-        event = create_event(iscc_note, iscc_id_bytes, event_type)
+            # Determine event type
+            if update_iscc_id:
+                event_type = Event.EventType.UPDATED
+                # For updates, use the existing ISCC-ID
+                iscc_id_bytes = IsccID(update_iscc_id).bytes_body
+            else:
+                event_type = Event.EventType.CREATED
+                # Generate new ISCC-ID
+                iscc_id_bytes = generate_iscc_id(last_iscc_id_bytes)
 
-        # Materialize declaration
-        declaration = materialize_declaration(event, iscc_note, actor)
+            # Create Event log entry
+            event = create_event(iscc_note, iscc_id_bytes, event_type)
 
-        return event, declaration
+            # Materialize declaration
+            declaration = materialize_declaration(event, iscc_note, actor)
 
-    except RetryTransaction:
-        # Retry the entire operation
-        return sequence_declaration(iscc_note, actor, update_iscc_id)
+            return event, declaration
 
-    except Exception as e:
-        raise SequencerError(f"Failed to sequence declaration: {e}") from e
+        except RetryTransaction:
+            # Retry the entire operation
+            return sequence_declaration(iscc_note, actor, update_iscc_id)
+
+        except StateValidationError:
+            # Re-raise validation errors as-is
+            raise
+        except Exception as e:
+            raise SequencerError(f"Failed to sequence declaration: {e}") from e
 
 
 def sequence_declaration_with_retry(iscc_note, actor, update_iscc_id=None, max_retries=10):
@@ -187,7 +196,7 @@ def sequence_declaration_with_retry(iscc_note, actor, update_iscc_id=None, max_r
     Sequence a declaration with automatic retry on database lock.
 
     Implements exponential backoff with jitter for handling concurrent
-    access to the database.
+    access to the database. State validation errors are not retried.
 
     :param iscc_note: The validated IsccNote dictionary
     :param actor: The actor's public key
@@ -195,12 +204,17 @@ def sequence_declaration_with_retry(iscc_note, actor, update_iscc_id=None, max_r
     :param max_retries: Maximum number of retry attempts
     :return: Tuple of (Event, IsccDeclaration)
     :raises SequencerError: If sequencing fails after all retries
+    :raises StateValidationError: If state validation fails
     """
     base_delay = 0.0005  # 0.5ms base delay
 
     for attempt in range(max_retries):
         try:
             return sequence_declaration(iscc_note, actor, update_iscc_id)
+
+        except StateValidationError:
+            # Don't retry validation errors - they won't succeed
+            raise
 
         except OperationalError as e:
             if "database is locked" in str(e).lower() and attempt < max_retries - 1:

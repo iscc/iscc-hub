@@ -129,8 +129,9 @@ def validate_state_atomic(iscc_note, actor, iscc_id=None):
     """
     Perform state validations within a database transaction.
 
-    This ensures that the validation and subsequent operations are atomic,
-    preventing race conditions in concurrent scenarios.
+    Note: This function is primarily for standalone validation. The sequencer
+    module (sequencer.py) performs validation within its own transaction
+    to ensure atomicity with the write operations.
 
     :param iscc_note: The IsccNote dictionary to validate
     :param actor: The actor's public key
