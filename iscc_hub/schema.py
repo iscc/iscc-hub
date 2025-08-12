@@ -15,8 +15,8 @@ class ErrorResponse(Schema):
     model_config = ConfigDict(
         extra="forbid",
     )
-    error: Annotated[str, Field(description="Human-readable error message")]
-    detail: Annotated[str | None, Field(description="Additional error details (optional)")] = None
+    error: Annotated[str, Field(description="Human-readable error message\n")]
+    detail: Annotated[str | None, Field(description="Additional error details (optional)\n")] = None
     request_id: Annotated[UUID | None, Field(description="Unique request identifier for debugging")] = None
 
 
@@ -26,44 +26,12 @@ class Proof(Schema):
     )
     type: Literal["DataIntegrityProof"]
     cryptosuite: Literal["eddsa-jcs-2022"]
-    verificationMethod: Annotated[AnyUrl, Field(description="DID URL of the HUB's signing key")]
+    verificationMethod: Annotated[AnyUrl, Field(description="DID URL of the HUB's signing key\n")]
     proofPurpose: Literal["assertionMethod"]
     proofValue: Annotated[
         str,
         Field(
-            description="Multibase-encoded signature",
-            pattern="^z[1-9A-HJ-NP-Za-km-z]+$",
-        ),
-    ]
-
-
-class IsccSignature(Schema):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    version: Annotated[
-        Literal["ISCC-SIG v1.0"],
-        Field(description='Version of the ISCC Signature format (must be exactly "ISCC-SIG v1.0")'),
-    ]
-    controller: Annotated[
-        str | None,
-        Field(description="URI that identifies the key controller (e.g., DID or CID)"),
-    ] = None
-    keyid: Annotated[
-        str | None,
-        Field(description="Specific key identifier within the controller document"),
-    ] = None
-    pubkey: Annotated[
-        str,
-        Field(
-            description="Ed25519 public key in multibase format (z-base58-btc with ED01 prefix)",
-            pattern="^z[1-9A-HJ-NP-Za-km-z]+$",
-        ),
-    ]
-    proof: Annotated[
-        str,
-        Field(
-            description="EdDSA signature in multibase format (z-base58-btc)",
+            description="Multibase-encoded signature value\n\n**Format:** z-base58-btc encoding\n",
             pattern="^z[1-9A-HJ-NP-Za-km-z]+$",
         ),
     ]
@@ -73,6 +41,40 @@ class Unit(RootModel[str]):
     root: Annotated[str, Field(min_length=14, pattern="^ISCC:[A-Z0-9]{10,73}$")]
 
 
+class IsccSignature(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    version: Annotated[
+        Literal["ISCC-SIG v1.0"],
+        Field(description="Version of the ISCC Signature format (must be exactly `ISCC-SIG v1.0`)\n"),
+    ]
+    controller: Annotated[
+        str | None,
+        Field(
+            description="URI that identifies the key controller\n\n**Examples:**\n- DID: `did:web:example.com`\n- CID: `ipfs://QmXyz...`\n"
+        ),
+    ] = None
+    keyid: Annotated[
+        str | None,
+        Field(description="Specific key identifier within the controller document\n"),
+    ] = None
+    pubkey: Annotated[
+        str,
+        Field(
+            description="Ed25519 public key in multibase format\n\n**Format:** z-base58-btc with ED01 prefix\n**Pattern:** `^z[1-9A-HJ-NP-Za-km-z]+$`\n",
+            pattern="^z[1-9A-HJ-NP-Za-km-z]+$",
+        ),
+    ]
+    proof: Annotated[
+        str,
+        Field(
+            description="EdDSA signature in multibase format\n\n**Format:** z-base58-btc encoding\n**Pattern:** `^z[1-9A-HJ-NP-Za-km-z]+$`\n",
+            pattern="^z[1-9A-HJ-NP-Za-km-z]+$",
+        ),
+    ]
+
+
 class IsccNote(Schema):
     model_config = ConfigDict(
         extra="forbid",
@@ -80,7 +82,7 @@ class IsccNote(Schema):
     iscc_code: Annotated[
         str,
         Field(
-            description="The ISCC-CODE to be declared",
+            description="The ISCC-CODE to be declared\n\n**Format:** `ISCC:` followed by 13-73 alphanumeric characters\n",
             examples=["ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"],
             pattern="^ISCC:[A-Z0-9]{13,73}$",
         ),
@@ -88,7 +90,7 @@ class IsccNote(Schema):
     datahash: Annotated[
         str,
         Field(
-            description="Blake3 hash of the declared asset (lowercase hex encoded 256 bit multihash with blake3 prefix)",
+            description="Blake3 hash of the declared asset\n\n**Format:** 256-bit lowercase hex-encoded multihash\n**Prefix:** `1e20` (Blake3 identifier)\n**Length:** Exactly 68 characters\n",
             examples=["1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"],
             max_length=68,
             min_length=68,
@@ -98,14 +100,14 @@ class IsccNote(Schema):
     timestamp: Annotated[
         datetime,
         Field(
-            description="RFC 3339 formatted timestamp in UTC with millisecond precision (e.g., \"2025-08-04T12:34:56.789Z\"). The 'Z' suffix MUST be used to indicate UTC. This timestamp indicates when the IsccNote was created and signed by the declaring party. HUBs MUST reject IsccNotes with timestamps outside of ±10 minutes from the HUB's current time.",
+            description="RFC 3339 formatted timestamp in UTC with millisecond precision\n\n**Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`\n**Example:** `2025-08-04T12:34:56.789Z`\n\n**Requirements:**\n- The `Z` suffix MUST be used to indicate UTC\n- Indicates when the IsccNote was created and signed\n- HUBs MUST reject timestamps outside ±10 minutes from current time\n",
             examples=["2025-01-15T12:00:00.000Z"],
         ),
     ]
     nonce: Annotated[
         str,
         Field(
-            description="Unique 128-bit lowercase hex-encoded random value (first 12-bits denote hub_id 0-4095 for replay protection)",
+            description="Unique 128-bit random value for replay protection\n\n**Format:** 32 lowercase hex characters\n**Structure:** First 12 bits encode the target hub_id (0-4095)\n",
             examples=["000faa3f18c7b9407a48536a9b00c4cb"],
             max_length=32,
             min_length=32,
@@ -116,7 +118,7 @@ class IsccNote(Schema):
     units: Annotated[
         list[Unit] | None,
         Field(
-            description="Array of expanded ISCC-UNITs of the declared ISCC-CODE. For for improved large-scale discovery and matching it is recommended to include 256-bit ISCC-UNITs. **Don´t include the Instance-Code as this can be derived from the required `datahash` property.** The ISCC-HUB will validate that the declared ISCC-CODE can be reconstructed from the ISCC-UNITs by converting the datahash to an Instance-Code UNIT, appending it to this array, and passing it to iscc_core.gen_iscc_code.",
+            description="Array of expanded ISCC-UNITs of the declared ISCC-CODE\n\nFor improved large-scale discovery and matching, include 256-bit ISCC-UNITs.\n\n**Important:** Don't include the Instance-Code as it's derived from the `datahash` property.\n\n**Validation:** The HUB will:\n1. Convert the datahash to an Instance-Code UNIT\n2. Append it to this array\n3. Pass to `iscc_core.gen_iscc_code` to reconstruct the ISCC-CODE\n",
             examples=[
                 [
                     "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ",
@@ -131,7 +133,7 @@ class IsccNote(Schema):
     metahash: Annotated[
         str | None,
         Field(
-            description="Blake3 hash of seed metadata (256-bit lowercase hex-encoded multihash with prefix `1e20`). When present, this creates a cryptographic commitment to the exact metadata state at declaration time, allowing external registries to store mutable or deletable metadata while maintaining temporal integrity.",
+            description="Blake3 hash of seed metadata (optional)\n\nCreates a cryptographic commitment to the exact metadata state at declaration time.\n\n**Use case:** Allows external registries to store mutable or deletable metadata \nwhile maintaining temporal integrity.\n\n**Format:** 256-bit lowercase hex-encoded multihash\n**Prefix:** `1e20` (Blake3 identifier)\n",
             examples=["1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"],
             max_length=68,
             min_length=68,
@@ -141,7 +143,7 @@ class IsccNote(Schema):
     gateway: Annotated[
         str | None,
         Field(
-            description="URL or URI Template (RFC 6570) pointing to a GATEWAY for metadata and service discovery. Supported template variables are {iscc_id}, {iscc_code}, {pubkey}, {datahash}, {controller}. Must use HTTP or HTTPS scheme.",
+            description="URL or URI Template (RFC 6570) for metadata and service discovery\n\n**Supported template variables:**\n- `{iscc_id}` - The assigned ISCC-ID\n- `{iscc_code}` - The declared ISCC-CODE\n- `{pubkey}` - The public key from signature\n- `{datahash}` - The data hash\n- `{controller}` - The key controller from signature\n\n**Requirements:** Must use HTTP or HTTPS scheme\n",
             examples=["https://example.com/metadata"],
             max_length=2048,
             min_length=8,
@@ -154,11 +156,17 @@ class Declaration(Schema):
     model_config = ConfigDict(
         extra="forbid",
     )
-    seq: Annotated[int, Field(description="Sequence number in the event log (starting at 0)", ge=0)]
+    seq: Annotated[
+        int,
+        Field(
+            description="Gapless sequence number in the event log\n\n**Start:** 0 (first declaration)\n**Guarantee:** No gaps in sequence\n",
+            ge=0,
+        ),
+    ]
     iscc_id: Annotated[
         str,
         Field(
-            description="Unique ISCC-ID assigned by the ISCC-HUB",
+            description="Unique ISCC-ID assigned by the ISCC-HUB\n\n**Format:** `ISCC:` followed by encoded timestamp and hub ID\n",
             pattern="^ISCC:[A-Z0-9]{10,}$",
         ),
     ]
@@ -172,11 +180,14 @@ class CredentialSubject(Schema):
     id: Annotated[
         AnyUrl,
         Field(
-            description="DID of the subject (signer of the IsccNote)",
+            description="DID of the subject (signer of the IsccNote)\n",
             examples=["did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"],
         ),
     ]
-    declaration: Annotated[Declaration, Field(description="Declaration details")]
+    declaration: Annotated[
+        Declaration,
+        Field(description="Declaration details including sequence number and ISCC-ID\n"),
+    ]
 
 
 class IsccReceipt(Schema):
@@ -187,7 +198,7 @@ class IsccReceipt(Schema):
         list[str],
         Field(
             alias="@context",
-            description="JSON-LD context for the Verifiable Credential",
+            description="JSON-LD context for the Verifiable Credential\n",
             examples=[["https://www.w3.org/ns/credentials/v2"]],
             min_length=1,
         ),
@@ -195,7 +206,7 @@ class IsccReceipt(Schema):
     type: Annotated[
         list[str],
         Field(
-            description="Types of the credential",
+            description="Types of the credential\n\nMust include at least `VerifiableCredential` and `IsccReceipt`\n",
             examples=[["VerifiableCredential", "IsccReceipt"]],
             min_length=2,
         ),
@@ -203,12 +214,17 @@ class IsccReceipt(Schema):
     issuer: Annotated[
         AnyUrl,
         Field(
-            description="DID of the ISCC-HUB issuing this credential",
+            description="DID of the ISCC-HUB issuing this credential\n",
             examples=["did:web:hub.example.com"],
         ),
     ]
     credentialSubject: Annotated[
         CredentialSubject,
-        Field(description="Claims about the subject of the credential"),
+        Field(description="Claims about the subject of the credential\n"),
     ]
-    proof: Annotated[Proof, Field(description="W3C Data Integrity proof created by ISCC-HUB")]
+    proof: Annotated[
+        Proof,
+        Field(
+            description="W3C Data Integrity proof created by ISCC-HUB\n\nUses **EdDSA-JCS-2022** cryptosuite with Ed25519 signatures.\n"
+        ),
+    ]

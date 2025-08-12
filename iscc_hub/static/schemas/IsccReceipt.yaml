@@ -1,0 +1,110 @@
+type: object
+description: |
+  W3C Verifiable Credential for ISCC declaration
+  
+  Issued by the ISCC-HUB as proof of declaration with timestamp and sequence number.
+required:
+  - '@context'
+  - type
+  - issuer
+  - credentialSubject
+  - proof
+properties:
+  '@context':
+    type: array
+    description: |
+      JSON-LD context for the Verifiable Credential
+    items:
+      type: string
+    minItems: 1
+    example: ["https://www.w3.org/ns/credentials/v2"]
+  type:
+    type: array
+    description: |
+      Types of the credential
+      
+      Must include at least `VerifiableCredential` and `IsccReceipt`
+    items:
+      type: string
+    minItems: 2
+    example: ["VerifiableCredential", "IsccReceipt"]
+  issuer:
+    type: string
+    format: uri
+    description: |
+      DID of the ISCC-HUB issuing this credential
+    example: "did:web:hub.example.com"
+  credentialSubject:
+    type: object
+    description: |
+      Claims about the subject of the credential
+    required:
+      - id
+      - declaration
+    properties:
+      id:
+        type: string
+        format: uri
+        description: |
+          DID of the subject (signer of the IsccNote)
+        example: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+      declaration:
+        type: object
+        description: |
+          Declaration details including sequence number and ISCC-ID
+        required:
+          - seq
+          - iscc_id
+          - iscc_note
+        properties:
+          seq:
+            type: integer
+            description: |
+              Gapless sequence number in the event log
+              
+              **Start:** 0 (first declaration)
+              **Guarantee:** No gaps in sequence
+            minimum: 0
+          iscc_id:
+            type: string
+            description: |
+              Unique ISCC-ID assigned by the ISCC-HUB
+              
+              **Format:** `ISCC:` followed by encoded timestamp and hub ID
+            pattern: "^ISCC:[A-Z0-9]{10,}$"
+          iscc_note:
+            $ref: './IsccNote.yaml'
+  proof:
+    type: object
+    description: |
+      W3C Data Integrity proof created by ISCC-HUB
+      
+      Uses **EdDSA-JCS-2022** cryptosuite with Ed25519 signatures.
+    required:
+      - type
+      - cryptosuite
+      - verificationMethod
+      - proofPurpose
+      - proofValue
+    properties:
+      type:
+        type: string
+        const: "DataIntegrityProof"
+      cryptosuite:
+        type: string
+        const: "eddsa-jcs-2022"
+      verificationMethod:
+        type: string
+        format: uri
+        description: |
+          DID URL of the HUB's signing key
+      proofPurpose:
+        type: string
+        const: "assertionMethod"
+      proofValue:
+        type: string
+        description: |
+          Multibase-encoded signature value
+          
+          **Format:** z-base58-btc encoding
+        pattern: "^z[1-9A-HJ-NP-Za-km-z]+$"

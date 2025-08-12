@@ -1,0 +1,48 @@
+type: object
+description: |
+  ISCC Signature object providing cryptographic integrity and optional identity attribution.
+  
+  The signature follows the **ISCC-SIG v1.0** specification for Ed25519 signatures.
+required:
+  - version
+  - proof
+  - pubkey
+properties:
+  version:
+    type: string
+    const: "ISCC-SIG v1.0"
+    description: |
+      Version of the ISCC Signature format (must be exactly `ISCC-SIG v1.0`)
+  controller:
+    type: string
+    description: |
+      URI that identifies the key controller
+      
+      **Examples:**
+      - DID: `did:web:example.com`
+      - CID: `ipfs://QmXyz...`
+  keyid:
+    type: string
+    description: |
+      Specific key identifier within the controller document
+  pubkey:
+    type: string
+    description: |
+      Ed25519 public key in multibase format
+      
+      **Format:** z-base58-btc with ED01 prefix
+      **Pattern:** `^z[1-9A-HJ-NP-Za-km-z]+$`
+    pattern: "^z[1-9A-HJ-NP-Za-km-z]+$"
+  proof:
+    type: string
+    description: |
+      EdDSA signature in multibase format
+      
+      **Format:** z-base58-btc encoding
+      **Pattern:** `^z[1-9A-HJ-NP-Za-km-z]+$`
+    pattern: "^z[1-9A-HJ-NP-Za-km-z]+$"
+example:
+  version: "ISCC-SIG v1.0"
+  controller: "did:web:example.com"
+  pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+  proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"

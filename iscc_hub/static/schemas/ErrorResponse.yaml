@@ -1,0 +1,19 @@
+type: object
+description: |
+  Error response for API operations
+required:
+  - error
+properties:
+  error:
+    type: string
+    description: |
+      Human-readable error message
+  detail:
+    type: string
+    description: |
+      Additional error details (optional)
+  request_id:
+    type: string
+    format: uuid
+    description: |
+      Unique request identifier for debugging

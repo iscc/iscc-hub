@@ -1,0 +1,131 @@
+type: object
+description: |
+  ISCC declaration request object for timestamping and registering content.
+  
+  Contains the ISCC-CODE, cryptographic hashes, and signature for verifiable declaration.
+required:
+  - iscc_code
+  - datahash
+  - nonce
+  - timestamp
+  - signature
+properties:
+  iscc_code:
+    type: string
+    description: |
+      The ISCC-CODE to be declared
+      
+      **Format:** `ISCC:` followed by 13-73 alphanumeric characters
+    pattern: "^ISCC:[A-Z0-9]{13,73}$"
+    example: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
+  datahash:
+    type: string
+    minLength: 68
+    maxLength: 68
+    description: |
+      Blake3 hash of the declared asset
+      
+      **Format:** 256-bit lowercase hex-encoded multihash
+      **Prefix:** `1e20` (Blake3 identifier)
+      **Length:** Exactly 68 characters
+    pattern: "^1e20[0-9a-f]{64}$"
+    example: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+  timestamp:
+    type: string
+    format: date-time
+    description: |
+      RFC 3339 formatted timestamp in UTC with millisecond precision
+      
+      **Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`
+      **Example:** `2025-08-04T12:34:56.789Z`
+      
+      **Requirements:**
+      - The `Z` suffix MUST be used to indicate UTC
+      - Indicates when the IsccNote was created and signed
+      - HUBs MUST reject timestamps outside ±10 minutes from current time
+    example: "2025-01-15T12:00:00.000Z"
+  nonce:
+    type: string
+    minLength: 32
+    maxLength: 32
+    description: |
+      Unique 128-bit random value for replay protection
+      
+      **Format:** 32 lowercase hex characters
+      **Structure:** First 12 bits encode the target hub_id (0-4095)
+    pattern: "^[0-9a-f]{32}$"
+    example: "000faa3f18c7b9407a48536a9b00c4cb"
+  signature:
+    $ref: './IsccSignature.yaml'
+  units:
+    type: array
+    minItems: 1
+    description: |
+      Array of expanded ISCC-UNITs of the declared ISCC-CODE
+      
+      For improved large-scale discovery and matching, include 256-bit ISCC-UNITs.
+      
+      **Important:** Don't include the Instance-Code as it's derived from the `datahash` property.
+      
+      **Validation:** The HUB will:
+      1. Convert the datahash to an Instance-Code UNIT
+      2. Append it to this array
+      3. Pass to `iscc_core.gen_iscc_code` to reconstruct the ISCC-CODE
+    items:
+      type: string
+      pattern: "^ISCC:[A-Z0-9]{10,73}$"
+      minLength: 14  # Enforce minimum valid ISCC unit length
+    maxItems: 4
+    example:
+      - "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ"
+      - "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY"
+      - "ISCC:GAD334BLFXWN7QWLCSBGJMLRZW73FFNV7ORVUKN23UWPKGQCWTIHQKY"
+  metahash:
+    type: string
+    minLength: 68
+    maxLength: 68
+    description: |
+      Blake3 hash of seed metadata (optional)
+      
+      Creates a cryptographic commitment to the exact metadata state at declaration time.
+      
+      **Use case:** Allows external registries to store mutable or deletable metadata 
+      while maintaining temporal integrity.
+      
+      **Format:** 256-bit lowercase hex-encoded multihash
+      **Prefix:** `1e20` (Blake3 identifier)
+    pattern: "^1e20[0-9a-f]{64}$"
+    example: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
+  gateway:
+    type: string
+    minLength: 8
+    maxLength: 2048
+    pattern: "^https?://[^\\s]+"
+    description: |
+      URL or URI Template (RFC 6570) for metadata and service discovery
+      
+      **Supported template variables:**
+      - `{iscc_id}` - The assigned ISCC-ID
+      - `{iscc_code}` - The declared ISCC-CODE
+      - `{pubkey}` - The public key from signature
+      - `{datahash}` - The data hash
+      - `{controller}` - The key controller from signature
+      
+      **Requirements:** Must use HTTP or HTTPS scheme
+    example: "https://example.com/metadata"
+example:
+  iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
+  datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+  metahash: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
+  nonce: "000faa3f18c7b9407a48536a9b00c4cb"
+  timestamp: "2025-01-15T12:00:00.000Z"
+  gateway: "https://example.com/iscc_id/{iscc_id}/metadata"
+  units:
+    - "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ"
+    - "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY"
+    - "ISCC:GAD334BLFXWN7QWLCSBGJMLRZW73FFNV7ORVUKN23UWPKGQCWTIHQKY"
+  signature:
+    version: "ISCC-SIG v1.0"
+    controller: "did:web:example.com"
+    pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+    proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
