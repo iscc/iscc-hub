@@ -8,7 +8,6 @@ serializability and monotonic ordering.
 
 import random
 import time
-from datetime import UTC, datetime
 
 from dateutil.parser import isoparse
 from django.conf import settings
