@@ -62,7 +62,20 @@
             color: #666;
             font-size: 14px;
             font-family: monospace;
-            z-index: 2;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .hub-info a {
+            color: #666;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        
+        .hub-info a:hover {
+            color: #333;
         }
         
         .debug-badge {
@@ -77,7 +90,9 @@
 </head>
 <body>
     <div class="hub-info">
-        HUB-ID: {{ hub_id }}{% if debug_mode %}<span class="debug-badge">DEBUG</span>{% endif %}
+        <a href="/docs">API</a>
+        <a href="/admin">ADMIN</a>
+        <span>HUB-ID: {{ hub_id }}</span>{% if debug_mode %}<span class="debug-badge">DEBUG</span>{% endif %}
     </div>
     <div class="container">
         <img src="/static/img/iscc-logo-white.png" alt="ISCC Logo" class="logo">
