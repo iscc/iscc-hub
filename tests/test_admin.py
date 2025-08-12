@@ -44,6 +44,7 @@ def iscc_declaration():
         metahash="test_metahash",
         event_seq=1,
         deleted=False,
+        redacted=False,
     )
 
 
@@ -78,6 +79,7 @@ class TestIsccDeclarationAdmin:
             "creation_time",
             "updated_at",
             "is_deleted",
+            "redacted",
         ]
         assert admin_obj.list_display == expected
 
@@ -162,6 +164,8 @@ class TestIsccDeclarationAdmin:
         assert "delete_selected" not in actions
         assert "soft_delete" in actions
         assert "restore" in actions
+        assert "redact" in actions
+        assert "unredact" in actions
 
     @pytest.mark.django_db
     def test_soft_delete_action(self, admin_request):
@@ -190,6 +194,40 @@ class TestIsccDeclarationAdmin:
 
         queryset.update.assert_called_once_with(deleted=False)
         admin_obj.message_user.assert_called_once_with(admin_request, "2 declaration(s) restored.")
+
+    @pytest.mark.django_db
+    def test_redact_action(self, admin_request):
+        # type: (HttpRequest) -> None
+        """Test redact action."""
+        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
+        queryset = Mock()
+        queryset.update = Mock(return_value=4)
+        admin_obj.message_user = Mock()
+
+        admin_obj.redact(admin_request, queryset)
+
+        queryset.update.assert_called_once_with(redacted=True)
+        admin_obj.message_user.assert_called_once_with(admin_request, "4 declaration(s) redacted.")
+
+    @pytest.mark.django_db
+    def test_unredact_action(self, admin_request):
+        # type: (HttpRequest) -> None
+        """Test unredact action."""
+        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
+        queryset = Mock()
+        queryset.update = Mock(return_value=1)
+        admin_obj.message_user = Mock()
+
+        admin_obj.unredact(admin_request, queryset)
+
+        queryset.update.assert_called_once_with(redacted=False)
+        admin_obj.message_user.assert_called_once_with(admin_request, "1 declaration(s) unredacted.")
+
+    def test_list_editable(self):
+        # type: () -> None
+        """Test list_editable configuration."""
+        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
+        assert admin_obj.list_editable == ["redacted"]
 
 
 class TestEventAdmin:

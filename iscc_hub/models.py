@@ -124,6 +124,13 @@ class IsccDeclaration(models.Model):
         default=False, db_index=True, help_text="Soft delete flag - true if declaration has been deleted"
     )
 
+    # Redaction flag for malicious content
+    redacted = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Admin redaction flag - disables resolution of malicious declarations",
+    )
+
     class Meta:
         db_table = "iscc_declaration"
         verbose_name = "Declaration"
@@ -138,6 +145,7 @@ class IsccDeclaration(models.Model):
             models.Index(fields=["actor", "datahash"]),
             # Active declarations
             models.Index(fields=["deleted", "-iscc_id"]),
+            models.Index(fields=["redacted", "-iscc_id"]),
             # Event reconstruction
             models.Index(fields=["event_seq", "deleted"]),
         ]

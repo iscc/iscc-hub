@@ -5,10 +5,9 @@ from typing import Any
 
 from django.contrib import admin
 from django.db.models import QuerySet
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin
-from unfold.contrib.filters.admin import ChoicesRadioFilter
 
 from iscc_hub.models import Event, IsccDeclaration
 
@@ -25,10 +24,14 @@ class IsccDeclarationAdmin(ModelAdmin):
         "creation_time",
         "updated_at",
         "is_deleted",
+        "redacted",
     ]
+
+    list_editable = ["redacted"]
 
     list_filter = [
         "deleted",
+        "redacted",
         "updated_at",
     ]
 
@@ -52,7 +55,7 @@ class IsccDeclarationAdmin(ModelAdmin):
         ("Actor Information", {"fields": ("actor", "gateway")}),
         ("Metadata", {"fields": ("metahash", "event_seq")}),
         ("Timestamps", {"fields": ("creation_time", "updated_at"), "classes": ("collapse",)}),
-        ("Status", {"fields": ("deleted",)}),
+        ("Status", {"fields": ("deleted", "redacted")}),
     )
 
     list_per_page = 50
@@ -131,7 +134,21 @@ class IsccDeclarationAdmin(ModelAdmin):
         updated = queryset.update(deleted=False)
         self.message_user(request, f"{updated} declaration(s) restored.")
 
-    actions = ["soft_delete", "restore"]
+    @admin.action(description="Redact selected declarations")
+    def redact(self, request, queryset):
+        # type: (HttpRequest, QuerySet[IsccDeclaration]) -> None
+        """Redact selected declarations."""
+        updated = queryset.update(redacted=True)
+        self.message_user(request, f"{updated} declaration(s) redacted.")
+
+    @admin.action(description="Unredact selected declarations")
+    def unredact(self, request, queryset):
+        # type: (HttpRequest, QuerySet[IsccDeclaration]) -> None
+        """Unredact selected declarations."""
+        updated = queryset.update(redacted=False)
+        self.message_user(request, f"{updated} declaration(s) unredacted.")
+
+    actions = ["soft_delete", "restore", "redact", "unredact"]
 
 
 @admin.register(Event)

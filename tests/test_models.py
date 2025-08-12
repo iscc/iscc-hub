@@ -240,6 +240,7 @@ def test_iscc_declaration_creation():
     assert declaration.iscc_id == "ISCC:MEAJU3PC4ICWCTYI"
     assert declaration.event_seq == 1
     assert declaration.deleted is False
+    assert declaration.redacted is False
     assert declaration.gateway == ""
     assert declaration.metahash == ""
     assert declaration.updated_at is not None
@@ -382,6 +383,90 @@ def test_iscc_declaration_soft_delete():
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
+def test_iscc_declaration_redacted_field():
+    # type: () -> None
+    """
+    Test redacted field functionality.
+    """
+    # Create declaration
+    declaration = IsccDeclaration.objects.create(
+        iscc_id=generate_test_iscc_id(seq=81),
+        event_seq=1,
+        iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
+        datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
+        nonce="000abcd1234567890abcdef123456789",
+        actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
+        gateway="https://malicious.example.com",
+    )
+
+    # Initially not redacted (default value)
+    assert declaration.redacted is False
+
+    # Redact the declaration
+    declaration.redacted = True
+    declaration.save()
+
+    # Verify redaction
+    declaration = IsccDeclaration.objects.get(iscc_id=generate_test_iscc_id(seq=81))
+    assert declaration.redacted is True
+
+    # Verify filtering non-redacted declarations
+    non_redacted = IsccDeclaration.objects.filter(redacted=False)
+    assert generate_test_iscc_id(seq=81) not in [d.iscc_id for d in non_redacted]
+
+    # Verify filtering redacted declarations
+    redacted = IsccDeclaration.objects.filter(redacted=True)
+    assert generate_test_iscc_id(seq=81) in [d.iscc_id for d in redacted]
+
+
+@pytest.mark.django_db(transaction=True, reset_sequences=True)
+def test_iscc_declaration_redacted_and_deleted_combination():
+    # type: () -> None
+    """
+    Test that redacted and deleted fields work independently.
+    """
+    # Create declaration
+    declaration = IsccDeclaration.objects.create(
+        iscc_id=generate_test_iscc_id(seq=82),
+        event_seq=1,
+        iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
+        datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
+        nonce="000abcd1234567890abcdef123456789",
+        actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
+    )
+
+    # Both fields start as False
+    assert declaration.deleted is False
+    assert declaration.redacted is False
+
+    # Set only redacted
+    declaration.redacted = True
+    declaration.save()
+    declaration.refresh_from_db()
+    assert declaration.deleted is False
+    assert declaration.redacted is True
+
+    # Set both deleted and redacted
+    declaration.deleted = True
+    declaration.save()
+    declaration.refresh_from_db()
+    assert declaration.deleted is True
+    assert declaration.redacted is True
+
+    # Query declarations with different combinations
+    all_active = IsccDeclaration.objects.filter(deleted=False, redacted=False)
+    deleted_only = IsccDeclaration.objects.filter(deleted=True, redacted=False)
+    redacted_only = IsccDeclaration.objects.filter(deleted=False, redacted=True)
+    both = IsccDeclaration.objects.filter(deleted=True, redacted=True)
+
+    # Our declaration should only appear in the 'both' query
+    assert generate_test_iscc_id(seq=82) not in [d.iscc_id for d in all_active]
+    assert generate_test_iscc_id(seq=82) not in [d.iscc_id for d in deleted_only]
+    assert generate_test_iscc_id(seq=82) not in [d.iscc_id for d in redacted_only]
+    assert generate_test_iscc_id(seq=82) in [d.iscc_id for d in both]
+
+
+@pytest.mark.django_db(transaction=True, reset_sequences=True)
 def test_iscc_declaration_indexes():
     # type: () -> None
     """
@@ -491,6 +576,7 @@ def test_iscc_declaration_model_meta():
     assert ["actor", "iscc_code"] in index_fields
     assert ["actor", "datahash"] in index_fields
     assert ["deleted", "-iscc_id"] in index_fields
+    assert ["redacted", "-iscc_id"] in index_fields
     assert ["event_seq", "deleted"] in index_fields
 
 
