@@ -1237,3 +1237,17 @@ def test_validator_accepts_all_valid_fields(full_iscc_note):
     assert result["gateway"] == full_iscc_note["gateway"]
     assert result["metahash"] == full_iscc_note["metahash"]
     assert result["units"] == full_iscc_note["units"]
+
+
+def test_validate_input_size_non_dict():
+    # type: () -> None
+    """Test validate_input_size raises ValidationError for non-dict input."""
+    with pytest.raises(ValueError, match="Invalid input: expected JSON object, got str"):
+        validators.validate_input_size("not_a_dict")
+
+
+def test_validate_iscc_code_non_string():
+    # type: () -> None
+    """Test validate_iscc_code raises IsccCodeError for non-string input."""
+    with pytest.raises(ValueError, match="ISCC code must be a string, got int"):
+        validators.validate_iscc_code(12345)
