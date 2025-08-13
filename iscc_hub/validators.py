@@ -9,6 +9,18 @@ import iscc_crypto as icr
 import uritemplate
 from dateutil.parser import isoparse
 
+from iscc_hub.exceptions import (
+    FieldValidationError,
+    HashError,
+    HexFormatError,
+    IsccCodeError,
+    LengthError,
+    NonceError,
+    SignatureError,
+    TimestampError,
+    ValidationError,
+)
+
 # Constants for better maintainability
 DATAHASH_PREFIX = "1e20"
 HASH_LENGTH = 68
@@ -88,12 +100,14 @@ def validate_input_size(data):
 
     json_size = len(json.dumps(data))
     if json_size > MAX_JSON_SIZE:
-        raise ValueError(f"Input data exceeds maximum size of {MAX_JSON_SIZE} bytes")
+        raise ValidationError(
+            f"Input data exceeds maximum size of {MAX_JSON_SIZE} bytes", code="invalid_length"
+        )
 
     # Check string field lengths
     for key, value in data.items():
         if isinstance(value, str) and len(value) > MAX_STRING_LENGTH:
-            raise ValueError(f"Field '{key}' exceeds maximum string length of {MAX_STRING_LENGTH}")
+            raise LengthError(key, f"Field '{key}' exceeds maximum string length of {MAX_STRING_LENGTH}")
 
     # Check for unknown fields at the top level
     allowed_fields = {
@@ -108,7 +122,9 @@ def validate_input_size(data):
     }
     unknown_fields = set(data.keys()) - allowed_fields
     if unknown_fields:
-        raise ValueError(f"Unknown fields not allowed: {', '.join(sorted(unknown_fields))}")
+        raise ValidationError(
+            f"Unknown fields not allowed: {', '.join(sorted(unknown_fields))}", code="validation_failed"
+        )
 
 
 def validate_required_fields(data):
@@ -124,7 +140,7 @@ def validate_required_fields(data):
     required_fields = {"iscc_code", "datahash", "nonce", "timestamp", "signature"}
     for field in required_fields:
         if field not in data:
-            raise ValueError(f"Missing required field: {field}")
+            raise FieldValidationError(field, f"Missing required field: {field}", code="validation_failed")
 
 
 def validate_iscc_code(iscc_code):
@@ -141,12 +157,12 @@ def validate_iscc_code(iscc_code):
     try:
         ic.iscc_validate(iscc_code, strict=True)
     except ValueError as e:
-        raise ValueError("Invalid ISCC code") from e
+        raise IsccCodeError("Invalid ISCC code format") from e
 
     # Check that the ISCC is of MainType ISCC (composite)
     fields = ic.iscc_decode(iscc_code)
     if fields[0] != ic.MT.ISCC:
-        raise ValueError("ISCC code must be of MainType ISCC")
+        raise IsccCodeError("ISCC code must be of MainType ISCC (composite)")
 
 
 def validate_nonce(nonce, hub_id=None):
@@ -162,7 +178,7 @@ def validate_nonce(nonce, hub_id=None):
     :raises ValueError: If nonce format is invalid or hub ID doesn't match
     """
     if not isinstance(nonce, str):
-        raise ValueError("nonce must be a string")
+        raise NonceError("nonce must be a string")
 
     validate_hex_string(nonce, "nonce", NONCE_LENGTH)
 
@@ -185,7 +201,9 @@ def validate_nonce_hub_id(nonce, expected_hub_id):
     """
     # Validate hub ID range
     if not 0 <= expected_hub_id <= MAX_HUB_ID:
-        raise ValueError(f"Hub ID must be between 0 and {MAX_HUB_ID}, got {expected_hub_id}")
+        raise ValidationError(
+            f"Hub ID must be between 0 and {MAX_HUB_ID}, got {expected_hub_id}", code="validation_failed"
+        )
 
     # Extract hub ID from first 12 bits of nonce
     nonce_bytes = bytes.fromhex(nonce)
@@ -193,7 +211,9 @@ def validate_nonce_hub_id(nonce, expected_hub_id):
     # Note: extracted_hub_id is guaranteed to be 0-4095 (12 bits max)
 
     if extracted_hub_id != expected_hub_id:
-        raise ValueError(f"Nonce hub_id mismatch: expected {expected_hub_id}, got {extracted_hub_id}")
+        raise NonceError(
+            f"Nonce hub_id mismatch: expected {expected_hub_id}, got {extracted_hub_id}", is_mismatch=True
+        )
 
 
 def validate_timestamp(timestamp_str, check_tolerance=True, reference_time=None):
@@ -210,14 +230,14 @@ def validate_timestamp(timestamp_str, check_tolerance=True, reference_time=None)
     :raises ValueError: If timestamp is invalid or outside tolerance
     """
     if not isinstance(timestamp_str, str):
-        raise ValueError("timestamp must be a string")
+        raise TimestampError("timestamp must be a string")
 
     # Check basic requirements
     if not timestamp_str.endswith("Z"):
-        raise ValueError("timestamp must end with 'Z' to indicate UTC")
+        raise TimestampError("timestamp must end with 'Z' to indicate UTC")
 
     if "." not in timestamp_str:
-        raise ValueError("timestamp must include millisecond precision")
+        raise TimestampError("timestamp must include millisecond precision")
 
     # Parse timestamp using dateutil's RFC 3339 parser
     try:
@@ -226,12 +246,12 @@ def validate_timestamp(timestamp_str, check_tolerance=True, reference_time=None)
         # Check millisecond precision (3 decimal places)
         ms_part = timestamp_str.split(".")[1].rstrip("Z")
         if len(ms_part) != 3:
-            raise ValueError("timestamp must have exactly 3 digits for milliseconds")
+            raise TimestampError("timestamp must have exactly 3 digits for milliseconds")
 
     except (ValueError, TypeError) as e:
-        if "timestamp must" in str(e):
+        if isinstance(e, TimestampError):
             raise
-        raise ValueError("timestamp must be RFC 3339 formatted (e.g., '2025-08-04T12:34:56.789Z')") from e
+        raise TimestampError("timestamp must be RFC 3339 formatted (e.g., '2025-08-04T12:34:56.789Z')") from e
 
     # Check tolerance if requested
     if check_tolerance:
@@ -244,9 +264,11 @@ def validate_timestamp(timestamp_str, check_tolerance=True, reference_time=None)
         # Check if within tolerance (±10 minutes = 600 seconds)
         max_tolerance_seconds = TIMESTAMP_TOLERANCE_MINUTES * 60
         if time_diff > max_tolerance_seconds:
-            raise ValueError(
+            time_diff_minutes = time_diff / 60
+            raise TimestampError(
                 f"timestamp is outside ±{TIMESTAMP_TOLERANCE_MINUTES} minute tolerance: "
-                f"{time_diff / 60:.1f} minutes from reference time"
+                f"{time_diff_minutes:.1f} minutes",
+                out_of_range=True,
             )
 
 
@@ -265,17 +287,17 @@ def validate_hex_string(value, field_name, expected_length):
     """
     # Check lowercase
     if value != value.lower():
-        raise ValueError(f"{field_name} must be lowercase")
+        raise HexFormatError(field_name, f"{field_name} must be lowercase")
 
     # Check length
     if len(value) != expected_length:
-        raise ValueError(f"{field_name} must be exactly {expected_length} characters")
+        raise LengthError(field_name, f"{field_name} must be exactly {expected_length} characters")
 
     # Check hex characters
     try:
         int(value, 16)
     except ValueError as e:
-        raise ValueError(f"{field_name} must contain only hexadecimal characters") from e
+        raise HexFormatError(field_name, f"{field_name} must contain only hexadecimal characters") from e
 
 
 def validate_optional_field(field_name, value, special_validators=None):
@@ -293,15 +315,21 @@ def validate_optional_field(field_name, value, special_validators=None):
     """
     # Check for null
     if value is None:
-        raise ValueError(f"Optional field '{field_name}' must not be null")
+        raise FieldValidationError(
+            field_name, f"Optional field '{field_name}' must not be null", code="validation_failed"
+        )
 
     # Check for empty string or whitespace
     if isinstance(value, str) and not value.strip():
-        raise ValueError(f"Optional field '{field_name}' must not be empty")
+        raise FieldValidationError(
+            field_name, f"Optional field '{field_name}' must not be empty", code="validation_failed"
+        )
 
     # Check for empty array
     if isinstance(value, list) and len(value) == 0:
-        raise ValueError(f"Optional field '{field_name}' must not be empty")
+        raise FieldValidationError(
+            field_name, f"Optional field '{field_name}' must not be empty", code="validation_failed"
+        )
 
     # Apply special validation if provided
     if special_validators and field_name in special_validators:
@@ -345,17 +373,17 @@ def validate_signature_structure(signature):
     :raises ValueError: If signature structure is invalid
     """
     if not isinstance(signature, dict):
-        raise ValueError("Signature must be a dictionary")
+        raise SignatureError("Signature must be a dictionary")
 
     # Check required fields in signature
     required_signature_fields = {"version", "proof", "pubkey"}
     for field in required_signature_fields:
         if field not in signature:
-            raise ValueError(f"Missing required field in signature: {field}")
+            raise SignatureError(f"Missing required field in signature: {field}")
 
     # Validate signature version
     if signature["version"] != SIGNATURE_VERSION:
-        raise ValueError(
+        raise SignatureError(
             f"Invalid signature version: expected '{SIGNATURE_VERSION}', got '{signature['version']}'"
         )
 
@@ -365,15 +393,18 @@ def validate_signature_structure(signature):
         if field in signature:
             try:
                 validate_optional_field(field, signature[field])
-            except ValueError as e:
-                # Re-raise with "in signature" suffix for clarity
-                raise ValueError(str(e).replace(f"'{field}'", f"'{field}' in signature")) from e
+            except FieldValidationError as e:
+                # Update message to be more specific for signature fields
+                new_message = e.message.replace(
+                    f"Optional field '{field}'", f"Optional field '{field}' in signature"
+                )
+                raise FieldValidationError(field, new_message, e.code) from e
 
     # Check for unknown fields in signature
     allowed_signature_fields = required_signature_fields | optional_fields_signature
     unknown_signature_fields = set(signature.keys()) - allowed_signature_fields
     if unknown_signature_fields:
-        raise ValueError(
+        raise SignatureError(
             f"Unknown fields in signature not allowed: {', '.join(sorted(unknown_signature_fields))}"
         )
 
@@ -394,10 +425,10 @@ def verify_signature_cryptographically(data):
         verification_result = icr.verify_json(data, identity_doc=None, raise_on_error=False)
     except Exception as e:
         # Normalize unexpected verifier errors
-        raise ValueError("Invalid signature") from e
+        raise SignatureError("Invalid signature") from e
 
     if not getattr(verification_result, "signature_valid", False):
-        raise ValueError("Invalid signature")
+        raise SignatureError("Invalid signature")
 
 
 def validate_multihash(value, field_name):
@@ -414,25 +445,27 @@ def validate_multihash(value, field_name):
     """
     # Check type
     if not isinstance(value, str):
-        raise ValueError(f"{field_name} must be a string")
+        raise HashError(field_name, f"{field_name} must be a string")
 
     # Check lowercase
     if value != value.lower():
-        raise ValueError(f"{field_name} must be lowercase")
+        raise HashError(field_name, f"{field_name} must be lowercase")
 
     # Check prefix (BLAKE3 multihash identifier)
     if not value.startswith(DATAHASH_PREFIX):
-        raise ValueError(f"{field_name} must start with '{DATAHASH_PREFIX}' (BLAKE3 multihash prefix)")
+        raise HashError(
+            field_name, f"{field_name} must start with '{DATAHASH_PREFIX}' (BLAKE3 multihash prefix)"
+        )
 
     # Check length
     if len(value) != HASH_LENGTH:
-        raise ValueError(f"{field_name} must be exactly {HASH_LENGTH} characters")
+        raise HashError(field_name, f"{field_name} must be exactly {HASH_LENGTH} characters")
 
     # Check hex characters (skip the first 4 chars which are the prefix)
     try:
         int(value[4:], 16)
     except ValueError as e:
-        raise ValueError(f"{field_name} must contain only hexadecimal characters") from e
+        raise HashError(field_name, f"{field_name} must contain only hexadecimal characters") from e
 
 
 def validate_gateway(gateway):
@@ -450,7 +483,9 @@ def validate_gateway(gateway):
     if "{" in gateway or "}" in gateway:
         # Check for mismatched braces
         if gateway.count("{") != gateway.count("}"):
-            raise ValueError("gateway has invalid URI template syntax")
+            raise FieldValidationError(
+                "gateway", "gateway has invalid URI template syntax", code="invalid_format"
+            )
 
     # Create URI template and extract variables
     template = uritemplate.URITemplate(gateway)
@@ -462,7 +497,11 @@ def validate_gateway(gateway):
         unsupported = variable_names - SUPPORTED_GATEWAY_VARIABLES
         if unsupported:
             unsupported_list = sorted(unsupported)
-            raise ValueError(f"gateway contains unsupported variables: {', '.join(unsupported_list)}")
+            raise FieldValidationError(
+                "gateway",
+                f"gateway contains unsupported variables: {', '.join(unsupported_list)}",
+                code="invalid_format",
+            )
 
     # Regardless of template usage, must be a valid HTTP(S) URL
     validate_url(gateway)
@@ -480,18 +519,24 @@ def validate_url(url):
     """
     # Check for whitespace
     if url != url.strip():
-        raise ValueError("gateway must be a valid URL or URI template")
+        raise FieldValidationError(
+            "gateway", "gateway must be a valid URL or URI template", code="invalid_format"
+        )
 
     # Parse URL
     parsed = urlparse(url)
 
     # Check if it has a valid scheme
     if parsed.scheme not in SUPPORTED_URL_SCHEMES:
-        raise ValueError("gateway must be a valid URL or URI template")
+        raise FieldValidationError(
+            "gateway", "gateway must be a valid URL or URI template", code="invalid_format"
+        )
 
     # Check if it has a hostname
     if not parsed.netloc:
-        raise ValueError("gateway must be a valid URL or URI template")
+        raise FieldValidationError(
+            "gateway", "gateway must be a valid URL or URI template", code="invalid_format"
+        )
 
 
 def validate_units_reconstruction(units, datahash, iscc_code):
@@ -510,16 +555,18 @@ def validate_units_reconstruction(units, datahash, iscc_code):
     """
     # Input validation
     if not isinstance(units, list):
-        raise ValueError("units must be a list")
+        raise FieldValidationError("units", "units must be a list", code="invalid_format")
 
     # Check array size limit
     if len(units) > MAX_UNITS_ARRAY_SIZE:
-        raise ValueError(f"units array exceeds maximum size of {MAX_UNITS_ARRAY_SIZE}")
+        raise FieldValidationError(
+            "units", f"units array exceeds maximum size of {MAX_UNITS_ARRAY_SIZE}", code="invalid_length"
+        )
 
     # Validate that all units are strings
     for i, unit in enumerate(units):
         if not isinstance(unit, str):
-            raise ValueError(f"units[{i}] must be a string")
+            raise FieldValidationError("units", f"units[{i}] must be a string", code="invalid_format")
 
     try:
         # Convert datahash to Instance-Code and add to units
@@ -532,16 +579,23 @@ def validate_units_reconstruction(units, datahash, iscc_code):
 
         # Validate reconstruction matches original
         if reconstructed_iscc != iscc_code:
-            raise ValueError(
-                "ISCC code reconstruction failed: units and datahash do not reconstruct to provided iscc_code"
+            raise FieldValidationError(
+                "units",
+                "ISCC code reconstruction failed: units and datahash do not reconstruct to provided iscc_code",
+                code="validation_failed",
             )
-    except ValueError:
-        # Re-raise ValueError as-is (includes iscc_core validation errors)
+    except (ValidationError, FieldValidationError):
+        # Re-raise our validation errors as-is
         raise
+    except ValueError as e:
+        # Wrap iscc_core validation errors
+        raise FieldValidationError("units", f"Invalid ISCC unit: {str(e)}", code="invalid_iscc") from e
     except Exception as e:
         # Wrap other unexpected exceptions
-        raise ValueError(
-            "ISCC code reconstruction failed: units and datahash do not reconstruct to provided iscc_code"
+        raise FieldValidationError(
+            "units",
+            "ISCC code reconstruction failed: units and datahash do not reconstruct to provided iscc_code",
+            code="validation_failed",
         ) from e
 
 
@@ -617,14 +671,15 @@ def validate_datahash_match(iscc_code, datahash):
 
         # Compare the relevant portions
         if instance_digest[:comparison_bytes] != datahash_bytes[:comparison_bytes]:
-            raise ValueError(
+            raise HashError(
+                "datahash",
                 f"datahash does not match ISCC Instance-Code: "
                 f"expected first {comparison_bits} bits of datahash to match "
-                f"first {comparison_bits} bits of Instance-Code"
+                f"first {comparison_bits} bits of Instance-Code",
             )
+    except (ValidationError, FieldValidationError, HashError):
+        # Re-raise our validation errors
+        raise
     except ValueError as e:
-        # Re-raise our custom error messages
-        if "datahash does not match" in str(e):
-            raise
         # Convert iscc_core validation errors to our format
-        raise ValueError(f"Invalid ISCC code: {str(e)}") from e
+        raise IsccCodeError(f"Invalid ISCC code: {str(e)}") from e
