@@ -5,6 +5,85 @@ import pytest
 from iscc_hub.iscc_id import IsccID
 
 
+# Parameterized tests for initialization
+@pytest.mark.parametrize(
+    "input_value,expected_length,should_pass",
+    [
+        ("ISCC:MAIWGQRD43YZQUAA", 8, True),
+        (b"\x12\x34\x56\x78\x9a\xbc\xde\xf0", 8, True),
+        (IsccID.HEADER + b"\x12\x34\x56\x78\x9a\xbc\xde\xf0", 8, True),
+        (12345, None, False),
+        (b"short", None, False),
+    ],
+)
+def test_iscc_id_init_parameterized(input_value, expected_length, should_pass):
+    # type: (str|bytes|int, int|None, bool) -> None
+    """Parameterized test for IsccID initialization."""
+    if should_pass:
+        if isinstance(input_value, str):
+            iid = IsccID(input_value)
+            assert str(iid) == input_value
+        else:
+            iid = IsccID(input_value)
+        assert len(bytes(iid)) == expected_length
+    else:
+        with pytest.raises(ValueError):
+            IsccID(input_value)
+
+
+# Parameterized tests for from_timestamp
+@pytest.mark.parametrize(
+    "timestamp,hub_id,should_pass,error_match",
+    [
+        (1234567890123456, 123, True, None),
+        (0, 0, True, None),
+        (1000000, 4095, True, None),
+        (1000000, 4096, False, "Hub-ID must be between 0 and 4095"),
+        (1000000, -1, False, "Hub-ID must be between 0 and 4095"),
+        (-1, 0, False, "Timestamp must be non-negative"),
+        ((1 << 52), 0, False, "Timestamp too large"),
+    ],
+)
+def test_from_timestamp_parameterized(timestamp, hub_id, should_pass, error_match):
+    # type: (int, int, bool, str|None) -> None
+    """Parameterized test for IsccID.from_timestamp()."""
+    if should_pass:
+        iid = IsccID.from_timestamp(timestamp, hub_id)
+        assert iid.timestamp_micros == timestamp
+        assert iid.hub_id == hub_id
+    else:
+        with pytest.raises(ValueError, match=error_match):
+            IsccID.from_timestamp(timestamp, hub_id)
+
+
+# Parameterized tests for equality
+@pytest.mark.parametrize(
+    "value1,value2,expected_equal",
+    [
+        ("ISCC:MAIWGQRD43YZQUAA", "ISCC:MAIWGQRD43YZQUAA", True),
+        ("ISCC:MAIWGQRD43YZQUAA", "ISCC:MAIZGUNTY2V446HQ", False),
+        ("ISCC:MAIWGQRD43YZQUAA", "invalid", False),
+        (b"\x12\x34\x56\x78\x9a\xbc\xde\xf0", b"\x12\x34\x56\x78\x9a\xbc\xde\xf0", True),
+        (b"\x12\x34\x56\x78\x9a\xbc\xde\xf0", b"\x00\x00\x00\x00\x00\x00\x00\x00", False),
+    ],
+)
+def test_equality_parameterized(value1, value2, expected_equal):
+    # type: (str|bytes, str|bytes, bool) -> None
+    """Parameterized test for IsccID equality comparison."""
+    try:
+        iid1 = IsccID(value1)
+    except (ValueError, TypeError, AttributeError):
+        iid1 = None
+
+    if iid1 is None:
+        pytest.skip("Invalid input for IsccID creation")
+
+    if expected_equal:
+        assert iid1 == value2
+    else:
+        assert iid1 != value2
+
+
 class TestIsccIDInitialization:
     """Test various ways to initialize an IsccID."""
 

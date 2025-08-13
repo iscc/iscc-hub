@@ -206,3 +206,75 @@ def invalid_signature_note(example_nonce, example_timestamp, example_keypair, ex
     signed_note["nonce"] = "fffaaa3f18c7b9407a48536a9b00c4cb"
 
     return signed_note
+
+
+# Factory functions for test objects
+def create_test_declaration(seq=1, **overrides):
+    # type: (int, dict) -> object
+    """Factory function for creating test IsccDeclaration objects."""
+    from iscc_hub.models import IsccDeclaration
+
+    defaults = {
+        "iscc_id": generate_test_iscc_id(seq=seq),
+        "event_seq": seq,
+        "iscc_code": "ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY",
+        "datahash": "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
+        "nonce": f"{seq:032x}",  # Generate unique nonce based on seq
+        "actor": "7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
+        "deleted": False,
+    }
+    defaults.update(overrides)
+    return IsccDeclaration.objects.create(**defaults)
+
+
+def create_test_event(seq=1, **overrides):
+    # type: (int, dict) -> object
+    """Factory function for creating test Event objects."""
+    from iscc_hub.models import Event
+
+    defaults = {
+        "seq": seq,
+        "note": {"test": "data"},
+        "iscc_id": generate_test_iscc_id(seq=seq),
+    }
+    defaults.update(overrides)
+    return Event.objects.create(**defaults)
+
+
+# Helper functions for testing
+def assert_validation_error(func, *args, expected_message=None, **kwargs):
+    # type: (callable, tuple, str|None, dict) -> Exception
+    """Helper for testing validation errors."""
+    with pytest.raises(ValueError) as exc_info:
+        func(*args, **kwargs)
+    if expected_message:
+        assert expected_message in str(exc_info.value)
+    return exc_info.value
+
+
+@pytest.fixture
+def sample_declaration_data():
+    # type: () -> dict
+    """Sample data for creating IsccDeclaration objects."""
+    return {
+        "iscc_code": "ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY",
+        "datahash": "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
+        "nonce": "fedcba9876543210fedcba9876543210",
+        "actor": "7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
+    }
+
+
+@pytest.fixture
+def sample_validation_data():
+    # type: () -> dict
+    """Common validation test data."""
+    return {
+        "valid_nonce": "000faa3f18c7b9407a48536a9b00c4cb",
+        "invalid_nonce": "INVALID_NONCE",
+        "valid_timestamp": "2025-01-15T12:00:00.000Z",
+        "invalid_timestamp": "not-a-timestamp",
+        "valid_iscc_code": "ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY",
+        "invalid_iscc_code": "INVALID:CODE",
+        "valid_datahash": "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
+        "invalid_datahash": "not-a-hash",
+    }

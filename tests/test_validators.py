@@ -7,6 +7,65 @@ import pytest
 from iscc_hub import validators
 
 
+# Parameterized test examples for nonce validation
+@pytest.mark.parametrize(
+    "nonce,hub_id,should_pass,error_match",
+    [
+        # Valid cases
+        ("000faa3f18c7b9407a48536a9b00c4cb", None, True, None),
+        ("000faa3f18c7b9407a48536a9b00c4cb", 0, True, None),
+        ("fffaaa3f18c7b9407a48536a9b00c4cb", 4095, True, None),
+        ("123aaa3f18c7b9407a48536a9b00c4cb", 291, True, None),
+        # Invalid cases
+        (12345, None, False, "nonce must be a string"),
+        ("000FAA3F18C7B9407A48536A9B00C4CB", None, False, "nonce must be lowercase"),
+        ("000faa3f18c7b9407a48536a9b00c4", None, False, "nonce must be exactly 32 characters"),
+        ("000faa3f18c7b9407a48536a9b00c4xz", None, False, "nonce must contain only hexadecimal characters"),
+        ("000faa3f18c7b9407a48536a9b00c4cb", 15, False, "Nonce hub_id mismatch: expected 15, got 0"),
+    ],
+)
+def test_validate_nonce_parameterized(nonce, hub_id, should_pass, error_match):
+    # type: (str|int, int|None, bool, str|None) -> None
+    """Parameterized test for nonce validation covering multiple cases."""
+    if should_pass:
+        if hub_id is not None:
+            validators.validate_nonce(nonce, hub_id=hub_id)
+        else:
+            validators.validate_nonce(nonce)
+    else:
+        with pytest.raises(ValueError, match=error_match):
+            if hub_id is not None:
+                validators.validate_nonce(nonce, hub_id=hub_id)
+            else:
+                validators.validate_nonce(nonce)
+
+
+@pytest.mark.parametrize(
+    "timestamp,check_tolerance,should_pass,error_match",
+    [
+        # Valid cases
+        ("2024-01-01T12:00:00.000Z", False, True, None),
+        ("2024-12-31T23:59:59.999Z", False, True, None),
+        # Invalid cases
+        (12345, False, False, "timestamp must be a string"),
+        ("2024-01-01T12:00:00.000", False, False, "timestamp must end with 'Z'"),
+        ("2024-01-01T12:00:00Z", False, False, "timestamp must include millisecond precision"),
+        ("2024-01-01T12:00:00.12Z", False, False, "timestamp must have exactly 3 digits for milliseconds"),
+        ("2024-01-01T12:00:00.1234Z", False, False, "timestamp must have exactly 3 digits for milliseconds"),
+        ("not-a-timestamp", False, False, "timestamp must end with 'Z'"),
+        ("2024-01-01T12:00:00.000+01:00", False, False, "timestamp must end with 'Z'"),
+    ],
+)
+def test_validate_timestamp_parameterized(timestamp, check_tolerance, should_pass, error_match):
+    # type: (str|int, bool, bool, str|None) -> None
+    """Parameterized test for timestamp validation covering multiple cases."""
+    if should_pass:
+        validators.validate_timestamp(timestamp, check_tolerance=check_tolerance)
+    else:
+        with pytest.raises(ValueError, match=error_match):
+            validators.validate_timestamp(timestamp, check_tolerance=check_tolerance)
+
+
 def test_validate_required_fields_all_present():
     # type: () -> None
     """Test passes when all required fields present."""

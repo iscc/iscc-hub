@@ -12,6 +12,72 @@ from iscc_hub.fields import IsccIDField, SequenceField
 from iscc_hub.iscc_id import IsccID
 
 
+# Parameterized tests for IsccIDField.to_python
+@pytest.mark.parametrize(
+    "input_value,expected_output,should_raise,error_code",
+    [
+        (None, None, False, None),
+        ("", None, False, None),
+        ("ISCC:MAIWGQRD43YZQUAA", "ISCC:MAIWGQRD43YZQUAA", False, None),
+        ("INVALID:FORMAT", None, True, "invalid_iscc_format"),
+        ("ISCC:INVALID", None, True, "invalid_iscc"),
+        (b"SHORT", None, True, "invalid_length"),
+        (12345, None, True, "invalid_type"),
+    ],
+)
+def test_isccid_field_to_python_parameterized(input_value, expected_output, should_raise, error_code):
+    # type: (str|bytes|int|None, str|None, bool, str|None) -> None
+    """Parameterized test for IsccIDField.to_python method."""
+    field = IsccIDField()
+
+    if input_value is not None and isinstance(input_value, bytes) and len(input_value) == 8:
+        # Special case for valid 8-byte input
+        iscc_id = IsccID("ISCC:MAIWGQRD43YZQUAA")
+        input_value = bytes(iscc_id)
+        expected_output = "ISCC:MAIWGQRD43YZQUAA"
+        should_raise = False
+        error_code = None
+
+    if should_raise:
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_python(input_value)
+        assert exc_info.value.code == error_code
+    else:
+        result = field.to_python(input_value)
+        assert result == expected_output
+
+
+# Parameterized tests for IsccIDField.get_prep_value
+@pytest.mark.parametrize(
+    "input_value,expected_type,should_raise,error_code",
+    [
+        (None, type(None), False, None),
+        ("", type(None), False, None),
+        ("ISCC:MAIWGQRD43YZQUAA", bytes, False, None),
+        (b"TOOLONG!!", None, True, "invalid_length"),
+        ("INVALID", None, True, None),
+    ],
+)
+def test_isccid_field_get_prep_value_parameterized(input_value, expected_type, should_raise, error_code):
+    # type: (str|bytes|None, type|None, bool, str|None) -> None
+    """Parameterized test for IsccIDField.get_prep_value method."""
+    field = IsccIDField()
+
+    if should_raise:
+        with pytest.raises(ValidationError) as exc_info:
+            field.get_prep_value(input_value)
+        if error_code:
+            assert exc_info.value.code == error_code
+    else:
+        result = field.get_prep_value(input_value)
+        if expected_type is type(None):
+            assert result is None
+        else:
+            assert isinstance(result, expected_type)
+            if expected_type is bytes:
+                assert len(result) == 8
+
+
 def test_sequence_field_description():
     # type: () -> None
     """Test that SequenceField has the correct description."""
