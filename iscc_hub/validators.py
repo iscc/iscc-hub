@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import iscc_core as ic
 import iscc_crypto as icr
 import uritemplate
+from asgiref.sync import sync_to_async
 from dateutil.parser import isoparse
 
 from iscc_hub.exceptions import (
@@ -33,6 +34,12 @@ SIGNATURE_VERSION = "ISCC-SIG v1.0"
 MAX_UNITS_ARRAY_SIZE = 4  # Prevent DOS attacks
 MAX_STRING_LENGTH = 2048  # Maximum length for string fields
 MAX_JSON_SIZE = 2048 * 4
+
+
+@sync_to_async
+def avalidate_iscc_note(*args, **kwargs):  # pragma: no cover
+    """Async wrapper for validate_iscc_note."""
+    return validate_iscc_note(*args, **kwargs)
 
 
 def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_timestamp=True):

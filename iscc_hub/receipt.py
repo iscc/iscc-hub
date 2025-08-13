@@ -3,10 +3,16 @@ Business logic for building ISCC receipts (W3C Verifiable Credentials).
 """
 
 import iscc_crypto as icr
+from asgiref.sync import sync_to_async
 from django.conf import settings
 
 from iscc_hub.iscc_id import IsccID
 from iscc_hub.models import Event
+
+
+@sync_to_async
+def abuild_iscc_receipt(event, hub_keypair=None, hub_did=None):
+    return build_iscc_receipt(event, hub_keypair, hub_did)
 
 
 def build_iscc_receipt(event, hub_keypair=None, hub_did=None):

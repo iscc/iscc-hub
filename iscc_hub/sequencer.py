@@ -11,6 +11,7 @@ This module provides atomic sequencing of ISCC declarations with:
 import json
 import time
 
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.db import connection
 
@@ -25,6 +26,12 @@ class NonceConflictError(SequencerError):
     """Raised when a nonce already exists in the database."""
 
     pass
+
+
+@sync_to_async
+def asequence_iscc_note(iscc_note):  # pragma: no cover
+    """Async wrapper for sequence_iscc_note."""
+    return sequence_iscc_note(iscc_note)
 
 
 def sequence_iscc_note(iscc_note):

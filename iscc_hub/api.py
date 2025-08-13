@@ -1,15 +1,42 @@
+import json
+
 import iscc_crypto as icr
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
 from ninja import NinjaAPI
 
 import iscc_hub
+from iscc_hub.exceptions import NonceError
+from iscc_hub.models import Event, IsccDeclaration
+from iscc_hub.receipt import abuild_iscc_receipt
+from iscc_hub.sequencer import asequence_iscc_note
+from iscc_hub.validators import avalidate_iscc_note
 
 api = NinjaAPI(
     title="ISCC Notary API",
     version=iscc_hub.__version__,
     description="Sign, timestamp, and discover content using ISCC",
 )
+
+
+@api.post("/declaration")
+async def declaration(request):
+    data = json.loads(request.body)
+
+    # Offline pre-validation
+    valid_data = await avalidate_iscc_note(data, True, settings.ISCC_HUB_ID, True)
+
+    # Online pre-validation
+    if await IsccDeclaration.objects.filter(nonce=valid_data["nonce"]).aexists():
+        raise NonceError("Nonce already used", is_reuse=True)
+
+    # Sequencing
+    seq, iscc_id = await asequence_iscc_note(valid_data)
+
+    # Create and return IsccReceipt
+    event = await Event.objects.aget(seq=seq)
+    receipt = await abuild_iscc_receipt(event)
+    return receipt
 
 
 @api.get("/health")
