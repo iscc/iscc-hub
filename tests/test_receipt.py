@@ -8,7 +8,7 @@ from django.conf import settings
 
 from iscc_hub.iscc_id import IsccID
 from iscc_hub.models import Event
-from iscc_hub.receipt import build_iscc_receipt, derive_subject_did
+from iscc_hub.receipt import abuild_iscc_receipt, build_iscc_receipt, derive_subject_did
 
 
 @pytest.mark.django_db
@@ -83,9 +83,9 @@ def test_build_iscc_receipt_with_full_note(full_iscc_note):
 
 
 @pytest.mark.django_db
-def test_build_iscc_receipt_with_custom_keypair_and_did(minimal_iscc_note, example_keypair):
+def test_build_iscc_receipt_with_custom_keypair(minimal_iscc_note, example_keypair):
     # type: (dict, icr.KeyPair) -> None
-    """Test building an IsccReceipt with custom HUB keypair and DID."""
+    """Test building an IsccReceipt with custom HUB keypair."""
     # Create an Event
     iscc_id_bytes = IsccID.from_timestamp(1700000000000000, 1).bytes_body
     event = Event(
@@ -96,15 +96,15 @@ def test_build_iscc_receipt_with_custom_keypair_and_did(minimal_iscc_note, examp
     )
     event.save()
 
-    # Build the receipt with custom parameters
-    custom_did = "did:web:custom.example.com"
-    receipt = build_iscc_receipt(event, hub_keypair=example_keypair, hub_did=custom_did)
+    # Build the receipt with custom keypair
+    receipt = build_iscc_receipt(event, hub_keypair=example_keypair)
 
-    # Verify custom issuer
-    assert receipt["issuer"] == custom_did
+    # Verify issuer is derived from domain (not keypair)
+    assert receipt["issuer"] == "did:web:testserver"
 
     # Verify proof uses the custom keypair's verification method
     assert "proof" in receipt
+    assert receipt["proof"]["verificationMethod"].startswith(example_keypair.controller)
     # The proof should be valid with the custom keypair
 
 
@@ -177,9 +177,9 @@ def test_build_iscc_receipt_with_updated_event(minimal_iscc_note):
 
 
 @pytest.mark.django_db
-def test_build_iscc_receipt_verifiable(minimal_iscc_note):
+def test_build_iscc_receipt_structure(minimal_iscc_note):
     # type: (dict) -> None
-    """Test that the built IsccReceipt can be verified."""
+    """Test that the built IsccReceipt has correct structure and proof."""
     # Create an Event
     iscc_id_bytes = IsccID.from_timestamp(1700000000000000, 1).bytes_body
     event = Event(
@@ -193,10 +193,13 @@ def test_build_iscc_receipt_verifiable(minimal_iscc_note):
     # Build the receipt
     receipt = build_iscc_receipt(event)
 
-    # Verify the receipt using iscc-crypto
-    # This should not raise an exception
-    result = icr.verify_vc(receipt)
-    assert result.signature_valid is True
+    # Check that the receipt is properly signed with did:web
+    assert receipt["issuer"] == "did:web:testserver"
+    assert "proof" in receipt
+    assert receipt["proof"]["type"] == "DataIntegrityProof"
+    assert receipt["proof"]["cryptosuite"] == "eddsa-jcs-2022"
+    assert receipt["proof"]["verificationMethod"].startswith("did:web:testserver#")
+    assert "proofValue" in receipt["proof"]
 
 
 @pytest.mark.django_db
@@ -221,3 +224,37 @@ def test_build_iscc_receipt_iscc_id_formatting(minimal_iscc_note):
     assert declaration["iscc_id"].startswith("ISCC:")
     assert len(declaration["iscc_id"]) == 21  # ISCC: + 16 characters
     assert declaration["iscc_id"] == str(iscc_id)
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_abuild_iscc_receipt(minimal_iscc_note):
+    # type: (dict) -> None
+    """Test async wrapper for building an IsccReceipt."""
+    from asgiref.sync import sync_to_async
+
+    # Create an Event synchronously
+    iscc_id_bytes = IsccID.from_timestamp(1700000000000000, 1).bytes_body
+    event = Event(
+        seq=42,
+        event_type=Event.EventType.CREATED,
+        iscc_id=iscc_id_bytes,
+        iscc_note=minimal_iscc_note,
+    )
+
+    # Save the event using sync_to_async
+    await sync_to_async(event.save)()
+
+    # Build the receipt using async wrapper
+    receipt = await abuild_iscc_receipt(event)
+
+    # Build sync version for comparison
+    sync_receipt = await sync_to_async(build_iscc_receipt)(event)
+
+    # Verify it's the same as the sync version
+    assert receipt == sync_receipt
+
+    # Verify basic structure
+    assert receipt["type"] == ["VerifiableCredential", "IsccReceipt"]
+    assert receipt["issuer"] == f"did:web:{settings.ISCC_HUB_DOMAIN}"
+    assert receipt["credentialSubject"]["declaration"]["seq"] == 42

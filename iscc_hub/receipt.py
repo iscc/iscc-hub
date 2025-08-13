@@ -11,30 +11,32 @@ from iscc_hub.models import Event
 
 
 @sync_to_async
-def abuild_iscc_receipt(event, hub_keypair=None, hub_did=None):
-    return build_iscc_receipt(event, hub_keypair, hub_did)
+def abuild_iscc_receipt(event, hub_keypair=None):
+    return build_iscc_receipt(event, hub_keypair)
 
 
-def build_iscc_receipt(event, hub_keypair=None, hub_did=None):
-    # type: (Event, icr.KeyPair|None, str|None) -> dict
+def build_iscc_receipt(event, hub_keypair=None):
+    # type: (Event, icr.KeyPair|None) -> dict
     """
     Build a signed IsccReceipt (W3C Verifiable Credential) from an Event.
 
     Creates a W3C Verifiable Credential containing the declaration details
     and signs it with the HUB's keypair using the eddsa-jcs-2022 cryptosuite.
+    Both the issuer DID and keypair controller use did:web format based on the
+    hub domain.
 
     :param event: Event instance containing seq, iscc_id, and iscc_note
     :param hub_keypair: Optional HUB's KeyPair for signing (defaults to configured key)
-    :param hub_did: Optional HUB's DID (defaults to did:web based on domain)
     :return: Signed W3C Verifiable Credential as a dict
     """
-    # Use provided or default HUB credentials
+    # Use provided or default HUB keypair
     if hub_keypair is None:
+        # Create keypair with did:web controller
         controller = f"did:web:{settings.ISCC_HUB_DOMAIN}"
         hub_keypair = icr.key_from_secret(settings.ISCC_HUB_SECKEY, controller=controller)
 
-    if hub_did is None:
-        hub_did = f"did:web:{settings.ISCC_HUB_DOMAIN}"
+    # Hub DID is always derived from domain for issuer identity
+    hub_did = f"did:web:{settings.ISCC_HUB_DOMAIN}"
 
     # Extract IsccNote from event
     iscc_note = event.iscc_note
