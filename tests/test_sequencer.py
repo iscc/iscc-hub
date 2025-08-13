@@ -6,9 +6,7 @@ Tests atomic sequencing, nonce uniqueness, timestamp monotonicity, and concurren
 
 import os
 import time
-from io import BytesIO
 
-import iscc_core as ic
 import iscc_crypto as icr
 import pytest
 from django.conf import settings
@@ -20,44 +18,7 @@ from iscc_hub.sequencer import (
     SequencerError,
     sequence_iscc_note,
 )
-
-
-def create_test_note(index=0, nonce=None):
-    # type: (int, str|None) -> dict
-    """Create a unique test IsccNote."""
-    text = f"Test content {index}"
-    text_bytes = text.encode("utf-8")
-
-    # Generate ISCC components
-    mcode = ic.gen_meta_code(text, f"Test {index}", bits=256)
-    ccode = ic.gen_text_code(text, bits=256)
-    dcode = ic.gen_data_code(BytesIO(text_bytes), bits=256)
-    icode = ic.gen_instance_code(BytesIO(text_bytes), bits=256)
-    iscc_code = ic.gen_iscc_code([mcode["iscc"], ccode["iscc"], dcode["iscc"], icode["iscc"]])["iscc"]
-
-    # Generate nonce if not provided
-    if nonce is None:
-        nonce_bytes = os.urandom(16)
-        # Set first 12 bits to 001 (hub_id 1)
-        nonce_bytes = bytes([0x00, 0x10]) + nonce_bytes[2:]
-        nonce = nonce_bytes.hex()
-
-    # Create IsccNote
-    note = {
-        "iscc_code": iscc_code,
-        "datahash": icode["datahash"],
-        "nonce": nonce,
-        "timestamp": f"2025-01-15T12:00:{index % 60:02d}.000Z",
-        "gateway": f"https://example.com/item{index}",
-        "metahash": mcode["metahash"],
-    }
-
-    # Sign the note
-    controller = f"did:web:example{index}.com"
-    keypair = icr.key_generate(controller=controller)
-    signed_note = icr.sign_json(note, keypair)
-
-    return signed_note
+from tests.conftest import create_iscc_from_text
 
 
 @pytest.fixture(autouse=True)
@@ -83,10 +44,10 @@ def clear_database():
 
 
 @pytest.mark.django_db(transaction=False)
-def test_transaction_atomicity():
+def test_transaction_atomicity(full_iscc_note):
     """Test that transactions are atomic - all or nothing."""
-    # Create a note with invalid data that will fail during insertion
-    note = create_test_note(1)
+    # Use the fixture note
+    note = full_iscc_note
 
     # Temporarily break the note to cause a failure
     original_execute = connection.cursor().__class__.execute
@@ -144,8 +105,31 @@ def test_performance_benchmark():
     start_time = time.perf_counter()
 
     for i in range(num_operations):
-        note = create_test_note(i)
-        sequence_iscc_note(note)
+        # Create unique note for each iteration
+        text = f"Test content {i}"
+        iscc_data = create_iscc_from_text(text)
+
+        # Generate unique nonce for each note
+        nonce_bytes = os.urandom(16)
+        # Set first 12 bits to 001 (hub_id 1)
+        nonce_bytes = bytes([0x00, 0x10]) + nonce_bytes[2:]
+        nonce = nonce_bytes.hex()
+
+        note = {
+            "iscc_code": iscc_data["iscc"],
+            "datahash": iscc_data["datahash"],
+            "nonce": nonce,
+            "timestamp": f"2025-01-15T12:00:{i % 60:02d}.000Z",
+            "gateway": f"https://example.com/item{i}",
+            "metahash": iscc_data["metahash"],
+        }
+
+        # Sign the note
+        controller = f"did:web:example{i}.com"
+        keypair = icr.key_generate(controller=controller)
+        signed_note = icr.sign_json(note, keypair)
+
+        sequence_iscc_note(signed_note)
 
     elapsed = time.perf_counter() - start_time
     throughput = num_operations / elapsed
@@ -158,10 +142,9 @@ def test_performance_benchmark():
 
 
 @pytest.mark.django_db(transaction=False)
-def test_hub_id_encoding():
+def test_hub_id_encoding(full_iscc_note):
     """Test that hub_id is correctly encoded in ISCC-ID."""
-    note = create_test_note(1)
-    _, iscc_id_str = sequence_iscc_note(note)
+    _, iscc_id_str = sequence_iscc_note(full_iscc_note)
 
     # Decode the ISCC-ID
     iscc_id = IsccID(iscc_id_str)
@@ -175,8 +158,26 @@ def test_timestamp_precision():
     """Test that timestamps have microsecond precision."""
     notes = []
     for i in range(5):
-        note = create_test_note(i)
-        _, iscc_id = sequence_iscc_note(note)
+        # Create unique note for each iteration
+        text = f"Test content {i}"
+        iscc_data = create_iscc_from_text(text)
+
+        # Generate unique nonce
+        nonce_bytes = os.urandom(16)
+        nonce_bytes = bytes([0x00, 0x10]) + nonce_bytes[2:]
+
+        note = {
+            "iscc_code": iscc_data["iscc"],
+            "datahash": iscc_data["datahash"],
+            "nonce": nonce_bytes.hex(),
+            "timestamp": f"2025-01-15T12:00:{i:02d}.000Z",
+        }
+
+        # Sign the note
+        keypair = icr.key_generate(controller=f"did:web:example{i}.com")
+        signed_note = icr.sign_json(note, keypair)
+
+        _, iscc_id = sequence_iscc_note(signed_note)
         notes.append(iscc_id)
         # Small delay to ensure different timestamps
         time.sleep(0.001)  # 1ms
@@ -212,14 +213,32 @@ def test_nonce_conflict_error_inheritance():
 @pytest.mark.django_db(transaction=False)
 def test_nonce_conflict_detection():
     """Test that duplicate nonces are rejected."""
-    # Create and sequence first note
-    note1 = create_test_note(1, nonce="00100123456789abcdef0123456789ab")
-    seq1, iscc_id1 = sequence_iscc_note(note1)
+    # Create and sequence first note with specific nonce
+    nonce = "00100123456789abcdef0123456789ab"
+    iscc_data1 = create_iscc_from_text("Test content 1")
+    note1 = {
+        "iscc_code": iscc_data1["iscc"],
+        "datahash": iscc_data1["datahash"],
+        "nonce": nonce,
+        "timestamp": "2025-01-15T12:00:01.000Z",
+    }
+    keypair1 = icr.key_generate(controller="did:web:example1.com")
+    signed_note1 = icr.sign_json(note1, keypair1)
+    seq1, iscc_id1 = sequence_iscc_note(signed_note1)
 
     # Try to sequence another note with the same nonce
-    note2 = create_test_note(2, nonce="00100123456789abcdef0123456789ab")
+    iscc_data2 = create_iscc_from_text("Test content 2")
+    note2 = {
+        "iscc_code": iscc_data2["iscc"],
+        "datahash": iscc_data2["datahash"],
+        "nonce": nonce,  # Same nonce
+        "timestamp": "2025-01-15T12:00:02.000Z",
+    }
+    keypair2 = icr.key_generate(controller="did:web:example2.com")
+    signed_note2 = icr.sign_json(note2, keypair2)
+
     with pytest.raises(NonceConflictError) as exc_info:
-        sequence_iscc_note(note2)
+        sequence_iscc_note(signed_note2)
 
     assert "Nonce already exists: 00100123456789abcdef0123456789ab" in str(exc_info.value)
 
@@ -234,23 +253,32 @@ def test_nonce_conflict_detection():
 
 
 @pytest.mark.django_db(transaction=False)
-def test_invalid_hub_id(monkeypatch):
+def test_invalid_hub_id(monkeypatch, full_iscc_note):
     """Test that invalid hub_id raises SequencerError."""
     # Save original value
     original_hub_id = settings.ISCC_HUB_ID
 
     # Test hub_id > 4095
     monkeypatch.setattr(settings, "ISCC_HUB_ID", 4096)
-    note = create_test_note(1)
     with pytest.raises(SequencerError) as exc_info:
-        sequence_iscc_note(note)
+        sequence_iscc_note(full_iscc_note)
     assert "Invalid hub_id: 4096" in str(exc_info.value)
 
     # Test negative hub_id
     monkeypatch.setattr(settings, "ISCC_HUB_ID", -1)
-    note = create_test_note(2)
+    # Need a fresh note with different nonce to avoid conflict
+    iscc_data = create_iscc_from_text("Different content")
+    note = {
+        "iscc_code": iscc_data["iscc"],
+        "datahash": iscc_data["datahash"],
+        "nonce": "00100000000000000000000000000002",
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    keypair = icr.key_generate(controller="did:web:example.com")
+    signed_note = icr.sign_json(note, keypair)
+
     with pytest.raises(SequencerError) as exc_info:
-        sequence_iscc_note(note)
+        sequence_iscc_note(signed_note)
     assert "Invalid hub_id: -1" in str(exc_info.value)
 
     # Restore original value
@@ -258,11 +286,10 @@ def test_invalid_hub_id(monkeypatch):
 
 
 @pytest.mark.django_db(transaction=False)
-def test_monotonic_timestamp_edge_case(monkeypatch):
+def test_monotonic_timestamp_edge_case(monkeypatch, full_iscc_note):
     """Test timestamp monotonicity when system clock goes backward."""
     # First, insert a normal note
-    note1 = create_test_note(1)
-    seq1, iscc_id1 = sequence_iscc_note(note1)
+    seq1, iscc_id1 = sequence_iscc_note(full_iscc_note)
 
     # Parse the timestamp from the first ISCC-ID
     iscc_obj1 = IsccID(iscc_id1)
@@ -275,9 +302,17 @@ def test_monotonic_timestamp_edge_case(monkeypatch):
 
     monkeypatch.setattr(time, "time_ns", mock_time_ns)
 
-    # Create second note - should still get monotonic timestamp
-    note2 = create_test_note(2)
-    seq2, iscc_id2 = sequence_iscc_note(note2)
+    # Create second note with different nonce - should still get monotonic timestamp
+    iscc_data = create_iscc_from_text("Different content")
+    note2 = {
+        "iscc_code": iscc_data["iscc"],
+        "datahash": iscc_data["datahash"],
+        "nonce": "00100000000000000000000000000002",
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    keypair = icr.key_generate(controller="did:web:example2.com")
+    signed_note2 = icr.sign_json(note2, keypair)
+    seq2, iscc_id2 = sequence_iscc_note(signed_note2)
 
     # Parse the second timestamp
     iscc_obj2 = IsccID(iscc_id2)
@@ -289,9 +324,9 @@ def test_monotonic_timestamp_edge_case(monkeypatch):
 
 
 @pytest.mark.django_db(transaction=False)
-def test_rollback_on_generic_exception(monkeypatch):
+def test_rollback_on_generic_exception(monkeypatch, full_iscc_note):
     """Test that generic exceptions cause rollback and are wrapped."""
-    note = create_test_note(1)
+    note = full_iscc_note
 
     # Mock cursor.execute to raise a generic exception during INSERT
     original_execute = connection.cursor().__class__.execute
