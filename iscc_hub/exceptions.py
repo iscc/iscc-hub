@@ -1,7 +1,43 @@
 """Custom exception classes for ISCC Hub validation with detailed error information."""
 
 
-class ValidationError(ValueError):
+class BaseApiException(Exception):
+    """
+    Base exception for all API-related errors.
+
+    Handles conversion to Django Ninja HTTP responses with appropriate status codes.
+    """
+
+    status_code = 400  # Default to Bad Request
+
+    def __init__(self, message, code=None, field=None):
+        # type: (str, str|None, str|None) -> None
+        """
+        Initialize BaseApiException with structured error details.
+
+        :param message: Human-readable error message
+        :param code: Machine-readable error code for programmatic handling
+        :param field: The specific field that caused the error
+        """
+        super().__init__(message)
+        self.message = message
+        self.code = code or "error"
+        self.field = field
+
+    def to_error_response(self):
+        # type: () -> dict
+        """
+        Convert exception to ErrorResponse format for API.
+
+        :return: Dictionary conforming to ErrorResponse schema
+        """
+        error_detail = {"message": self.message, "code": self.code}
+        if self.field:
+            error_detail["field"] = self.field
+        return {"error": error_detail}
+
+
+class ValidationError(BaseApiException, ValueError):
     """
     Base validation error with structured error details.
 
@@ -17,22 +53,7 @@ class ValidationError(ValueError):
         :param code: Machine-readable error code for programmatic handling
         :param field: The specific field that caused the error
         """
-        super().__init__(message)
-        self.message = message
-        self.code = code or "validation_failed"
-        self.field = field
-
-    def to_error_response(self):
-        # type: () -> dict
-        """
-        Convert exception to ErrorResponse format.
-
-        :return: Dictionary conforming to ErrorResponse schema
-        """
-        error_detail = {"message": self.message, "code": self.code}
-        if self.field:
-            error_detail["field"] = self.field
-        return {"error": error_detail}
+        super().__init__(message, code or "validation_failed", field)
 
 
 class FieldValidationError(ValidationError):
@@ -88,6 +109,7 @@ class NonceError(FieldValidationError):
         """
         if is_reuse:
             code = "nonce_reuse"
+            self.status_code = 409  # Conflict
         elif is_mismatch:
             code = "nonce_mismatch"
         else:
@@ -97,6 +119,8 @@ class NonceError(FieldValidationError):
 
 class SignatureError(ValidationError):
     """Signature validation error."""
+
+    status_code = 401  # Unauthorized
 
     def __init__(self, message):
         # type: (str) -> None
@@ -116,7 +140,11 @@ class HashError(FieldValidationError):
         :param message: Error message
         :param is_duplicate: Whether hash is a duplicate
         """
-        code = "duplicate_datahash" if is_duplicate and field == "datahash" else "invalid_format"
+        if is_duplicate and field == "datahash":
+            code = "duplicate_datahash"
+            self.status_code = 409  # Conflict
+        else:
+            code = "invalid_format"
         super().__init__(field, message, code)
 
 

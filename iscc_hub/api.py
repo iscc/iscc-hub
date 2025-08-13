@@ -7,7 +7,7 @@ from ninja import NinjaAPI
 from ninja.responses import codes_4xx
 
 import iscc_hub
-from iscc_hub.exceptions import NonceError
+from iscc_hub.exceptions import BaseApiException, NonceError
 from iscc_hub.models import Event, IsccDeclaration
 from iscc_hub.receipt import abuild_iscc_receipt
 from iscc_hub.schema import ErrorResponse, IsccReceipt
@@ -19,6 +19,23 @@ api = NinjaAPI(
     version=iscc_hub.__version__,
     description="Sign, timestamp, and discover content using ISCC",
 )
+
+
+@api.exception_handler(BaseApiException)
+async def handle_api_exception(request, exc):
+    # type: (HttpRequest, BaseApiException) -> object
+    """
+    Handle all BaseApiException and subclasses with appropriate HTTP responses.
+
+    :param request: The incoming HTTP request
+    :param exc: The exception instance
+    :return: JSON response with error details and appropriate status code
+    """
+    return api.create_response(
+        request,
+        exc.to_error_response(),
+        status=exc.status_code,
+    )
 
 
 @api.post("/declaration", response={201: IsccReceipt, codes_4xx: ErrorResponse})
