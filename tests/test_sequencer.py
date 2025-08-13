@@ -145,10 +145,10 @@ def test_performance_benchmark():
 @pytest.mark.django_db(transaction=False)
 def test_hub_id_encoding(full_iscc_note):
     """Test that hub_id is correctly encoded in ISCC-ID."""
-    _, iscc_id_str = sequence_iscc_note(full_iscc_note)
+    _, iscc_id_bytes = sequence_iscc_note(full_iscc_note)
 
     # Decode the ISCC-ID
-    iscc_id = IsccID(iscc_id_str)
+    iscc_id = IsccID(iscc_id_bytes)
 
     # Check hub_id matches settings
     assert iscc_id.hub_id == settings.ISCC_HUB_ID

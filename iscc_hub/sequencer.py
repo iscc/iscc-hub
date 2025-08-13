@@ -35,7 +35,7 @@ def asequence_iscc_note(iscc_note):  # pragma: no cover
 
 
 def sequence_iscc_note(iscc_note):
-    # type: (dict) -> tuple[int, str]
+    # type: (dict) -> tuple[int, bytes]
     """
     Atomically sequence an ISCC note with gapless numbering and monotonic timestamps.
 
@@ -45,12 +45,12 @@ def sequence_iscc_note(iscc_note):
     3. Issues the next unique microsecond timestamp (ISCC-ID)
     4. Stores the IsccNote in the iscc_event table
     5. Adds/updates the iscc_declaration table
-    6. Returns the issued seq and iscc_id
+    6. Returns the issued seq and iscc_id_bytes
 
     All operations are atomic - either all succeed or none.
 
     :param iscc_note: Pre-validated IsccNote dictionary
-    :return: Tuple of (sequence_number, iscc_id_string)
+    :return: Tuple of (sequence_number, iscc_id_bytes)
     :raises NonceConflictError: If nonce already exists
     :raises SequencerError: For other sequencing failures
     """
@@ -169,12 +169,7 @@ def sequence_iscc_note(iscc_note):
             # 8. Commit the transaction durably
             cursor.execute("COMMIT")
 
-            # Convert ISCC-ID to string format
-            from iscc_hub.iscc_id import IsccID
-
-            iscc_id_str = str(IsccID(iscc_id_bytes))
-
-            return new_seq, iscc_id_str
+            return new_seq, iscc_id_bytes
 
         except Exception as e:
             # Ensure rollback on any error
