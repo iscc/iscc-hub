@@ -86,13 +86,23 @@ properties:
       W3C Data Integrity proof created by ISCC-HUB
 
       Uses **EdDSA-JCS-2022** cryptosuite with Ed25519 signatures.
+      Contains copied @context from credential root per W3C spec.
     required:
+      - '@context'
       - type
       - cryptosuite
       - verificationMethod
       - proofPurpose
       - proofValue
     properties:
+      '@context':
+        type: array
+        description: |
+          JSON-LD context copied from credential root (W3C spec requirement)
+        items:
+          type: string
+        minItems: 1
+        example: ["https://www.w3.org/ns/credentials/v2"]
       type:
         type: string
         const: "DataIntegrityProof"
@@ -104,6 +114,7 @@ properties:
         format: uri
         description: |
           DID URL of the HUB's signing key
+        example: "did:web:testserver#z6MkkRXoNEjqGNKHrPh8a54g6B2kqLp5M6HyA7odbCh1mDwX"
       proofPurpose:
         type: string
         const: "assertionMethod"

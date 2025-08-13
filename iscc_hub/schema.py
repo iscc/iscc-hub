@@ -43,9 +43,24 @@ class Proof(Schema):
     model_config = ConfigDict(
         extra="forbid",
     )
+    field_context: Annotated[
+        list[str],
+        Field(
+            alias="@context",
+            description="JSON-LD context copied from credential root (W3C spec requirement)\n",
+            examples=[["https://www.w3.org/ns/credentials/v2"]],
+            min_length=1,
+        ),
+    ]
     type: Literal["DataIntegrityProof"]
     cryptosuite: Literal["eddsa-jcs-2022"]
-    verificationMethod: Annotated[AnyUrl, Field(description="DID URL of the HUB's signing key\n")]
+    verificationMethod: Annotated[
+        AnyUrl,
+        Field(
+            description="DID URL of the HUB's signing key\n",
+            examples=["did:web:testserver#z6MkkRXoNEjqGNKHrPh8a54g6B2kqLp5M6HyA7odbCh1mDwX"],
+        ),
+    ]
     proofPurpose: Literal["assertionMethod"]
     proofValue: Annotated[
         str,
@@ -273,6 +288,6 @@ class IsccReceipt(Schema):
     proof: Annotated[
         Proof,
         Field(
-            description="W3C Data Integrity proof created by ISCC-HUB\n\nUses **EdDSA-JCS-2022** cryptosuite with Ed25519 signatures.\n"
+            description="W3C Data Integrity proof created by ISCC-HUB\n\nUses **EdDSA-JCS-2022** cryptosuite with Ed25519 signatures.\nContains copied @context from credential root per W3C spec.\n"
         ),
     ]
