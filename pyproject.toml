@@ -87,6 +87,9 @@ filterwarnings = [
     "ignore:Error when trying to teardown test databases.*:pytest.PytestWarning"
 ]
 testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m not slow')",
+]
 
 [tool.coverage.run]
 source = ["iscc_hub"]
@@ -123,7 +126,8 @@ check-python = { cmd = "uv run ruff check --fix --unsafe-fixes .", help = "Check
 check-types = { cmd = "uv run pyright", help = "Run Pyright type checking"}
 format-python = { cmd = "uv run ruff format .", help = "Format python code"}
 format-markdown = { cmd = "uv run mdformat . notes", help = "Format python code"}
-test-python = {cmd = "uv run pytest", help = "Run python tests"}
+test-python = {cmd = "uv run pytest -m 'not slow'", help = "Run python tests (excluding slow tests)"}
+test-all = {cmd = "uv run pytest", help = "Run all python tests including slow ones"}
 
 # Development tasks
 reset = { cmd = "uv run python scripts/reset_dev_db.py", help = "Reset dev database with migrations, demo user, and fixtures" }
@@ -138,4 +142,13 @@ all = [
     "check-types",
     "format-markdown",
     "test-python",
+]
+
+ci = [
+    "build-schema",
+    "check-python",
+    "format-python",
+    "check-types",
+    "format-markdown",
+    "test-all",
 ]

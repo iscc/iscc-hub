@@ -98,6 +98,7 @@ def test_missing_required_fields():
     assert "Missing required fields" in str(exc_info.value)
 
 
+@pytest.mark.slow
 @pytest.mark.django_db(transaction=False)
 def test_performance_benchmark():
     """Performance benchmark for sequencing operations."""

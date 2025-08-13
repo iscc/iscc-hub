@@ -15,6 +15,7 @@ OPENAPI_PATH = HERE.parent / "iscc_hub" / "static" / "openapi.yaml"
 schema = schemathesis.openapi.from_path(OPENAPI_PATH.as_posix())
 
 
+@pytest.mark.slow
 @schema.parametrize()
 @pytest.mark.django_db
 def test_api_fuzz(case):
