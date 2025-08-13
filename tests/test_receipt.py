@@ -7,7 +7,6 @@ import pytest
 from django.conf import settings
 
 from iscc_hub.iscc_id import IsccID
-from iscc_hub.models import Event
 from iscc_hub.receipt import abuild_iscc_receipt, build_iscc_receipt, derive_subject_did
 
 
@@ -15,18 +14,16 @@ from iscc_hub.receipt import abuild_iscc_receipt, build_iscc_receipt, derive_sub
 def test_build_iscc_receipt_with_minimal_note(minimal_iscc_note):
     # type: (dict) -> None
     """Test building an IsccReceipt from a minimal IsccNote."""
-    # Create an Event with the minimal note
-    iscc_id_bytes = IsccID.from_timestamp(1700000000000000, 1).bytes_body
-    event = Event(
-        seq=42,
-        event_type=Event.EventType.CREATED,
-        iscc_id=iscc_id_bytes,
-        iscc_note=minimal_iscc_note,
-    )
-    event.save()
+    # Create declaration data dict
+    iscc_id = IsccID.from_timestamp(1700000000000000, 1)
+    declaration_data = {
+        "iscc_note": minimal_iscc_note,
+        "seq": 42,
+        "iscc_id_str": str(iscc_id),
+    }
 
     # Build the receipt
-    receipt = build_iscc_receipt(event)
+    receipt = build_iscc_receipt(declaration_data)
 
     # Verify structure
     assert "@context" in receipt
@@ -44,7 +41,7 @@ def test_build_iscc_receipt_with_minimal_note(minimal_iscc_note):
     assert "declaration" in subject
     declaration = subject["declaration"]
     assert declaration["seq"] == 42
-    assert declaration["iscc_id"] == str(IsccID(iscc_id_bytes))
+    assert declaration["iscc_id"] == str(iscc_id)
     assert declaration["iscc_note"] == minimal_iscc_note
 
     # Verify proof exists
@@ -61,18 +58,16 @@ def test_build_iscc_receipt_with_minimal_note(minimal_iscc_note):
 def test_build_iscc_receipt_with_full_note(full_iscc_note):
     # type: (dict) -> None
     """Test building an IsccReceipt from a full IsccNote with all optional fields."""
-    # Create an Event with the full note
-    iscc_id_bytes = IsccID.from_timestamp(1700000000000000, 1).bytes_body
-    event = Event(
-        seq=100,
-        event_type=Event.EventType.CREATED,
-        iscc_id=iscc_id_bytes,
-        iscc_note=full_iscc_note,
-    )
-    event.save()
+    # Create declaration data dict
+    iscc_id = IsccID.from_timestamp(1700000000000000, 1)
+    declaration_data = {
+        "iscc_note": full_iscc_note,
+        "seq": 100,
+        "iscc_id_str": str(iscc_id),
+    }
 
     # Build the receipt
-    receipt = build_iscc_receipt(event)
+    receipt = build_iscc_receipt(declaration_data)
 
     # Verify the note contains all optional fields
     declaration_note = receipt["credentialSubject"]["declaration"]["iscc_note"]
@@ -86,18 +81,16 @@ def test_build_iscc_receipt_with_full_note(full_iscc_note):
 def test_build_iscc_receipt_with_custom_keypair(minimal_iscc_note, example_keypair):
     # type: (dict, icr.KeyPair) -> None
     """Test building an IsccReceipt with custom HUB keypair."""
-    # Create an Event
-    iscc_id_bytes = IsccID.from_timestamp(1700000000000000, 1).bytes_body
-    event = Event(
-        seq=1,
-        event_type=Event.EventType.CREATED,
-        iscc_id=iscc_id_bytes,
-        iscc_note=minimal_iscc_note,
-    )
-    event.save()
+    # Create declaration data dict
+    iscc_id = IsccID.from_timestamp(1700000000000000, 1)
+    declaration_data = {
+        "iscc_note": minimal_iscc_note,
+        "seq": 1,
+        "iscc_id_str": str(iscc_id),
+    }
 
     # Build the receipt with custom keypair
-    receipt = build_iscc_receipt(event, hub_keypair=example_keypair)
+    receipt = build_iscc_receipt(declaration_data, hub_keypair=example_keypair)
 
     # Verify issuer is derived from domain (not keypair)
     assert receipt["issuer"] == "did:web:testserver"
@@ -158,18 +151,16 @@ def test_derive_subject_did_with_empty_controller():
 def test_build_iscc_receipt_with_updated_event(minimal_iscc_note):
     # type: (dict) -> None
     """Test building an IsccReceipt from an UPDATE event."""
-    # Create an UPDATE event
-    iscc_id_bytes = IsccID.from_timestamp(1700000000000000, 1).bytes_body
-    event = Event(
-        seq=200,
-        event_type=Event.EventType.UPDATED,
-        iscc_id=iscc_id_bytes,
-        iscc_note=minimal_iscc_note,
-    )
-    event.save()
+    # Create declaration data dict
+    iscc_id = IsccID.from_timestamp(1700000000000000, 1)
+    declaration_data = {
+        "iscc_note": minimal_iscc_note,
+        "seq": 200,
+        "iscc_id_str": str(iscc_id),
+    }
 
     # Build the receipt - should work the same way
-    receipt = build_iscc_receipt(event)
+    receipt = build_iscc_receipt(declaration_data)
 
     # Verify it's still a valid receipt
     assert receipt["type"] == ["VerifiableCredential", "IsccReceipt"]
@@ -180,18 +171,16 @@ def test_build_iscc_receipt_with_updated_event(minimal_iscc_note):
 def test_build_iscc_receipt_structure(minimal_iscc_note):
     # type: (dict) -> None
     """Test that the built IsccReceipt has correct structure and proof."""
-    # Create an Event
-    iscc_id_bytes = IsccID.from_timestamp(1700000000000000, 1).bytes_body
-    event = Event(
-        seq=1,
-        event_type=Event.EventType.CREATED,
-        iscc_id=iscc_id_bytes,
-        iscc_note=minimal_iscc_note,
-    )
-    event.save()
+    # Create declaration data dict
+    iscc_id = IsccID.from_timestamp(1700000000000000, 1)
+    declaration_data = {
+        "iscc_note": minimal_iscc_note,
+        "seq": 1,
+        "iscc_id_str": str(iscc_id),
+    }
 
     # Build the receipt
-    receipt = build_iscc_receipt(event)
+    receipt = build_iscc_receipt(declaration_data)
 
     # Check that the receipt is properly signed with did:web
     assert receipt["issuer"] == "did:web:testserver"
@@ -206,18 +195,16 @@ def test_build_iscc_receipt_structure(minimal_iscc_note):
 def test_build_iscc_receipt_iscc_id_formatting(minimal_iscc_note):
     # type: (dict) -> None
     """Test that ISCC-ID is properly formatted in the receipt."""
-    # Create an Event with a specific ISCC-ID
+    # Create declaration data dict with a specific ISCC-ID
     iscc_id = IsccID.from_timestamp(1736942400000000, 42)  # Specific timestamp and hub_id
-    event = Event(
-        seq=1,
-        event_type=Event.EventType.CREATED,
-        iscc_id=iscc_id.bytes_body,
-        iscc_note=minimal_iscc_note,
-    )
-    event.save()
+    declaration_data = {
+        "iscc_note": minimal_iscc_note,
+        "seq": 1,
+        "iscc_id_str": str(iscc_id),
+    }
 
     # Build the receipt
-    receipt = build_iscc_receipt(event)
+    receipt = build_iscc_receipt(declaration_data)
 
     # Verify ISCC-ID format
     declaration = receipt["credentialSubject"]["declaration"]
@@ -233,23 +220,19 @@ async def test_abuild_iscc_receipt(minimal_iscc_note):
     """Test async wrapper for building an IsccReceipt."""
     from asgiref.sync import sync_to_async
 
-    # Create an Event synchronously
-    iscc_id_bytes = IsccID.from_timestamp(1700000000000000, 1).bytes_body
-    event = Event(
-        seq=42,
-        event_type=Event.EventType.CREATED,
-        iscc_id=iscc_id_bytes,
-        iscc_note=minimal_iscc_note,
-    )
-
-    # Save the event using sync_to_async
-    await sync_to_async(event.save)()
+    # Create declaration data dict
+    iscc_id = IsccID.from_timestamp(1700000000000000, 1)
+    declaration_data = {
+        "iscc_note": minimal_iscc_note,
+        "seq": 42,
+        "iscc_id_str": str(iscc_id),
+    }
 
     # Build the receipt using async wrapper
-    receipt = await abuild_iscc_receipt(event)
+    receipt = await abuild_iscc_receipt(declaration_data)
 
     # Build sync version for comparison
-    sync_receipt = await sync_to_async(build_iscc_receipt)(event)
+    sync_receipt = await sync_to_async(build_iscc_receipt)(declaration_data)
 
     # Verify it's the same as the sync version
     assert receipt == sync_receipt

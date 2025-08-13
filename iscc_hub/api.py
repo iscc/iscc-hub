@@ -8,6 +8,7 @@ from ninja.responses import codes_4xx
 
 import iscc_hub
 from iscc_hub.exceptions import BaseApiException, NonceError, ValidationError
+from iscc_hub.iscc_id import IsccID
 from iscc_hub.models import Event, IsccDeclaration
 from iscc_hub.receipt import abuild_iscc_receipt
 from iscc_hub.schema import ErrorResponse, IsccReceipt
@@ -57,8 +58,12 @@ async def declaration(request):
     seq, iscc_id = await asequence_iscc_note(valid_data)
 
     # Create and return IsccReceipt
-    event = await Event.objects.aget(seq=seq)
-    receipt = await abuild_iscc_receipt(event)
+    declaration_data = {
+        "iscc_note": valid_data,
+        "seq": seq,
+        "iscc_id_str": str(IsccID(iscc_id)),
+    }
+    receipt = await abuild_iscc_receipt(declaration_data)
     return api.create_response(request, receipt, status=201)
 
 

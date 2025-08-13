@@ -7,25 +7,24 @@ from asgiref.sync import sync_to_async
 from django.conf import settings
 
 from iscc_hub.iscc_id import IsccID
-from iscc_hub.models import Event
 
 
 @sync_to_async
-def abuild_iscc_receipt(event, hub_keypair=None):
-    return build_iscc_receipt(event, hub_keypair)
+def abuild_iscc_receipt(declaration_data, hub_keypair=None):
+    return build_iscc_receipt(declaration_data, hub_keypair)
 
 
-def build_iscc_receipt(event, hub_keypair=None):
-    # type: (Event, icr.KeyPair|None) -> dict
+def build_iscc_receipt(declaration_data, hub_keypair=None):
+    # type: (dict, icr.KeyPair|None) -> dict
     """
-    Build a signed IsccReceipt (W3C Verifiable Credential) from an Event.
+    Build a signed IsccReceipt (W3C Verifiable Credential) from declaration data.
 
     Creates a W3C Verifiable Credential containing the declaration details
     and signs it with the HUB's keypair using the eddsa-jcs-2022 cryptosuite.
     Both the issuer DID and keypair controller use did:web format based on the
     hub domain.
 
-    :param event: Event instance containing seq, iscc_id, and iscc_note
+    :param declaration_data: Dict containing iscc_note, seq, and iscc_id_str
     :param hub_keypair: Optional HUB's KeyPair for signing (defaults to configured key)
     :return: Signed W3C Verifiable Credential as a dict
     """
@@ -38,14 +37,13 @@ def build_iscc_receipt(event, hub_keypair=None):
     # Hub DID is always derived from domain for issuer identity
     hub_did = f"did:web:{settings.ISCC_HUB_DOMAIN}"
 
-    # Extract IsccNote from event
-    iscc_note = event.iscc_note
+    # Extract data from declaration_data dict
+    iscc_note = declaration_data["iscc_note"]
+    seq = declaration_data["seq"]
+    iscc_id_str = declaration_data["iscc_id_str"]
 
     # Derive subject DID from signature
     subject_did = derive_subject_did(iscc_note["signature"])
-
-    # Format ISCC-ID
-    iscc_id_str = str(IsccID(event.iscc_id))
 
     # Create W3C Verifiable Credential structure
     vc = {
@@ -55,7 +53,7 @@ def build_iscc_receipt(event, hub_keypair=None):
         "credentialSubject": {
             "id": subject_did,
             "declaration": {
-                "seq": event.seq,
+                "seq": seq,
                 "iscc_id": iscc_id_str,
                 "iscc_note": iscc_note,
             },
