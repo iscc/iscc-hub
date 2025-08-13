@@ -7,7 +7,7 @@ from ninja import NinjaAPI
 from ninja.responses import codes_4xx
 
 import iscc_hub
-from iscc_hub.exceptions import BaseApiException, NonceError
+from iscc_hub.exceptions import BaseApiException, NonceError, ValidationError
 from iscc_hub.models import Event, IsccDeclaration
 from iscc_hub.receipt import abuild_iscc_receipt
 from iscc_hub.schema import ErrorResponse, IsccReceipt
@@ -22,7 +22,7 @@ api = NinjaAPI(
 
 
 @api.exception_handler(BaseApiException)
-async def handle_api_exception(request, exc):
+def handle_api_exception(request, exc):
     # type: (HttpRequest, BaseApiException) -> object
     """
     Handle all BaseApiException and subclasses with appropriate HTTP responses.
@@ -40,7 +40,11 @@ async def handle_api_exception(request, exc):
 
 @api.post("/declaration", response={201: IsccReceipt, codes_4xx: ErrorResponse})
 async def declaration(request):
-    data = json.loads(request.body)
+    # Parse JSON with error handling
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise BaseApiException("Invalid JSON in request body") from e
 
     # Offline pre-validation
     valid_data = await avalidate_iscc_note(data, True, settings.ISCC_HUB_ID, True)
@@ -55,7 +59,7 @@ async def declaration(request):
     # Create and return IsccReceipt
     event = await Event.objects.aget(seq=seq)
     receipt = await abuild_iscc_receipt(event)
-    return receipt
+    return api.create_response(request, receipt, status=201)
 
 
 @api.get("/health")

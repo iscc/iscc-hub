@@ -44,6 +44,8 @@ class ValidationError(BaseApiException, ValueError):
     Provides error details conforming to the ErrorResponse schema for API responses.
     """
 
+    status_code = 422  # Unprocessable Entity
+
     def __init__(self, message, code=None, field=None):
         # type: (str, str|None, str|None) -> None
         """
@@ -109,7 +111,7 @@ class NonceError(FieldValidationError):
         """
         if is_reuse:
             code = "nonce_reuse"
-            self.status_code = 409  # Conflict
+            self.status_code = 400  # Bad Request
         elif is_mismatch:
             code = "nonce_mismatch"
         else:
@@ -142,7 +144,7 @@ class HashError(FieldValidationError):
         """
         if is_duplicate and field == "datahash":
             code = "duplicate_datahash"
-            self.status_code = 409  # Conflict
+            self.status_code = 400  # Bad Request
         else:
             code = "invalid_format"
         super().__init__(field, message, code)

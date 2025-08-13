@@ -735,6 +735,7 @@ dependencies = [
 dev = [
     { name = "datamodel-code-generator" },
     { name = "django-types" },
+    { name = "httpx" },
     { name = "mdformat" },
     { name = "mdformat-frontmatter" },
     { name = "mdformat-gfm" },
@@ -767,6 +768,7 @@ requires-dist = [
 dev = [
     { name = "datamodel-code-generator", specifier = ">=0.32.0" },
     { name = "django-types", specifier = ">=0.22.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "mdformat", specifier = ">=0.7.22" },
     { name = "mdformat-frontmatter", specifier = ">=2.0.8" },
     { name = "mdformat-gfm", specifier = ">=0.4.1" },

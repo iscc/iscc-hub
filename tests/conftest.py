@@ -56,12 +56,13 @@ def django_db_use_migrations():
 
 
 @pytest.fixture
-def api_client():
+def api_client(db):
     """Provide Django Ninja TestAsyncClient for API testing."""
     from ninja.testing import TestAsyncClient
 
     from iscc_hub.api import api
 
+    # Ensure database is available and properly initialized
     return TestAsyncClient(api)
 
 
@@ -108,8 +109,8 @@ def generate_test_iscc_id(hub_id=1, seq=1):
 def example_nonce():
     # type: () -> str
     """Return a deterministic test nonce."""
-    # First 12 bits = 0x000 = hub_id 0
-    return "000faa3f18c7b9407a48536a9b00c4cb"
+    # First 12 bits = 0x001 = hub_id 1 (matches ISCC_HUB_ID in test env)
+    return "001faa3f18c7b9407a48536a9b00c4cb"
 
 
 @pytest.fixture
