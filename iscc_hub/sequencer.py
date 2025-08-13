@@ -1,288 +1,183 @@
 """
-Atomic sequential processing of ISCC declarations.
+ISCC Hub Sequencer - Critical component for atomic ISCC declaration processing.
 
-This module handles the sequential assignment of ISCC-IDs and manages
-the Event log and IsccDeclaration materialization with guaranteed
-serializability and monotonic ordering.
+This module provides atomic sequencing of ISCC declarations with:
+- Gapless sequence numbers
+- Unique nonce enforcement
+- Monotonic microsecond timestamp generation (ISCC-ID)
+- Durable transaction handling
 """
 
-import random
+import json
 import time
 
 from django.conf import settings
-from django.db import OperationalError, connection, transaction
-
-from iscc_hub.iscc_id import IsccID
-from iscc_hub.models import Event, IsccDeclaration
-from iscc_hub.statecheck import StateValidationError, validate_state
+from django.db import connection
 
 
 class SequencerError(Exception):
-    """
-    Base exception for sequencer errors.
-    """
+    """Base exception for sequencer errors."""
 
     pass
 
 
-class RetryTransaction(Exception):
-    """
-    Raised when transaction should be retried due to temporal drift.
-    """
+class NonceConflictError(SequencerError):
+    """Raised when a nonce already exists in the database."""
 
     pass
 
 
-def get_last_iscc_id():
-    # type: () -> bytes|None
+def sequence_iscc_note(iscc_note):
+    # type: (dict) -> tuple[int, str]
     """
-    Get the last ISCC-ID from the Event log.
+    Atomically sequence an ISCC note with gapless numbering and monotonic timestamps.
 
-    Uses raw SQL for performance to bypass Django ORM field conversions.
+    This function:
+    1. Verifies nonce uniqueness (fails if duplicate)
+    2. Issues the next gapless sequence number
+    3. Issues the next unique microsecond timestamp (ISCC-ID)
+    4. Stores the IsccNote in the iscc_event table
+    5. Adds/updates the iscc_declaration table
+    6. Returns the issued seq and iscc_id
 
-    :return: Last ISCC-ID as bytes or None if no events exist
+    All operations are atomic - either all succeed or none.
+
+    :param iscc_note: Pre-validated IsccNote dictionary
+    :return: Tuple of (sequence_number, iscc_id_string)
+    :raises NonceConflictError: If nonce already exists
+    :raises SequencerError: For other sequencing failures
     """
+    # Extract required fields from the note
+    nonce = iscc_note.get("nonce")
+    iscc_code = iscc_note.get("iscc_code")
+    datahash = iscc_note.get("datahash")
+    gateway = iscc_note.get("gateway", "")
+    metahash = iscc_note.get("metahash", "")
+
+    # Extract actor from signature
+    signature = iscc_note.get("signature", {})
+    actor = signature.get("pubkey", "")
+
+    if not all([nonce, iscc_code, datahash, actor]):
+        raise SequencerError("Missing required fields in IsccNote")
+
+    # Use connection directly - when transaction=False is set in tests,
+    # Django won't wrap in transactions
     with connection.cursor() as cursor:
-        cursor.execute("SELECT iscc_id FROM iscc_event ORDER BY seq DESC LIMIT 1")
-        row = cursor.fetchone()
-        return row[0] if row else None
-
-
-def generate_iscc_id(last_iscc_id_bytes):
-    # type: (bytes|None) -> bytes
-    """
-    Generate a new monotonic ISCC-ID.
-
-    Ensures the new ISCC-ID timestamp is:
-    1. Greater than the last ISCC-ID timestamp
-    2. Not too far ahead of real time (max 1 second drift)
-
-    :param last_iscc_id_bytes: Previous ISCC-ID as bytes or None
-    :return: New ISCC-ID as bytes
-    :raises RetryTransaction: If temporal drift exceeds maximum
-    """
-    MAX_DRIFT_MS = 1000  # Max 1 second ahead of real time
-    hub_id = getattr(settings, "ISCC_HUB_ID", 0)
-
-    # Get current time in microseconds
-    now_us = time.time_ns() // 1_000
-
-    if last_iscc_id_bytes:
-        # Extract timestamp from last ISCC-ID (52-bit timestamp, 12-bit hub-id)
-        last_us = int.from_bytes(last_iscc_id_bytes, "big") >> 12
-
-        # Check if we're too far ahead of real time
-        drift_us = last_us - now_us
-        if drift_us > (MAX_DRIFT_MS * 1000):
-            # Sleep for half the drift to allow catch-up
-            sleep_time = (drift_us - (MAX_DRIFT_MS * 1000)) / 2_000_000
-            time.sleep(sleep_time)
-            raise RetryTransaction("Temporal drift exceeded maximum")
-
-        # Ensure monotonic ordering
-        if now_us <= last_us:
-            now_us = last_us + 1
-
-    # Generate new ISCC-ID (52-bit timestamp + 12-bit hub-id)
-    iscc_id_uint = (now_us << 12) | hub_id
-    return iscc_id_uint.to_bytes(8, "big")
-
-
-def create_event(iscc_note, iscc_id_bytes, event_type=Event.EventType.CREATED):
-    # type: (dict, bytes, int) -> Event
-    """
-    Create and save a new Event record.
-
-    :param iscc_note: The IsccNote dictionary to log
-    :param iscc_id_bytes: The ISCC-ID as bytes
-    :param event_type: Type of event (CREATED, UPDATED, DELETED)
-    :return: Saved Event instance
-    """
-    event = Event(event_type=event_type, iscc_id=iscc_id_bytes, iscc_note=iscc_note)
-    event.save(force_insert=True)
-    return event
-
-
-def materialize_declaration(event, iscc_note, actor):
-    # type: (Event, dict, str) -> IsccDeclaration
-    """
-    Create or update the materialized IsccDeclaration from an Event.
-
-    :param event: The Event that triggered this materialization
-    :param iscc_note: The IsccNote dictionary
-    :param actor: The actor's public key
-    :return: Created or updated IsccDeclaration
-    """
-    # Get or create the declaration
-    declaration, created = IsccDeclaration.objects.update_or_create(
-        iscc_id=event.iscc_id,
-        defaults={
-            "event_seq": event.seq,
-            "iscc_code": iscc_note["iscc_code"],
-            "datahash": iscc_note["datahash"],
-            "nonce": iscc_note["nonce"],
-            "actor": actor,
-            "gateway": iscc_note.get("gateway", ""),
-            "metahash": iscc_note.get("metahash", ""),
-            "deleted": event.event_type == Event.EventType.DELETED,
-        },
-    )
-
-    return declaration
-
-
-def sequence_declaration(iscc_note, actor, update_iscc_id=None):
-    # type: (dict, str, str|None) -> tuple[Event, IsccDeclaration]
-    """
-    Atomically sequence an ISCC declaration.
-
-    Performs the following operations atomically within a single transaction:
-    1. Validates state (nonce uniqueness, duplicate checks)
-    2. Generates a monotonic ISCC-ID
-    3. Creates an Event log entry
-    4. Materializes the IsccDeclaration
-
-    All operations are performed within an explicit transaction to ensure
-    strict serializability and prevent race conditions.
-
-    :param iscc_note: The validated IsccNote dictionary
-    :param actor: The actor's public key
-    :param update_iscc_id: Optional ISCC-ID for update operations
-    :return: Tuple of (Event, IsccDeclaration)
-    :raises SequencerError: If sequencing fails
-    :raises RetryTransaction: If transaction should be retried
-    :raises StateValidationError: If state validation fails
-    """
-    with transaction.atomic():
         try:
-            # Validate state within the transaction to prevent race conditions
-            validate_state(iscc_note, actor, update_iscc_id)
+            # Ensure we're not in a transaction by committing any pending work
+            try:
+                cursor.execute("COMMIT")
+            except Exception:
+                pass  # No transaction to commit
 
-            # Get the last ISCC-ID
-            last_iscc_id_bytes = get_last_iscc_id()
+            # Start immediate transaction for exclusive write lock
+            cursor.execute("BEGIN IMMEDIATE")
 
-            # Determine event type
-            if update_iscc_id:
-                event_type = Event.EventType.UPDATED
-                # For updates, use the existing ISCC-ID
-                iscc_id_bytes = IsccID(update_iscc_id).bytes_body
+            # 1. Check nonce uniqueness
+            cursor.execute("SELECT 1 FROM iscc_declaration WHERE nonce = %s", (nonce,))
+            if cursor.fetchone():
+                cursor.execute("ROLLBACK")
+                raise NonceConflictError(f"Nonce already exists: {nonce}")
+
+            # 2. Get the last sequence number and timestamp
+            cursor.execute("""
+                SELECT seq, iscc_id
+                FROM iscc_event
+                ORDER BY seq DESC
+                LIMIT 1
+            """)
+            row = cursor.fetchone()
+
+            if row:
+                last_seq = row[0]
+                last_iscc_id_bytes = row[1]
+                # Extract timestamp from last ISCC-ID (52-bit timestamp, 12-bit hub_id)
+                last_timestamp_us = int.from_bytes(last_iscc_id_bytes, "big") >> 12
             else:
-                event_type = Event.EventType.CREATED
-                # Generate new ISCC-ID
-                iscc_id_bytes = generate_iscc_id(last_iscc_id_bytes)
+                last_seq = 0
+                last_timestamp_us = 0
 
-            # Create Event log entry
-            event = create_event(iscc_note, iscc_id_bytes, event_type)
+            # 3. Generate new sequence number
+            new_seq = last_seq + 1
 
-            # Materialize declaration
-            declaration = materialize_declaration(event, iscc_note, actor)
+            # 4. Generate new monotonic microsecond timestamp
+            current_time_us = time.time_ns() // 1000  # nanoseconds to microseconds
 
-            return event, declaration
+            # Ensure monotonic increase
+            if current_time_us <= last_timestamp_us:
+                new_timestamp_us = last_timestamp_us + 1
+            else:
+                new_timestamp_us = current_time_us
 
-        except RetryTransaction:
-            # Retry the entire operation
-            return sequence_declaration(iscc_note, actor, update_iscc_id)
+            # 5. Create ISCC-ID from timestamp and hub_id
+            hub_id = settings.ISCC_HUB_ID
+            if not (0 <= hub_id <= 4095):
+                cursor.execute("ROLLBACK")
+                raise SequencerError(f"Invalid hub_id: {hub_id}")
 
-        except StateValidationError:
-            # Re-raise validation errors as-is
-            raise
-        except Exception as e:
-            raise SequencerError(f"Failed to sequence declaration: {e}") from e
+            # Combine 52-bit timestamp with 12-bit hub_id
+            iscc_id_uint = (new_timestamp_us << 12) | hub_id
+            iscc_id_bytes = iscc_id_uint.to_bytes(8, "big")
 
+            # 6. Insert into iscc_event table
+            # Convert iscc_note to JSON string
+            iscc_note_json = json.dumps(iscc_note)
 
-def sequence_declaration_with_retry(iscc_note, actor, update_iscc_id=None, max_retries=10):
-    # type: (dict, str, str|None, int) -> tuple[Event, IsccDeclaration]
-    """
-    Sequence a declaration with automatic retry on database lock.
+            cursor.execute(
+                """
+                INSERT INTO iscc_event (seq, event_type, iscc_id, iscc_note, event_time)
+                VALUES (%s, %s, %s, json(%s), datetime('now'))
+            """,
+                (
+                    new_seq,
+                    1,  # EventType.CREATED
+                    iscc_id_bytes,
+                    iscc_note_json,
+                ),
+            )
 
-    Implements exponential backoff with jitter for handling concurrent
-    access to the database. State validation errors are not retried.
-
-    :param iscc_note: The validated IsccNote dictionary
-    :param actor: The actor's public key
-    :param update_iscc_id: Optional ISCC-ID for update operations
-    :param max_retries: Maximum number of retry attempts
-    :return: Tuple of (Event, IsccDeclaration)
-    :raises SequencerError: If sequencing fails after all retries
-    :raises StateValidationError: If state validation fails
-    """
-    base_delay = 0.0005  # 0.5ms base delay
-
-    for attempt in range(max_retries):
-        try:
-            return sequence_declaration(iscc_note, actor, update_iscc_id)
-
-        except StateValidationError:
-            # Don't retry validation errors - they won't succeed
-            raise
-
-        except OperationalError as e:
-            if "database is locked" in str(e).lower() and attempt < max_retries - 1:
-                # Exponential backoff with jitter
-                delay = min(
-                    base_delay * (2**attempt) + random.random() * 0.001,
-                    0.05,  # Cap at 50ms
+            # 7. Insert/update iscc_declaration table
+            # For CREATED events, insert new declaration
+            cursor.execute(
+                """
+                INSERT INTO iscc_declaration (
+                    iscc_id, event_seq, iscc_code, datahash, nonce,
+                    actor, gateway, metahash, updated_at, deleted, redacted
                 )
-                time.sleep(delay)
-                continue
-            raise SequencerError(f"Failed to sequence after {max_retries} attempts: {e}") from e
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, datetime('now'), 0, 0)
+            """,
+                (
+                    iscc_id_bytes,
+                    new_seq,
+                    iscc_code,
+                    datahash,
+                    nonce,
+                    actor,
+                    gateway,
+                    metahash,
+                ),
+            )
 
-        except SequencerError:
-            raise
+            # 8. Commit the transaction durably
+            cursor.execute("COMMIT")
+
+            # Convert ISCC-ID to string format
+            from iscc_hub.iscc_id import IsccID
+
+            iscc_id_str = str(IsccID(iscc_id_bytes))
+
+            return new_seq, iscc_id_str
 
         except Exception as e:
-            raise SequencerError(f"Unexpected error during sequencing: {e}") from e
+            # Ensure rollback on any error
+            try:
+                cursor.execute("ROLLBACK")
+            except Exception:
+                pass  # Rollback might fail if connection is broken
 
-    raise SequencerError(f"Failed to sequence after {max_retries} attempts")
-
-
-def delete_declaration(iscc_id, actor):
-    # type: (str, str) -> tuple[Event, IsccDeclaration]
-    """
-    Mark a declaration as deleted.
-
-    Creates a DELETE event and updates the materialized declaration.
-
-    :param iscc_id: The ISCC-ID to delete
-    :param actor: The actor requesting deletion
-    :return: Tuple of (Event, IsccDeclaration)
-    :raises SequencerError: If deletion fails
-    """
-    with transaction.atomic():
-        try:
-            # Get the declaration with a lock
-            iscc_id_bytes = IsccID(iscc_id).bytes_body
-            declaration = IsccDeclaration.objects.select_for_update().get(iscc_id=iscc_id_bytes)
-
-            # Verify ownership
-            if declaration.actor != actor:
-                raise SequencerError("Cannot delete declaration owned by another actor")
-
-            # Reconstruct the iscc_note from the declaration
-            # Note: timestamp is not needed for deletion events as it's in the ISCC-ID
-            iscc_note = {
-                "iscc_code": declaration.iscc_code,
-                "datahash": declaration.datahash,
-                "nonce": declaration.nonce,
-                "timestamp": "2025-01-01T00:00:00Z",  # Placeholder - not used in deletion
-            }
-
-            if declaration.gateway:
-                iscc_note["gateway"] = declaration.gateway
-            if declaration.metahash:
-                iscc_note["metahash"] = declaration.metahash
-
-            # Create deletion event
-            event = create_event(iscc_note, iscc_id_bytes, Event.EventType.DELETED)
-
-            # Mark declaration as deleted
-            declaration.deleted = True
-            declaration.event_seq = event.seq
-            declaration.save()
-
-            return event, declaration
-
-        except IsccDeclaration.DoesNotExist as e:
-            raise SequencerError(f"ISCC-ID not found: {iscc_id}") from e
-        except Exception as e:
-            raise SequencerError(f"Failed to delete declaration: {e}") from e
+            # Re-raise with context
+            if isinstance(e, NonceConflictError | SequencerError):
+                raise
+            else:
+                raise SequencerError(f"Sequencing failed: {e}") from e
