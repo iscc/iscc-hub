@@ -1,6 +1,6 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
 $id: "http://purl.org/iscc/schema/iscc-signature.json"
-title: "ISCC Signature"
+title: "IsccSignature"
 type: object
 description: |
   ISCC Signature object providing cryptographic integrity and optional identity attribution.

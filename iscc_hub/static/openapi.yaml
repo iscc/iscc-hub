@@ -50,13 +50,37 @@ paths:
                     proof: "znTcLukuu7CL8FpoaSxr6UWQpxCogZUCZ9iqx9dnP3inkzGszbUN79qrxWvpxEHnuNtLQ5Jd1rBukY7g1JSiYHVZ"
       responses:
         '201':
-          description: Declaration successful
+          description: Declaration successful - ISCC-ID created
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/IsccReceipt'
+        '400':
+          description: Bad request - Malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid signature or authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict - Duplicate declaration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: Validation error or request could not be processed
+          description: Unprocessable Entity - Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable - Try again later
           content:
             application/json:
               schema:

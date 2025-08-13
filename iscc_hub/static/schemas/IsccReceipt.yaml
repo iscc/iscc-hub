@@ -1,6 +1,6 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
 $id: "http://purl.org/iscc/schema/iscc-receipt.json"
-title: "ISCC Receipt"
+title: "IsccReceipt"
 type: object
 description: |
   W3C Verifiable Credential for ISCC declaration

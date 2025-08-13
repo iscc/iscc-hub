@@ -1,6 +1,6 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
 $id: "http://purl.org/iscc/schema/iscc-note.json"
-title: "ISCC Note"
+title: "IsccNote"
 type: object
 description: |
   ISCC declaration request object for timestamping and registering content.

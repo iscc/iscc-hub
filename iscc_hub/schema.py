@@ -5,19 +5,46 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Annotated, Literal
-from uuid import UUID
 
 from ninja import Schema
 from pydantic import AnyUrl, ConfigDict, Field, RootModel
+
+
+class FieldError(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    field: Annotated[str | None, Field(description="Field name")] = None
+    message: Annotated[str, Field(description="Error message for this field")]
+    code: Annotated[str | None, Field(description="Error code for this field")] = None
+
+
+class ErrorDetail(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    message: Annotated[str, Field(description="Human-readable error message\n")]
+    code: Annotated[
+        str | None,
+        Field(
+            description="Machine-readable error code for programmatic handling.\nCommon codes: invalid_iscc, timestamp_out_of_range, invalid_signature,\nduplicate_declaration, validation_failed, nonce_mismatch\n"
+        ),
+    ] = None
+    field: Annotated[
+        str | None,
+        Field(description="Field name that caused the error (for validation errors)\n"),
+    ] = None
+    errors: Annotated[
+        list[FieldError] | None,
+        Field(description="Multiple validation errors (optional)\n"),
+    ] = None
 
 
 class ErrorResponse(Schema):
     model_config = ConfigDict(
         extra="forbid",
     )
-    error: Annotated[str, Field(description="Human-readable error message\n")]
-    detail: Annotated[str | None, Field(description="Additional error details (optional)\n")] = None
-    request_id: Annotated[UUID | None, Field(description="Unique request identifier for debugging\n")] = None
+    error: Annotated[ErrorDetail, Field(title="ErrorDetail")]
 
 
 class Proof(Schema):

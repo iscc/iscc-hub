@@ -111,6 +111,7 @@ field-constraints = true
 use-union-operator = true
 extra-fields = "forbid"
 strict-nullable = true
+use-title-as-name = true
 
 [tool.poe.tasks]
 # Code quality tasks

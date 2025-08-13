@@ -1,29 +1,63 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
 $id: "http://purl.org/iscc/schema/error-response.json"
-title: "Error Response"
+title: "ErrorResponse"
 type: object
 description: |
-  Error response for API operations
+  Standard error response for ISCC-HUB API operations
 required:
   - error
 properties:
   error:
-    type: string
-    description: |
-      Human-readable error message
-  detail:
-    type: string
-    description: |
-      Additional error details (optional)
-  request_id:
-    type: string
-    format: uuid
-    description: |
-      Unique request identifier for debugging
+    type: object
+    title: "ErrorDetail"
+    required:
+      - message
+    properties:
+      message:
+        type: string
+        description: |
+          Human-readable error message
+      code:
+        type: string
+        description: |
+          Machine-readable error code for programmatic handling.
+          Common codes: invalid_iscc, timestamp_out_of_range, invalid_signature,
+          duplicate_declaration, validation_failed, nonce_mismatch
+      field:
+        type: string
+        description: |
+          Field name that caused the error (for validation errors)
+      errors:
+        type: array
+        description: |
+          Multiple validation errors (optional)
+        items:
+          type: object
+          title: "FieldError"
+          required:
+            - message
+          properties:
+            field:
+              type: string
+              description: Field name
+            message:
+              type: string
+              description: Error message for this field
+            code:
+              type: string
+              description: Error code for this field
 examples:
-  - error: "Invalid ISCC code format"
-    detail: "ISCC code must be a composite ISCC-CODE with length 34-73 characters total"
-    request_id: "550e8400-e29b-41d4-a716-446655440000"
-  - error: "Timestamp out of range"
-    detail: "Timestamp must be within ±10 minutes of server time"
-    request_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+  - error:
+      message: "Invalid ISCC code format"
+      code: "invalid_iscc"
+      field: "iscc_code"
+  - error:
+      message: "Validation failed"
+      code: "validation_failed"
+      errors:
+        - field: "iscc_code"
+          message: "ISCC code must be 34-73 characters"
+          code: "invalid_length"
+        - field: "timestamp"
+          message: "Timestamp must be within ±10 minutes of server time"
+          code: "timestamp_out_of_range"
