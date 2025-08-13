@@ -4,7 +4,7 @@ info:
   description: Sign, timestamp, and discover content with ISCC-IDs
   version: 0.1.0
 paths:
-  /declare:
+  /declaration:
     post:
       summary: Declare an ISCC-CODE
       description: |
@@ -56,7 +56,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/IsccReceipt'
         '400':
-          description: Bad request - Malformed request body
+          description: Bad Request - Client error (malformed request, duplicate declaration, etc.)
           content:
             application/json:
               schema:
@@ -67,20 +67,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict - Duplicate declaration
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '422':
           description: Unprocessable Entity - Validation failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '503':
-          description: Service Unavailable - Try again later
           content:
             application/json:
               schema:
