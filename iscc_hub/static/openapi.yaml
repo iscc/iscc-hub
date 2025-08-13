@@ -56,19 +56,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/IsccReceipt'
         '400':
-          description: Bad Request - Client error (malformed request, duplicate declaration, etc.)
+          description: Bad Request - Client error (malformed request, duplicate declaration, etc.). Returns the first error encountered.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Unauthorized - Invalid signature or authentication
+          description: Unauthorized - Invalid signature or authentication. Returns the first error encountered.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: Unprocessable Entity - Validation failed
+          description: Unprocessable Entity - Validation failed. Returns the first validation error encountered.
           content:
             application/json:
               schema:

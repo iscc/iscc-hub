@@ -3,7 +3,10 @@ $id: "http://purl.org/iscc/schema/error-response.json"
 title: "ErrorResponse"
 type: object
 description: |
-  Standard error response for ISCC-HUB API operations
+  Standard error response for ISCC-HUB API operations.
+  
+  The API follows a fail-fast approach: validation stops and returns immediately 
+  upon encountering the first error.
 required:
   - error
 properties:
@@ -16,48 +19,31 @@ properties:
       message:
         type: string
         description: |
-          Human-readable error message
+          Human-readable error message describing the error encountered
       code:
         type: string
         description: |
           Machine-readable error code for programmatic handling.
           Common codes: invalid_iscc, timestamp_out_of_range, invalid_signature,
-          duplicate_declaration, validation_failed, nonce_mismatch
+          duplicate_declaration, validation_failed, nonce_mismatch, invalid_length,
+          invalid_format, invalid_hex, nonce_reuse, duplicate_datahash
       field:
         type: string
         description: |
-          Field name that caused the error (for validation errors)
-      errors:
-        type: array
-        description: |
-          Multiple validation errors (optional)
-        items:
-          type: object
-          title: "FieldError"
-          required:
-            - message
-          properties:
-            field:
-              type: string
-              description: Field name
-            message:
-              type: string
-              description: Error message for this field
-            code:
-              type: string
-              description: Error code for this field
+          The specific field that caused the error (for validation errors).
+          Only present when the error is associated with a specific input field.
 examples:
   - error:
       message: "Invalid ISCC code format"
       code: "invalid_iscc"
       field: "iscc_code"
   - error:
-      message: "Validation failed"
-      code: "validation_failed"
-      errors:
-        - field: "iscc_code"
-          message: "ISCC code must be 34-73 characters"
-          code: "invalid_length"
-        - field: "timestamp"
-          message: "Timestamp must be within ±10 minutes of server time"
-          code: "timestamp_out_of_range"
+      message: "Timestamp must be within ±10 minutes of server time"
+      code: "timestamp_out_of_range"
+      field: "timestamp"
+  - error:
+      message: "Invalid signature"
+      code: "invalid_signature"
+  - error:
+      message: "Nonce already used: 000faa3f18c7b9407a48536a9b00c4cb"
+      code: "nonce_reuse"

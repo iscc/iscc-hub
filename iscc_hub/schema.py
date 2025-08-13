@@ -10,33 +10,25 @@ from ninja import Schema
 from pydantic import AnyUrl, ConfigDict, Field, RootModel
 
 
-class FieldError(Schema):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    field: Annotated[str | None, Field(description="Field name")] = None
-    message: Annotated[str, Field(description="Error message for this field")]
-    code: Annotated[str | None, Field(description="Error code for this field")] = None
-
-
 class ErrorDetail(Schema):
     model_config = ConfigDict(
         extra="forbid",
     )
-    message: Annotated[str, Field(description="Human-readable error message\n")]
+    message: Annotated[
+        str,
+        Field(description="Human-readable error message describing the error encountered\n"),
+    ]
     code: Annotated[
         str | None,
         Field(
-            description="Machine-readable error code for programmatic handling.\nCommon codes: invalid_iscc, timestamp_out_of_range, invalid_signature,\nduplicate_declaration, validation_failed, nonce_mismatch\n"
+            description="Machine-readable error code for programmatic handling.\nCommon codes: invalid_iscc, timestamp_out_of_range, invalid_signature,\nduplicate_declaration, validation_failed, nonce_mismatch, invalid_length,\ninvalid_format, invalid_hex, nonce_reuse, duplicate_datahash\n"
         ),
     ] = None
     field: Annotated[
         str | None,
-        Field(description="Field name that caused the error (for validation errors)\n"),
-    ] = None
-    errors: Annotated[
-        list[FieldError] | None,
-        Field(description="Multiple validation errors (optional)\n"),
+        Field(
+            description="The specific field that caused the error (for validation errors).\nOnly present when the error is associated with a specific input field.\n"
+        ),
     ] = None
 
 
