@@ -86,6 +86,7 @@ filterwarnings = [
     "ignore::pydantic.PydanticDeprecatedSince20",
     "ignore:Error when trying to teardown test databases.*:pytest.PytestWarning"
 ]
+testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["iscc_hub"]

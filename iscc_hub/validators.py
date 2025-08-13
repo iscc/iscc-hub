@@ -105,6 +105,12 @@ def validate_input_size(data):
     """
     import json
 
+    # Ensure data is a dictionary
+    if not isinstance(data, dict):
+        raise ValidationError(
+            f"Invalid input: expected JSON object, got {type(data).__name__}", code="invalid_type"
+        )
+
     json_size = len(json.dumps(data))
     if json_size > MAX_JSON_SIZE:
         raise ValidationError(
@@ -161,9 +167,13 @@ def validate_iscc_code(iscc_code):
     :param iscc_code: The ISCC code string to validate
     :raises ValueError: If ISCC code is invalid or not composite type
     """
+    # Ensure iscc_code is a string
+    if not isinstance(iscc_code, str):
+        raise IsccCodeError(f"ISCC code must be a string, got {type(iscc_code).__name__}")
+
     try:
         ic.iscc_validate(iscc_code, strict=True)
-    except ValueError as e:
+    except (ValueError, TypeError) as e:
         raise IsccCodeError("Invalid ISCC code format") from e
 
     # Check that the ISCC is of MainType ISCC (composite)
