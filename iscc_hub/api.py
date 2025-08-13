@@ -4,11 +4,13 @@ import iscc_crypto as icr
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
 from ninja import NinjaAPI
+from ninja.responses import codes_4xx
 
 import iscc_hub
 from iscc_hub.exceptions import NonceError
 from iscc_hub.models import Event, IsccDeclaration
 from iscc_hub.receipt import abuild_iscc_receipt
+from iscc_hub.schema import ErrorResponse, IsccReceipt
 from iscc_hub.sequencer import asequence_iscc_note
 from iscc_hub.validators import avalidate_iscc_note
 
@@ -19,7 +21,7 @@ api = NinjaAPI(
 )
 
 
-@api.post("/declaration")
+@api.post("/declaration", response={201: IsccReceipt, codes_4xx: ErrorResponse})
 async def declaration(request):
     data = json.loads(request.body)
 
