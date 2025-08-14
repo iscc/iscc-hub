@@ -134,7 +134,7 @@ def sequence_iscc_note(iscc_note):
             cursor.execute(
                 """
                 INSERT INTO iscc_event (seq, event_type, iscc_id, iscc_note, event_time)
-                VALUES (%s, %s, %s, json(%s), datetime('now'))
+                VALUES (%s, %s, %s, json(%s), strftime('%%Y-%%m-%%d %%H:%%M:%%f', 'now'))
             """,
                 (
                     new_seq,
@@ -152,7 +152,7 @@ def sequence_iscc_note(iscc_note):
                     iscc_id, event_seq, iscc_code, datahash, nonce,
                     actor, gateway, metahash, updated_at, deleted, redacted
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, datetime('now'), 0, 0)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, strftime('%%Y-%%m-%%d %%H:%%M:%%f', 'now'), 0, 0)
             """,
                 (
                     iscc_id_bytes,

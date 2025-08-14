@@ -162,7 +162,7 @@ def generate_fixtures():
 
     # Run migrations to create tables
     print("Running migrations...")
-    call_command("migrate", verbosity=0)
+    call_command("migrate", "--run-syncdb", verbosity=0)
 
     # Clear any existing data
     Event.objects.all().delete()
@@ -258,7 +258,10 @@ if __name__ == "__main__":
     try:
         generate_fixtures()
     except Exception as e:
+        import traceback
+
         print(f"Error generating fixtures: {e}")
+        traceback.print_exc()
         # Try to clean up on error
         if "temp_db_path" in locals() and os.path.exists(temp_db_path):
             try:
