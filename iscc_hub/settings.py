@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import environ
+from django.templatetags.static import static
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -146,3 +147,10 @@ SERVESTATIC_INDEX_FILE = "index.html"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Django Unfold Configuration
+UNFOLD = {
+    "STYLES": [
+        lambda request: static("css/admin_custom.css"),
+    ],
+}

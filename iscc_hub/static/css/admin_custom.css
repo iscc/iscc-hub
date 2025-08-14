@@ -1,0 +1,26 @@
+/* Custom Admin Styles for ISCC Hub */
+
+/* Import JetBrains Mono font */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* Apply JetBrains Mono to table cell values in admin list view */
+.changelist-results td,
+.results td,
+td.field-__str__,
+td[class*="field-"] {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.875rem; /* 14px */
+    letter-spacing: -0.01em;
+}
+
+/* Optional: Also apply to inline formsets and other code-like content */
+.inline-group td,
+.module td,
+pre, code, .vLargeTextField, .vTextField {
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* Ensure proper alignment for monospaced content */
+.changelist-results td {
+    vertical-align: middle;
+}
