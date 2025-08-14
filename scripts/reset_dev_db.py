@@ -63,10 +63,14 @@ def reset_dev_database():
         f.name.startswith("0001_") for f in migrations_dir.glob("*.py")
     )
 
+    # Track if we created migrations (for cleanup later)
+    created_migrations = False
+
     if not has_migrations:
         print("  ✓ Creating migrations...")
-        call_command("makemigrations", verbosity=0)
+        call_command("makemigrations", "iscc_hub", verbosity=0)
         print("    Migrations created")
+        created_migrations = True
     else:
         print("  ℹ️  Using existing migrations")
 
@@ -95,6 +99,19 @@ def reset_dev_database():
     else:
         print(f"  ⚠️  No fixtures found at {fixtures_file}")
         print("     Run 'python scripts/generate_fixtures.py' to create fixtures")
+
+    # Clean up migrations if we created them (for development database reset)
+    if created_migrations and migrations_dir.exists():
+        print("  ✓ Cleaning up temporary migrations...")
+        try:
+            # Remove the migrations directory and its contents
+            import shutil
+
+            shutil.rmtree(migrations_dir)
+            print("    Migrations cleaned up")
+        except Exception as e:
+            print(f"    ⚠️  Could not clean up migrations: {e}")
+            print("    You may need to manually delete iscc_hub/migrations/")
 
     # Print summary
     print("\n✅ Database reset complete!")

@@ -38,7 +38,8 @@ from django.core.management import call_command  # noqa: E402
 from django.db import transaction  # noqa: E402
 
 from iscc_hub.models import Event, IsccDeclaration  # noqa: E402
-from iscc_hub.sequencer import sequence_declaration  # noqa: E402
+from iscc_hub.sequencer import sequence_iscc_note  # noqa: E402
+from iscc_hub.validators import validate_iscc_note  # noqa: E402
 
 
 def create_iscc_from_text(text="Hello World!"):
@@ -120,26 +121,6 @@ def create_note_with_units(timestamp, nonce=None, keypair=None):
     return icr.sign_json(note, keypair)
 
 
-def create_update_note(iscc_id, timestamp, keypair=None):
-    # type: (str, str, icr.KeyPair|None) -> dict
-    """Create an update note for an existing ISCC-ID."""
-    keypair = keypair or icr.key_generate()
-    data = create_iscc_from_text("Updated content")
-
-    # Use a different nonce for the update
-    nonce = icr.create_nonce(1)
-
-    update_note = {
-        "iscc_code": data["iscc"],
-        "datahash": data["datahash"],
-        "nonce": nonce,
-        "timestamp": timestamp,
-        "gateway": "https://updated.example.com/{iscc_id}",
-    }
-
-    return icr.sign_json(update_note, keypair)
-
-
 def create_timestamp(base_time, offset_seconds=0):
     # type: (datetime, int) -> str
     """
@@ -152,6 +133,26 @@ def create_timestamp(base_time, offset_seconds=0):
     timestamp = base_time + timedelta(seconds=offset_seconds)
     # Format with millisecond precision (3 decimal places)
     return timestamp.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+
+def process_iscc_note(iscc_note):
+    # type: (dict) -> tuple[int, bytes]
+    """
+    Validate and sequence an ISCC note.
+
+    :param iscc_note: The signed ISCC note to process
+    :return: Tuple of (sequence_number, iscc_id_bytes)
+    """
+    # Validate the note first (like the API does)
+    validated_note = validate_iscc_note(
+        iscc_note,
+        verify_signature=True,
+        verify_hub_id=1,  # Using hub_id=1 from environment
+        verify_timestamp=True,
+    )
+
+    # Sequence the validated note
+    return sequence_iscc_note(validated_note)
 
 
 def generate_fixtures():
@@ -167,8 +168,8 @@ def generate_fixtures():
     Event.objects.all().delete()
     IsccDeclaration.objects.all().delete()
 
-    # Base time for realistic timestamps
-    base_time = datetime(2025, 1, 15, 12, 0, 0, tzinfo=UTC)
+    # Base time for realistic timestamps (current time minus a few minutes)
+    base_time = datetime.now(UTC) - timedelta(minutes=5)
 
     print("Creating test data...")
 
@@ -180,83 +181,48 @@ def generate_fixtures():
     # 1. Create initial declaration with full IsccNote
     note1 = create_full_note(timestamp=create_timestamp(base_time, 0), keypair=keypair1)
     with transaction.atomic():
-        sequence_declaration(note1, actor=note1["signature"]["pubkey"])
+        seq1, iscc_id1 = process_iscc_note(note1)
     print("  - Created full declaration")
 
     # 2. Create minimal declaration
     note2 = create_minimal_note(
-        timestamp=create_timestamp(base_time, 3600),  # 1 hour later
+        timestamp=create_timestamp(base_time, 60),  # 1 minute later
         keypair=keypair2,
     )
     with transaction.atomic():
-        sequence_declaration(note2, actor=note2["signature"]["pubkey"])
+        seq2, iscc_id2 = process_iscc_note(note2)
     print("  - Created minimal declaration")
 
     # 3. Create declaration with units
     note3 = create_note_with_units(
-        timestamp=create_timestamp(base_time, 7200),  # 2 hours later
+        timestamp=create_timestamp(base_time, 120),  # 2 minutes later
         keypair=keypair3,
     )
     with transaction.atomic():
-        sequence_declaration(note3, actor=note3["signature"]["pubkey"])
+        seq3, iscc_id3 = process_iscc_note(note3)
     print("  - Created declaration with units")
 
     # 4. Create another minimal declaration (different content)
     note4 = create_minimal_note(
-        timestamp=create_timestamp(base_time, 10800),  # 3 hours later
+        timestamp=create_timestamp(base_time, 180),  # 3 minutes later
         keypair=keypair1,  # Same actor as first
     )
     with transaction.atomic():
-        sequence_declaration(note4, actor=note4["signature"]["pubkey"])
+        seq4, iscc_id4 = process_iscc_note(note4)
     print("  - Created another declaration from first actor")
 
-    # 5. Create an update to the first declaration
-    # Get the first declaration to update
-    first_declaration = IsccDeclaration.objects.first()
-    if first_declaration:
-        # Use same keypair to update own declaration
-        update_note = create_update_note(
-            iscc_id=first_declaration.iscc_id,
-            timestamp=create_timestamp(base_time, 86400),  # 1 day later
-            keypair=keypair1,
-        )
-        # Process the update - it will create a new declaration with same ISCC-ID
-        with transaction.atomic():
-            sequence_declaration(
-                update_note,
-                actor=update_note["signature"]["pubkey"],
-                update_iscc_id=first_declaration.iscc_id,
-            )
-        print("  - Created update declaration")
-
-    # 6. Create a deletion event
-    # Get a declaration to delete
-    declaration_to_delete = IsccDeclaration.objects.filter(deleted=False).last()
-    if declaration_to_delete:
-        # Create a delete event (reusing minimal note structure)
-        delete_note = create_minimal_note(
-            timestamp=create_timestamp(base_time, 172800),  # 2 days later
-            keypair=keypair2,
-        )
-
-        # Process as deletion
-        with transaction.atomic():
-            event = Event.objects.create(
-                event_type=Event.EventType.DELETED,
-                iscc_id=declaration_to_delete.iscc_id,
-                iscc_note=delete_note,
-            )
-            # Update the declaration's deleted flag
-            declaration_to_delete.deleted = True
-            declaration_to_delete.event_seq = event.seq
-            declaration_to_delete.save()
-        print("  - Created deletion event")
+    # 5. Create one more declaration for variety
+    note5 = create_full_note(
+        timestamp=create_timestamp(base_time, 240),  # 4 minutes later
+        keypair=keypair2,  # Different actor
+    )
+    with transaction.atomic():
+        seq5, iscc_id5 = process_iscc_note(note5)
+    print("  - Created fifth declaration")
 
     # Print summary
     print(f"\nCreated {Event.objects.count()} events")
     print(f"Created {IsccDeclaration.objects.count()} declarations")
-    print(f"  - Active: {IsccDeclaration.objects.filter(deleted=False).count()}")
-    print(f"  - Deleted: {IsccDeclaration.objects.filter(deleted=True).count()}")
 
     # Dump the fixtures
     output_file = Path(__file__).parent.parent / "iscc_hub" / "fixtures" / "test_data.json"
