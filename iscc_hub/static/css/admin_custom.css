@@ -13,6 +13,26 @@ td[class*="field-"] {
     letter-spacing: -0.01em;
 }
 
+/* Specifically target first column links (detail view links) */
+.changelist-results td:first-child a,
+.results td:first-child a,
+.changelist-results .field-iscc_id_display a,
+.results .field-iscc_id_display a,
+#result_list > tbody > tr > th > a,
+#result_list > tbody > tr > td:first-child a {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.875rem; /* 14px */
+    letter-spacing: -0.01em;
+    text-decoration: none;
+}
+
+/* Override CSS custom properties for font family */
+#result_list > tbody > tr > th > a,
+#result_list > tbody > tr > td:first-child a {
+    --font-sans: 'JetBrains Mono', monospace !important;
+    --default-font-family: 'JetBrains Mono', monospace !important;
+}
+
 /* Optional: Also apply to inline formsets and other code-like content */
 .inline-group td,
 .module td,
