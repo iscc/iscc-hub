@@ -171,8 +171,8 @@ def test_event_model_meta():
     # Test db_table
     assert Event._meta.db_table == "iscc_event"
 
-    # Test ordering
-    assert Event._meta.ordering == ["seq"]
+    # Test ordering (removed for admin flexibility)
+    assert Event._meta.ordering == []
 
     # Test verbose names
     assert Event._meta.verbose_name == "Event"

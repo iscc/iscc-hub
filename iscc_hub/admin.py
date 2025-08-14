@@ -191,7 +191,6 @@ class EventAdmin(ModelAdmin):
 
     list_per_page = 100
     date_hierarchy = "event_time"
-    ordering = ["-seq"]
 
     def has_add_permission(self, request):
         # type: (HttpRequest) -> bool

@@ -52,7 +52,6 @@ class Event(models.Model):
 
     class Meta:
         db_table = "iscc_event"
-        ordering = ["seq"]
         indexes = [
             models.Index(fields=["iscc_id", "seq"]),
             models.Index(fields=["event_time"]),
