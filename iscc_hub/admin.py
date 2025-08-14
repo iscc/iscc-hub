@@ -2,6 +2,7 @@
 
 import json
 from typing import Any
+from urllib.parse import urlparse
 
 from django.contrib import admin
 from django.db.models import QuerySet
@@ -20,9 +21,8 @@ class IsccDeclarationAdmin(ModelAdmin):
         "iscc_id_display",
         "iscc_code_short",
         "actor_short",
-        "gateway",
+        "gateway_domain",
         "creation_time",
-        "updated_at",
         "is_deleted",
         "redacted",
     ]
@@ -89,6 +89,23 @@ class IsccDeclarationAdmin(ModelAdmin):
     actor_short.short_description = "Actor"
     actor_short.admin_order_field = "actor"
 
+    def gateway_domain(self, obj):
+        # type: (IsccDeclaration) -> str
+        """Display only the domain part of gateway URL with full URL on hover."""
+        if not obj.gateway:
+            return "—"
+
+        try:
+            parsed = urlparse(obj.gateway)
+            domain = parsed.netloc or obj.gateway
+            return format_html('<span title="{}">{}</span>', obj.gateway, domain)
+        except Exception:
+            # Fallback to original gateway if parsing fails
+            return obj.gateway
+
+    gateway_domain.short_description = "Gateway"
+    gateway_domain.admin_order_field = "gateway"
+
     def is_deleted(self, obj):
         # type: (IsccDeclaration) -> str
         """Display deletion status with color coding."""
@@ -109,7 +126,7 @@ class IsccDeclarationAdmin(ModelAdmin):
             return iscc_obj.timestamp_iso
         return "—"
 
-    creation_time.short_description = "Created"
+    creation_time.short_description = "Declaration Time"
     creation_time.admin_order_field = "iscc_id"
 
     def get_actions(self, request):

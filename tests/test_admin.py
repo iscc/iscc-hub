@@ -75,9 +75,8 @@ class TestIsccDeclarationAdmin:
             "iscc_id_display",
             "iscc_code_short",
             "actor_short",
-            "gateway",
+            "gateway_domain",
             "creation_time",
-            "updated_at",
             "is_deleted",
             "redacted",
         ]
@@ -123,6 +122,56 @@ class TestIsccDeclarationAdmin:
         iscc_declaration.actor = "short_key"
         result = admin_obj.actor_short(iscc_declaration)
         assert result == "short_key"
+
+    def test_gateway_domain_with_url(self, iscc_declaration):
+        # type: (IsccDeclaration) -> None
+        """Test gateway domain extraction from full URL."""
+        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
+        iscc_declaration.gateway = "https://example.com/path/to/gateway"
+        result = admin_obj.gateway_domain(iscc_declaration)
+        assert "example.com" in result
+        assert "https://example.com/path/to/gateway" in result
+        assert 'title="https://example.com/path/to/gateway"' in result
+
+    def test_gateway_domain_with_domain_only(self, iscc_declaration):
+        # type: (IsccDeclaration) -> None
+        """Test gateway domain with domain-only input."""
+        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
+        iscc_declaration.gateway = "example.com"
+        result = admin_obj.gateway_domain(iscc_declaration)
+        assert "example.com" in result
+
+    def test_gateway_domain_empty(self, iscc_declaration):
+        # type: (IsccDeclaration) -> None
+        """Test gateway domain with empty gateway."""
+        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
+        iscc_declaration.gateway = ""
+        result = admin_obj.gateway_domain(iscc_declaration)
+        assert result == "—"
+
+    def test_gateway_domain_none(self, iscc_declaration):
+        # type: (IsccDeclaration) -> None
+        """Test gateway domain with None gateway."""
+        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
+        iscc_declaration.gateway = None
+        result = admin_obj.gateway_domain(iscc_declaration)
+        assert result == "—"
+
+    def test_gateway_domain_format_error(self, iscc_declaration, monkeypatch):
+        # type: (IsccDeclaration, Any) -> None
+        """Test gateway domain fallback when format_html fails."""
+        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
+        iscc_declaration.gateway = "https://example.com"
+
+        # Mock format_html to raise an exception
+        def mock_format_html(*args, **kwargs):
+            # type: (*Any, **Any) -> None
+            raise ValueError("Format error")
+
+        monkeypatch.setattr("iscc_hub.admin.format_html", mock_format_html)
+        result = admin_obj.gateway_domain(iscc_declaration)
+        # Should fallback to the original gateway value
+        assert result == "https://example.com"
 
     def test_is_deleted_true(self, iscc_declaration):
         # type: (IsccDeclaration) -> None
