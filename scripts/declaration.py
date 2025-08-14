@@ -7,6 +7,7 @@ via POST request to localhost:8000/declaration.
 """
 
 import json
+import secrets
 import sys
 from datetime import UTC, datetime
 from io import BytesIO
@@ -43,13 +44,47 @@ def create_iscc_from_text(text="Hello World!"):
 def generate_nonce(hub_id=0):
     # type: (int) -> str
     """Generate a nonce with hub_id prefix."""
-    import secrets
-
     # First 12 bits = hub_id (0 = 0x000)
     hub_prefix = f"{hub_id:03x}"
     # Remaining 29 hex chars (116 bits) random
     random_suffix = secrets.token_hex(14) + secrets.token_hex(1)[:1]
     return hub_prefix + random_suffix
+
+
+def generate_random_text():
+    # type: () -> str
+    """Generate random text to ensure unique ISCC-CODEs on each run."""
+    random_words = [
+        "content",
+        "data",
+        "test",
+        "sample",
+        "demo",
+        "example",
+        "document",
+        "text",
+        "file",
+        "script",
+        "declaration",
+        "hub",
+        "iscc",
+        "protocol",
+        "digital",
+        "media",
+        "asset",
+        "resource",
+        "item",
+        "element",
+    ]
+
+    # Generate 3-5 random words
+    num_words = secrets.randbelow(3) + 3
+    selected_words = [secrets.choice(random_words) for _ in range(num_words)]
+
+    # Add random number for extra uniqueness
+    random_num = secrets.randbelow(10000)
+
+    return f"ISCC Hub {' '.join(selected_words)} {random_num}"
 
 
 def create_timestamp():
@@ -59,9 +94,13 @@ def create_timestamp():
     return now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
-def create_minimal_iscc_note(text="Hello from declaration script!"):
-    # type: (str) -> dict
+def create_minimal_iscc_note(text=None):
+    # type: (str|None) -> dict
     """Create a minimal signed IsccNote."""
+    # Generate random text if none provided
+    if text is None:
+        text = generate_random_text()
+
     # Generate ISCC data from text
     iscc_data = create_iscc_from_text(text)
 
@@ -82,9 +121,13 @@ def create_minimal_iscc_note(text="Hello from declaration script!"):
     return signed_note
 
 
-def create_full_iscc_note(text="Hello from declaration script!"):
-    # type: (str) -> dict
+def create_full_iscc_note(text=None):
+    # type: (str|None) -> dict
     """Create a full signed IsccNote with all optional fields."""
+    # Generate random text if none provided
+    if text is None:
+        text = generate_random_text()
+
     # Generate ISCC data from text
     iscc_data = create_iscc_from_text(text)
 
@@ -130,8 +173,8 @@ def main():
     """Create and submit ISCC declaration."""
     print("Creating ISCC declaration...")
 
-    # Create a full ISCC note
-    note = create_full_iscc_note("Hello from ISCC Hub declaration script!")
+    # Create a full ISCC note with random text
+    note = create_full_iscc_note()
 
     print("\nCreated ISCC Note:")
     print(json.dumps(note, indent=2))
