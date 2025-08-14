@@ -7,7 +7,7 @@ from ninja import NinjaAPI
 from ninja.responses import codes_4xx
 
 import iscc_hub
-from iscc_hub.exceptions import BaseApiException, NonceError, ValidationError
+from iscc_hub.exceptions import BaseApiException, DuplicateDeclarationError, NonceError, ValidationError
 from iscc_hub.iscc_id import IsccID
 from iscc_hub.models import Event, IsccDeclaration
 from iscc_hub.receipt import abuild_iscc_receipt
@@ -53,6 +53,16 @@ async def declaration(request):
     # Online pre-validation
     if await IsccDeclaration.objects.filter(nonce=valid_data["nonce"]).aexists():
         raise NonceError("Nonce already used", is_reuse=True)
+
+    # Check for duplicate declarations (only if force header not present)
+    force_declaration = request.headers.get("X-Force-Declaration", "").lower() in ("true", "1")
+    if not force_declaration:
+        existing = await IsccDeclaration.objects.filter(datahash=valid_data["datahash"]).afirst()
+        if existing:
+            message = f"Duplicate declaration for datahash: {valid_data['datahash']}"
+            raise DuplicateDeclarationError(
+                message, existing_iscc_id=str(existing.iscc_id), existing_actor=existing.actor
+            )
 
     # Sequencing
     seq, iscc_id = await asequence_iscc_note(valid_data)

@@ -47,3 +47,9 @@ examples:
   - error:
       message: "Nonce already used: 000faa3f18c7b9407a48536a9b00c4cb"
       code: "nonce_reuse"
+  - error:
+      message: "Duplicate declaration for datahash: 1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+      code: "duplicate_declaration"
+      field: "datahash"
+      existing_iscc_id: "ISCC:MAAW63PEKDGZPG555XN4VEUAPOW5HJK"
+      existing_actor: "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"

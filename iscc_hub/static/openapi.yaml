@@ -10,7 +10,21 @@ paths:
       description: |
         Submit an IsccNote for declaration. The server validates the submission,
         sequences it in the declaration log, and returns an IsccReceipt as a verifiable credential.
+        
+        **Duplicate Protection:** By default, the server rejects duplicate declarations 
+        (same datahash) with a 409 Conflict error. To force a duplicate declaration, 
+        include the `X-Force-Declaration: true` header.
       operationId: declare
+      parameters:
+        - name: X-Force-Declaration
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: ["true", "1"]
+          description: |
+            Set to "true" or "1" to bypass duplicate declaration checks and force 
+            creation of a new ISCC-ID for the same content (datahash).
       requestBody:
         required: true
         content:
@@ -56,13 +70,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/IsccReceipt'
         '400':
-          description: Bad Request - Client error (malformed request, duplicate declaration, etc.). Returns the first error encountered.
+          description: Bad Request - Client error (malformed request, validation errors, etc.). Returns the first error encountered.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized - Invalid signature or authentication. Returns the first error encountered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict - Duplicate declaration detected. Use X-Force-Declaration header to override.
           content:
             application/json:
               schema:

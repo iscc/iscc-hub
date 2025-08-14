@@ -166,3 +166,36 @@ class HexFormatError(FieldValidationError):
         # type: (str, str) -> None
         """Initialize hex format error."""
         super().__init__(field, message, "invalid_hex")
+
+
+class DuplicateDeclarationError(BaseApiException):
+    """Duplicate declaration error."""
+
+    status_code = 409  # Conflict
+
+    def __init__(self, message, existing_iscc_id=None, existing_actor=None):
+        # type: (str, str|None, str|None) -> None
+        """
+        Initialize duplicate declaration error.
+
+        :param message: Human-readable error message
+        :param existing_iscc_id: ISCC-ID of existing declaration
+        :param existing_actor: Actor who made the existing declaration
+        """
+        super().__init__(message, "duplicate_declaration", "datahash")
+        self.existing_iscc_id = existing_iscc_id
+        self.existing_actor = existing_actor
+
+    def to_error_response(self):
+        # type: () -> dict
+        """
+        Convert exception to ErrorResponse format for API.
+
+        :return: Dictionary conforming to ErrorResponse schema with additional context
+        """
+        error_detail = {"message": self.message, "code": self.code, "field": self.field}
+        if self.existing_iscc_id:
+            error_detail["existing_iscc_id"] = self.existing_iscc_id
+        if self.existing_actor:
+            error_detail["existing_actor"] = self.existing_actor
+        return {"error": error_detail}

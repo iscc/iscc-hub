@@ -102,6 +102,160 @@ async def test_declaration_invalid_json(live_server):
 
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=False)
+async def test_declaration_duplicate_rejected(
+    live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
+):
+    """Test duplicate declaration is rejected with 409 Conflict."""
+    import iscc_crypto as icr
+
+    # Create and sign first declaration
+    first_note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+    signed_first = icr.sign_json(first_note, example_keypair)
+
+    async with httpx.AsyncClient() as client:
+        # First declaration should succeed
+        response = await client.post(f"{live_server.url}/declaration", json=signed_first)
+        assert response.status_code == 201
+
+        # Create second declaration with same datahash but different nonce
+        second_nonce = "001abcd1234567890abcdef123456700"  # Different nonce, same hub_id prefix
+        second_note = {
+            "iscc_code": example_iscc_data["iscc"],
+            "datahash": example_iscc_data["datahash"],  # Same datahash
+            "nonce": second_nonce,
+            "timestamp": current_timestamp,
+        }
+        signed_second = icr.sign_json(second_note, example_keypair)
+
+        # Second declaration should be rejected with 409
+        response = await client.post(f"{live_server.url}/declaration", json=signed_second)
+        assert response.status_code == 409
+
+        data = response.json()
+        assert "error" in data
+        error = data["error"]
+        assert error["code"] == "duplicate_declaration"
+        assert error["field"] == "datahash"
+        assert "existing_iscc_id" in error
+        assert "existing_actor" in error
+        assert example_iscc_data["datahash"] in error["message"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.django_db(transaction=False)
+async def test_declaration_duplicate_forced(
+    live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
+):
+    """Test duplicate declaration succeeds with force header."""
+    import iscc_crypto as icr
+
+    # Create and sign first declaration
+    first_note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+    signed_first = icr.sign_json(first_note, example_keypair)
+
+    async with httpx.AsyncClient() as client:
+        # First declaration should succeed
+        response = await client.post(f"{live_server.url}/declaration", json=signed_first)
+        assert response.status_code == 201
+
+        # Create second declaration with same datahash but different nonce
+        second_nonce = "001abcd1234567890abcdef123456700"  # Different nonce, same hub_id prefix
+        second_note = {
+            "iscc_code": example_iscc_data["iscc"],
+            "datahash": example_iscc_data["datahash"],  # Same datahash
+            "nonce": second_nonce,
+            "timestamp": current_timestamp,
+        }
+        signed_second = icr.sign_json(second_note, example_keypair)
+
+        # Second declaration should succeed with force header
+        headers = {"X-Force-Declaration": "true"}
+        response = await client.post(f"{live_server.url}/declaration", json=signed_second, headers=headers)
+        assert response.status_code == 201
+
+        # Should return valid receipt
+        data = response.json()
+        assert "credentialSubject" in data
+        assert "declaration" in data["credentialSubject"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.django_db(transaction=False)
+async def test_declaration_duplicate_force_variations(
+    live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
+):
+    """Test various force header values work correctly."""
+    import iscc_crypto as icr
+
+    # Create and sign first declaration
+    first_note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+    signed_first = icr.sign_json(first_note, example_keypair)
+
+    async with httpx.AsyncClient() as client:
+        # First declaration
+        response = await client.post(f"{live_server.url}/declaration", json=signed_first)
+        assert response.status_code == 201
+
+        # Test force="1" works
+        second_nonce = "001abcd1234567890abcdef123456700"
+        second_note = {
+            "iscc_code": example_iscc_data["iscc"],
+            "datahash": example_iscc_data["datahash"],
+            "nonce": second_nonce,
+            "timestamp": current_timestamp,
+        }
+        signed_second = icr.sign_json(second_note, example_keypair)
+
+        headers = {"X-Force-Declaration": "1"}
+        response = await client.post(f"{live_server.url}/declaration", json=signed_second, headers=headers)
+        assert response.status_code == 201
+
+        # Test force="TRUE" (case insensitive) works
+        third_nonce = "001abcd1234567890abcdef123456701"
+        third_note = {
+            "iscc_code": example_iscc_data["iscc"],
+            "datahash": example_iscc_data["datahash"],
+            "nonce": third_nonce,
+            "timestamp": current_timestamp,
+        }
+        signed_third = icr.sign_json(third_note, example_keypair)
+
+        headers = {"X-Force-Declaration": "TRUE"}
+        response = await client.post(f"{live_server.url}/declaration", json=signed_third, headers=headers)
+        assert response.status_code == 201
+
+        # Test force="false" is rejected
+        fourth_nonce = "001abcd1234567890abcdef123456702"
+        fourth_note = {
+            "iscc_code": example_iscc_data["iscc"],
+            "datahash": example_iscc_data["datahash"],
+            "nonce": fourth_nonce,
+            "timestamp": current_timestamp,
+        }
+        signed_fourth = icr.sign_json(fourth_note, example_keypair)
+
+        headers = {"X-Force-Declaration": "false"}
+        response = await client.post(f"{live_server.url}/declaration", json=signed_fourth, headers=headers)
+        assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.django_db(transaction=False)
 async def test_declaration_nonce_reuse_error(
     live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
 ):
