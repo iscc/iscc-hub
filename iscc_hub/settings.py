@@ -150,6 +150,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Django Unfold Configuration
 UNFOLD = {
+    "SITE_TITLE": f"ISCC-HUB / #{ISCC_HUB_ID:04d}",
+    "SITE_HEADER": f"ISCC-HUB / #{ISCC_HUB_ID:04d}",
+    "SITE_SUBHEADER": "ISCC Discovery Protocol",
+    "SITE_SYMBOL": "orbit",
     "STYLES": [
         lambda request: static("css/admin_custom.css"),
     ],
