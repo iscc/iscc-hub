@@ -278,6 +278,12 @@ class TestIsccDeclarationAdmin:
         admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
         assert admin_obj.list_editable == ["redacted"]
 
+    def test_has_add_permission(self, admin_request):
+        # type: (HttpRequest) -> None
+        """Test that adding declarations is prevented."""
+        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
+        assert admin_obj.has_add_permission(admin_request) is False
+
 
 class TestEventAdmin:
     def test_registration(self):

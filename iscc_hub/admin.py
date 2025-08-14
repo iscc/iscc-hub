@@ -167,6 +167,11 @@ class IsccDeclarationAdmin(ModelAdmin):
 
     actions = ["soft_delete", "restore", "redact", "unredact"]
 
+    def has_add_permission(self, request):
+        # type: (HttpRequest) -> bool
+        """Prevent adding declarations through admin (materialized from events)."""
+        return False
+
 
 @admin.register(Event)
 class EventAdmin(ModelAdmin):
