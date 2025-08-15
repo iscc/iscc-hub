@@ -3,11 +3,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Annotated, Literal
 
 from ninja import Schema
-from pydantic import AnyUrl, ConfigDict, Field, RootModel
+from pydantic import AnyUrl, AwareDatetime, ConfigDict, Field, RootModel
 
 
 class ErrorDetail(Schema):
@@ -149,7 +148,7 @@ class IsccNote(Schema):
         ),
     ]
     timestamp: Annotated[
-        datetime,
+        AwareDatetime,
         Field(
             description="RFC 3339 formatted timestamp in UTC with millisecond precision\n\n**Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`\n**Example:** `2025-08-04T12:34:56.789Z`\n\n**Requirements:**\n- The `Z` suffix MUST be used to indicate UTC\n- Indicates when the IsccNote was created and signed\n- HUBs MUST reject timestamps outside ±10 minutes from current time\n",
             examples=["2025-01-15T12:00:00.000Z", "2025-08-12T14:30:00.123Z"],
