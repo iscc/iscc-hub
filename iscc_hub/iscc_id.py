@@ -17,7 +17,7 @@ The ISCC-IDv1 has the following format:
 - Base32-Encoded concatenation of:
   - 16-bit ISCC-HEADER:
     - MAINTYPE = "0110" (ISCC-ID)
-    - SUBTYPE  = "0000" (REALM, only static REALM 0000 supported)
+    - SUBTYPE  = "0000" (REALM 0 - Sandbox) or "0001" (REALM 1 - Operational)
     - VERSION  = "0001" (V1)
     - LENGTH   = "0001" (64-bit)
   - 64-bit ISCC-BODY:
@@ -29,12 +29,27 @@ from datetime import UTC, datetime, timezone
 from functools import cached_property
 
 import iscc_core as ic
+from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
+
+
+def _get_header():
+    # type: () -> bytes
+    """Get ISCC-ID header bytes based on REALM configuration."""
+    if settings.ISCC_HUB_REALM == 0:
+        # Sandbox network (SUBTYPE="0000")
+        return 0b0110000000010001.to_bytes(2, "big")
+    elif settings.ISCC_HUB_REALM == 1:
+        # Operational network (SUBTYPE="0001")
+        return 0b0110000100010001.to_bytes(2, "big")
+    else:
+        raise ImproperlyConfigured(f"Invalid ISCC_HUB_REALM: {settings.ISCC_HUB_REALM}")
 
 
 class IsccID:
     """Convenience class to manage various ISCC-IDv1 representations."""
 
-    HEADER = 0b0110000000010001.to_bytes(2, "big")
+    HEADER = _get_header()
 
     def __init__(self, value):
         # type: (str|bytes|IsccID) -> None

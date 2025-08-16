@@ -25,6 +25,10 @@ ISCC_HUB_ID = env.int("ISCC_HUB_ID")
 ####################################################################################################
 
 
+# Realm-0 (SUBTYPE="0000") for sanbdox hub network
+# Realm-1 (SUBTYPE="0001") for operational network
+ISCC_HUB_REALM = env.int("ISCC_HUB_REALM", default=0)
+
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=(ISCC_HUB_DOMAIN,))
 
 # Disable automatic trailing slash appending for clean URLs

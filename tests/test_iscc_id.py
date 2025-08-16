@@ -1,8 +1,10 @@
 """Tests for the IsccID class."""
 
 import pytest
+from django.core.exceptions import ImproperlyConfigured
+from django.test import override_settings
 
-from iscc_hub.iscc_id import IsccID
+from iscc_hub.iscc_id import IsccID, _get_header
 
 
 # Parameterized tests for initialization
@@ -513,3 +515,30 @@ class TestIsccIDRoundtrip:
         iid2 = IsccID(bytes(iid))
         assert iid2.timestamp_micros == ts_us
         assert iid2.hub_id == hub_id
+
+
+class TestHeaderGeneration:
+    """Test ISCC-ID header generation based on REALM configuration."""
+
+    @override_settings(ISCC_HUB_REALM=0)
+    def test_get_header_realm_0(self):
+        # type: () -> None
+        """Test header generation for REALM 0 (sandbox)."""
+        header = _get_header()
+        expected = 0b0110000000010001.to_bytes(2, "big")
+        assert header == expected
+
+    @override_settings(ISCC_HUB_REALM=1)
+    def test_get_header_realm_1(self):
+        # type: () -> None
+        """Test header generation for REALM 1 (operational)."""
+        header = _get_header()
+        expected = 0b0110000100010001.to_bytes(2, "big")
+        assert header == expected
+
+    @override_settings(ISCC_HUB_REALM=2)
+    def test_get_header_invalid_realm(self):
+        # type: () -> None
+        """Test header generation with invalid REALM raises ImproperlyConfigured."""
+        with pytest.raises(ImproperlyConfigured, match="Invalid ISCC_HUB_REALM: 2"):
+            _get_header()
