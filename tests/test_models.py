@@ -529,6 +529,11 @@ def test_iscc_declaration_update():
 
     original_updated_at = declaration.updated_at
 
+    # Add small delay to ensure timestamp changes (Windows timing precision issue)
+    import time
+
+    time.sleep(0.001)
+
     # Simulate full replacement update
     declaration.event_seq = 2
     declaration.iscc_code = "ISCC:NEWCODE"
