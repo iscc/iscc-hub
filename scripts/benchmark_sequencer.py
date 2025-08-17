@@ -42,6 +42,7 @@ django.setup()
 # Import after Django setup
 import iscc_core as ic  # noqa: E402
 import iscc_crypto as icr  # noqa: E402
+from asgiref.sync import sync_to_async  # noqa: E402
 from django.core.management import call_command  # noqa: E402
 from django.db import connection  # noqa: E402
 
@@ -104,7 +105,7 @@ async def sequence_worker(worker_id, num_requests):
         start_time = time.perf_counter()
 
         try:
-            seq, iscc_id = await asyncio.to_thread(sequence_iscc_note, note)
+            seq, iscc_id = await sync_to_async(sequence_iscc_note)(note)
             elapsed = time.perf_counter() - start_time
             results.append((True, f"seq={seq}, iscc_id={iscc_id}", elapsed))
         except Exception as e:
@@ -138,7 +139,7 @@ async def run_benchmark(num_workers=10, requests_per_worker=50):
             cursor.execute("DELETE FROM iscc_declaration")
             connection.commit()
 
-    await asyncio.to_thread(clear_db)
+    await sync_to_async(clear_db)()
 
     # Run workers concurrently
     start_time = time.perf_counter()
@@ -290,8 +291,8 @@ async def run_benchmark(num_workers=10, requests_per_worker=50):
             orphaned = cursor.fetchone()[0]
             print(f"Orphaned declarations: {'FAILED ❌' if orphaned > 0 else 'PASSED ✓'} ({orphaned})")
 
-    # Run validation in thread
-    await asyncio.to_thread(validate)
+    # Run validation using sync_to_async
+    await sync_to_async(validate)()
 
 
 async def main():
