@@ -45,8 +45,7 @@ def sequence_iscc_note(iscc_note):
     2. Issues the next gapless sequence number
     3. Issues the next unique microsecond timestamp (ISCC-ID)
     4. Stores the IsccNote in the iscc_event table
-    5. Adds/updates the iscc_declaration table
-    6. Returns the issued seq and iscc_id_bytes
+    5. Returns the issued seq and iscc_id_bytes
 
     All operations are atomic - either all succeed or none.
 
@@ -59,8 +58,8 @@ def sequence_iscc_note(iscc_note):
     nonce = iscc_note.get("nonce")
     iscc_code = iscc_note.get("iscc_code")
     datahash = iscc_note.get("datahash")
-    gateway = iscc_note.get("gateway", "")
-    metahash = iscc_note.get("metahash", "")
+    iscc_note.get("gateway", "")
+    iscc_note.get("metahash", "")
 
     # Extract actor from signature
     signature = iscc_note.get("signature", {})
@@ -163,29 +162,7 @@ def sequence_iscc_note(iscc_note):
                 ),
             )
 
-            # 7. Insert/update iscc_declaration table
-            # For CREATED events, insert new declaration
-            cursor.execute(
-                """
-                INSERT INTO iscc_declaration (
-                    iscc_id, event_seq, iscc_code, datahash, nonce,
-                    actor, gateway, metahash, updated_at, deleted, redacted
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, strftime('%%Y-%%m-%%d %%H:%%M:%%f', 'now'), 0, 0)
-            """,
-                (
-                    iscc_id_bytes,
-                    new_seq,
-                    iscc_code,
-                    datahash,
-                    nonce,
-                    actor,
-                    gateway,
-                    metahash,
-                ),
-            )
-
-            # 8. Commit the transaction durably
+            # 7. Commit the transaction durably
             cursor.execute("COMMIT")
 
             return new_seq, iscc_id_bytes

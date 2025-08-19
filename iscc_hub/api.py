@@ -68,6 +68,18 @@ async def declaration(request):
     # Sequencing
     seq, iscc_id = await asequence_iscc_note(valid_data)
 
+    # Create the declaration using Django's async ORM
+    await IsccDeclaration.objects.acreate(
+        iscc_id=iscc_id,
+        event_seq=seq,
+        iscc_code=valid_data["iscc_code"],
+        datahash=valid_data["datahash"],
+        nonce=valid_data["nonce"],
+        actor=valid_data["signature"]["pubkey"],
+        gateway=valid_data.get("gateway", ""),
+        metahash=valid_data.get("metahash", ""),
+    )
+
     # Create and return IsccReceipt
     declaration_data = {
         "iscc_note": valid_data,

@@ -59,8 +59,8 @@ def test_transaction_atomicity(full_iscc_note):
 
     def failing_execute(self, sql, params=None):
         call_count[0] += 1
-        # Fail on the declaration insert (second insert)
-        if "INSERT INTO iscc_declaration" in sql:
+        # Fail on the event insert
+        if "INSERT INTO iscc_event" in sql:
             raise Exception("Simulated failure")
         return original_execute(self, sql, params)
 
@@ -77,9 +77,6 @@ def test_transaction_atomicity(full_iscc_note):
     # Verify nothing was committed
     with connection.cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM iscc_event")
-        assert cursor.fetchone()[0] == 0
-
-        cursor.execute("SELECT COUNT(*) FROM iscc_declaration")
         assert cursor.fetchone()[0] == 0
 
 
@@ -253,10 +250,6 @@ def test_nonce_conflict_detection():
         assert cursor.fetchone()[0] == 1
         cursor.execute(
             "SELECT COUNT(*) FROM iscc_event WHERE nonce = %s", (unhexlify("00100123456789abcdef0123456789ab"),)
-        )
-        assert cursor.fetchone()[0] == 1
-        cursor.execute(
-            "SELECT COUNT(*) FROM iscc_declaration WHERE nonce = %s", ("00100123456789abcdef0123456789ab",)
         )
         assert cursor.fetchone()[0] == 1
 
