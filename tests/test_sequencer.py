@@ -2,6 +2,24 @@
 Comprehensive tests for the ISCC Hub sequencer.
 
 Tests atomic sequencing, nonce uniqueness, timestamp monotonicity, and concurrent access.
+
+IMPORTANT: pytest-django Transaction Behavior
+==============================================
+These tests use @pytest.mark.django_db(transaction=True) which is COUNTERINTUITIVE:
+
+- transaction=True does NOT mean "wrap test in transaction"
+- transaction=True means "use TransactionTestCase behavior" which:
+  - Flushes the database between tests (slower but cleaner)
+  - Does NOT wrap tests in transactions
+  - Ensures autocommit=True and in_atomic_block=False
+
+- transaction=False (the default) actually DOES wrap tests in transactions:
+  - Uses TestCase behavior with transaction rollback
+  - Results in in_atomic_block=True even though it says "False"
+  - Will break sequencer tests because BEGIN IMMEDIATE needs clean state
+
+The sequencer REQUIRES direct control over SQLite transactions via BEGIN IMMEDIATE,
+so we MUST use transaction=True to avoid pytest-django's transaction wrapping.
 """
 
 import os
@@ -20,30 +38,15 @@ from iscc_hub.sequencer import (
 )
 from tests.conftest import create_iscc_from_text
 
-
-@pytest.fixture(autouse=True)
-def clear_database():
-    """Clear database before each test."""
-    # Clear database before test
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM iscc_event")
-            cursor.execute("DELETE FROM iscc_declaration")
-            connection.commit()
-    except Exception:
-        pass  # Tables might not exist yet
-    yield
-    # Clean up after test
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM iscc_event")
-            cursor.execute("DELETE FROM iscc_declaration")
-            connection.commit()
-    except Exception:
-        pass
+# Note: No clear_database fixture needed!
+# With transaction=True, pytest-django uses TransactionTestCase behavior which
+# flushes the database between tests automatically. This gives us:
+# - Clean database state for each test
+# - No transaction wrapping (autocommit=True, in_atomic_block=False)
+# - Direct control over SQLite's BEGIN IMMEDIATE transactions
 
 
-@pytest.mark.django_db(transaction=False)
+@pytest.mark.django_db(transaction=True)
 def test_transaction_atomicity(full_iscc_note):
     """Test that transactions are atomic - all or nothing."""
     # Use the fixture note
@@ -79,7 +82,7 @@ def test_transaction_atomicity(full_iscc_note):
         assert cursor.fetchone()[0] == 0
 
 
-@pytest.mark.django_db(transaction=False)
+@pytest.mark.django_db(transaction=True)
 def test_missing_required_fields():
     """Test that missing required fields raise appropriate errors."""
     # Note without nonce
@@ -99,7 +102,7 @@ def test_missing_required_fields():
 
 
 @pytest.mark.slow
-@pytest.mark.django_db(transaction=False)
+@pytest.mark.django_db(transaction=True)
 def test_performance_benchmark():
     """Performance benchmark for sequencing operations."""
     num_operations = 100
@@ -142,7 +145,7 @@ def test_performance_benchmark():
     assert throughput > 50  # At least 50 ops/sec
 
 
-@pytest.mark.django_db(transaction=False)
+@pytest.mark.django_db(transaction=True)
 def test_hub_id_encoding(full_iscc_note):
     """Test that hub_id is correctly encoded in ISCC-ID."""
     _, iscc_id_bytes = sequence_iscc_note(full_iscc_note)
@@ -154,7 +157,7 @@ def test_hub_id_encoding(full_iscc_note):
     assert iscc_id.hub_id == settings.ISCC_HUB_ID
 
 
-@pytest.mark.django_db(transaction=False)
+@pytest.mark.django_db(transaction=True)
 def test_timestamp_precision():
     """Test that timestamps have microsecond precision."""
     notes = []
@@ -211,7 +214,7 @@ def test_nonce_conflict_error_inheritance():
     assert str(error) == "Test nonce conflict"
 
 
-@pytest.mark.django_db(transaction=False)
+@pytest.mark.django_db(transaction=True)
 def test_nonce_conflict_detection():
     """Test that duplicate nonces are rejected."""
     # Create and sequence first note with specific nonce
@@ -253,7 +256,7 @@ def test_nonce_conflict_detection():
         assert cursor.fetchone()[0] == 1
 
 
-@pytest.mark.django_db(transaction=False)
+@pytest.mark.django_db(transaction=True)
 def test_invalid_hub_id(monkeypatch, full_iscc_note):
     """Test that invalid hub_id raises SequencerError."""
     # Save original value
@@ -286,7 +289,7 @@ def test_invalid_hub_id(monkeypatch, full_iscc_note):
     monkeypatch.setattr(settings, "ISCC_HUB_ID", original_hub_id)
 
 
-@pytest.mark.django_db(transaction=False)
+@pytest.mark.django_db(transaction=True)
 def test_monotonic_timestamp_edge_case(monkeypatch, full_iscc_note):
     """Test timestamp monotonicity when system clock goes backward."""
     # First, insert a normal note
@@ -324,7 +327,7 @@ def test_monotonic_timestamp_edge_case(monkeypatch, full_iscc_note):
     assert seq2 == seq1 + 1
 
 
-@pytest.mark.django_db(transaction=False)
+@pytest.mark.django_db(transaction=True)
 def test_rollback_on_generic_exception(monkeypatch, full_iscc_note):
     """Test that generic exceptions cause rollback and are wrapped."""
     note = full_iscc_note
@@ -348,3 +351,69 @@ def test_rollback_on_generic_exception(monkeypatch, full_iscc_note):
     with connection.cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM iscc_event")
         assert cursor.fetchone()[0] == 0
+
+
+@pytest.mark.django_db  # Use default behavior to test atomic block detection
+def test_atomic_block_detection(full_iscc_note):
+    """Test that sequencer detects and rejects calls within atomic blocks."""
+    # When using default django_db (without transaction=True),
+    # Django wraps the test in a transaction
+    with pytest.raises(SequencerError) as exc_info:
+        sequence_iscc_note(full_iscc_note)
+
+    assert "cannot be called within an atomic block" in str(exc_info.value)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_autocommit_check(full_iscc_note):
+    """Test that sequencer checks for autocommit mode."""
+    # Temporarily disable autocommit
+    original_autocommit = connection.get_autocommit()
+    try:
+        connection.set_autocommit(False)
+
+        with pytest.raises(SequencerError) as exc_info:
+            sequence_iscc_note(full_iscc_note)
+
+        assert "requires autocommit mode to be enabled" in str(exc_info.value)
+    finally:
+        # Restore autocommit
+        connection.set_autocommit(original_autocommit)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_transaction_within_transaction_error(full_iscc_note):
+    """Test error handling when BEGIN IMMEDIATE fails due to existing transaction."""
+    # Start a transaction manually
+    with connection.cursor() as cursor:
+        cursor.execute("BEGIN")
+
+        try:
+            with pytest.raises(SequencerError) as exc_info:
+                sequence_iscc_note(full_iscc_note)
+
+            assert "Cannot start transaction - already in a transaction" in str(exc_info.value)
+        finally:
+            # Clean up - rollback if transaction is still active
+            try:
+                cursor.execute("ROLLBACK")
+            except Exception:
+                pass  # Transaction might already be rolled back
+
+
+@pytest.mark.django_db(transaction=True)
+def test_begin_immediate_other_error(full_iscc_note, monkeypatch):
+    """Test that non-transaction errors in BEGIN IMMEDIATE are re-raised."""
+    original_execute = connection.cursor().__class__.execute
+
+    def mock_execute(self, sql, params=None):
+        if "BEGIN IMMEDIATE" in sql:
+            raise Exception("Some other database error")
+        return original_execute(self, sql, params)
+
+    monkeypatch.setattr(connection.cursor().__class__, "execute", mock_execute)
+
+    with pytest.raises(SequencerError) as exc_info:
+        sequence_iscc_note(full_iscc_note)
+
+    assert "Sequencing failed: Some other database error" in str(exc_info.value)

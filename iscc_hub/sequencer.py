@@ -68,18 +68,33 @@ def sequence_iscc_note(iscc_note):
     if not all([nonce, iscc_code, datahash, actor]):
         raise SequencerError("Missing required fields in IsccNote")
 
-    # Use connection directly - when transaction=False is set in tests,
-    # Django won't wrap in transactions
+    # Check if we're in an atomic block or transaction
+    if connection.in_atomic_block:
+        raise SequencerError(
+            "Sequencer cannot be called within an atomic block or transaction. "
+            "This function requires direct control over SQLite's BEGIN IMMEDIATE transaction."
+        )
+
+    # Ensure we're in autocommit mode
+    if not connection.get_autocommit():
+        raise SequencerError(
+            "Sequencer requires autocommit mode to be enabled. "
+            "Please ensure the connection is in autocommit mode before calling this function."
+        )
+
     with connection.cursor() as cursor:
         try:
-            # Ensure we're not in a transaction by committing any pending work
+            # Try to start immediate transaction for exclusive write lock
+            # This will fail if we're already in a transaction
             try:
-                cursor.execute("COMMIT")
-            except Exception:
-                pass  # No transaction to commit
-
-            # Start immediate transaction for exclusive write lock
-            cursor.execute("BEGIN IMMEDIATE")
+                cursor.execute("BEGIN IMMEDIATE")
+            except Exception as e:
+                if "cannot start a transaction within a transaction" in str(e):
+                    raise SequencerError(
+                        "Cannot start transaction - already in a transaction. "
+                        "Ensure no implicit transactions are active."
+                    ) from e
+                raise
 
             # 1. Check nonce uniqueness
             cursor.execute("SELECT 1 FROM iscc_declaration WHERE nonce = %s", (nonce,))
