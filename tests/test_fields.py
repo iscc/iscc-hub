@@ -2,13 +2,13 @@
 Tests for custom Django field implementations.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.core.exceptions import ValidationError
 from django.forms import CharField
 
-from iscc_hub.fields import IsccIDField, SequenceField
+from iscc_hub.fields import HexField, IsccIDField, SequenceField
 from iscc_hub.iscc_id import IsccID
 
 
@@ -326,3 +326,169 @@ def test_iscc_id_field_value_to_string():
     obj.iscc_id = None
     result = field.value_to_string(obj)
     assert result is None
+
+
+# Tests for HexField
+def test_hex_field_init():
+    # type: () -> None
+    """Test HexField initialization."""
+    field = HexField()
+    assert field.description == "Hex string stored as binary"
+
+
+def test_hex_field_init_with_max_length():
+    # type: () -> None
+    """Test HexField initialization with max_length."""
+    field = HexField(max_length=32)
+    assert field.max_length == 32
+
+
+# Parameterized tests for HexField.to_python
+@pytest.mark.parametrize(
+    "input_value,expected_output,should_raise,error_code",
+    [
+        (None, None, False, None),
+        ("", None, False, None),
+        ("deadbeef", b"\xde\xad\xbe\xef", False, None),
+        ("DEADBEEF", b"\xde\xad\xbe\xef", False, None),  # Case insensitive
+        ("  deadbeef  ", None, True, "invalid_hex"),  # Whitespace should fail
+        (b"\xde\xad\xbe\xef", b"\xde\xad\xbe\xef", False, None),
+        (bytearray(b"\xde\xad\xbe\xef"), b"\xde\xad\xbe\xef", False, None),
+        (memoryview(b"\xde\xad\xbe\xef"), b"\xde\xad\xbe\xef", False, None),
+        ("invalid_hex", None, True, "invalid_hex"),
+        ("deadbee", None, True, "invalid_hex"),  # Odd length
+        (12345, None, True, "invalid_type"),
+    ],
+)
+def test_hex_field_to_python_parameterized(input_value, expected_output, should_raise, error_code):
+    # type: (str|bytes|bytearray|memoryview|int|None, bytes|None, bool, str|None) -> None
+    """Parameterized test for HexField.to_python method."""
+    field = HexField()
+
+    if should_raise:
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_python(input_value)
+        assert exc_info.value.code == error_code
+    else:
+        result = field.to_python(input_value)
+        assert result == expected_output
+
+
+# Parameterized tests for HexField.get_prep_value
+@pytest.mark.parametrize(
+    "input_value,expected_bytes,should_raise",
+    [
+        (None, None, False),
+        ("", None, False),
+        ("deadbeef", b"\xde\xad\xbe\xef", False),
+        ("DEADBEEF", b"\xde\xad\xbe\xef", False),  # Case insensitive
+        (b"\xde\xad\xbe\xef", b"\xde\xad\xbe\xef", False),  # Already bytes
+        ("invalid", None, True),
+        ("deadbee", None, True),  # Odd length
+    ],
+)
+def test_hex_field_get_prep_value_parameterized(input_value, expected_bytes, should_raise):
+    # type: (str|bytes|None, bytes|None, bool) -> None
+    """Parameterized test for HexField.get_prep_value method."""
+    field = HexField()
+
+    if should_raise:
+        with pytest.raises(ValidationError):
+            field.get_prep_value(input_value)
+    else:
+        result = field.get_prep_value(input_value)
+        assert result == expected_bytes
+
+
+def test_hex_field_from_db_value_none():
+    # type: () -> None
+    """Test from_db_value with None."""
+    field = HexField()
+    result = field.from_db_value(None, None, None)
+    assert result is None
+
+
+def test_hex_field_from_db_value_bytes():
+    # type: () -> None
+    """Test from_db_value with bytes."""
+    field = HexField()
+    bytes_value = b"\xde\xad\xbe\xef"
+    result = field.from_db_value(bytes_value, None, None)
+    assert result == bytes_value  # Now returns bytes directly
+
+
+def test_hex_field_value_to_string():
+    # type: () -> None
+    """Test value_to_string method for serialization."""
+    field = HexField()
+
+    # Create a mock object with hex value as bytes
+    class MockObject:
+        hex_value = b"\xde\xad\xbe\xef"
+
+    obj = MockObject()
+
+    # Test with valid bytes value
+    field.attname = "hex_value"
+    result = field.value_to_string(obj)
+    assert result == "deadbeef"
+
+    # Test with None value
+    obj.hex_value = None
+    result = field.value_to_string(obj)
+    assert result is None
+
+    # Test with string value (shouldn't normally happen but test str() fallback)
+    obj.hex_value = "cafebabe"
+    result = field.value_to_string(obj)
+    assert result == "cafebabe"
+
+
+def test_hex_field_formfield():
+    # type: () -> None
+    """Test formfield returns CharField."""
+    field = HexField()
+    form_field = field.formfield()
+    assert isinstance(form_field, CharField)
+
+
+def test_hex_field_formfield_with_max_length():
+    # type: () -> None
+    """Test formfield with max_length set."""
+    field = HexField(max_length=16)  # 16 bytes = 32 hex chars
+    form_field = field.formfield()
+    assert isinstance(form_field, CharField)
+    assert form_field.max_length == 32  # 2x the binary length
+
+
+def test_hex_field_formfield_with_kwargs():
+    # type: () -> None
+    """Test formfield with custom kwargs."""
+    field = HexField()
+    form_field = field.formfield(max_length=64, help_text="Enter hex value")
+    assert isinstance(form_field, CharField)
+    assert form_field.max_length == 64
+    assert form_field.help_text == "Enter hex value"
+
+
+def test_hex_field_roundtrip():
+    # type: () -> None
+    """Test complete roundtrip: hex string -> bytes -> bytes."""
+    field = HexField()
+
+    # Test with various hex strings
+    test_cases = [
+        ("deadbeef", b"\xde\xad\xbe\xef"),
+        ("0123456789abcdef", b"\x01\x23\x45\x67\x89\xab\xcd\xef"),
+        ("00", b"\x00"),
+        ("ff" * 32, b"\xff" * 32),  # 64 character hex string
+    ]
+
+    for hex_str, expected_bytes in test_cases:
+        # Convert to bytes for storage
+        bytes_value = field.get_prep_value(hex_str)
+        assert bytes_value == expected_bytes
+
+        # Convert back from storage
+        result = field.from_db_value(bytes_value, None, None)
+        assert result == expected_bytes  # Now returns bytes directly

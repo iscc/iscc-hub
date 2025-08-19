@@ -1,3 +1,5 @@
+import binascii
+
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.forms import CharField
@@ -132,3 +134,61 @@ class IsccIDField(models.BinaryField):
         }
         defaults.update(kwargs)
         return super(models.BinaryField, self).formfield(**defaults)
+
+
+class HexField(models.BinaryField):
+    """Store hex strings as binary data, cutting storage requirements in half."""
+
+    description = "Hex string stored as binary"
+
+    def to_python(self, value):
+        # type: (object) -> bytes | None
+        """Convert value to bytes, accepting hex string input transparently."""
+        if value is None:
+            return value
+
+        if isinstance(value, bytes | bytearray | memoryview):
+            return bytes(value)
+        elif isinstance(value, str):
+            if value == "":
+                return None
+            # Accept hex input transparently
+            try:
+                return binascii.unhexlify(value)
+            except binascii.Error as e:
+                raise ValidationError(f"Invalid hex: {e}", code="invalid_hex") from e
+        else:
+            raise ValidationError("Value must be bytes or hex string", code="invalid_type")
+
+    def get_prep_value(self, value):
+        # type: (object) -> bytes | None
+        """Convert to bytes for database storage."""
+        b = self.to_python(value) if value is not None else None
+        return super().get_prep_value(b)
+
+    def from_db_value(self, value, expression, connection):
+        # type: (bytes | None, object, object) -> bytes | None
+        """Return bytes from database."""
+        return value
+
+    def value_to_string(self, obj):
+        # type: (object) -> str | None
+        """Convert field value to hex string for serialization."""
+        value = self.value_from_object(obj)  # type: ignore[arg-type]
+        if value is None:
+            return None
+        # Convert bytes to hex string for serialization
+        if isinstance(value, bytes):
+            return value.hex()
+        return str(value)
+
+    def formfield(self, **kwargs):
+        # type: (**object) -> CharField
+        """Return a CharField for forms and admin interface."""
+        defaults = {"form_class": CharField}  # type: dict[str, object]
+        # If max_length is set, it refers to binary byte length
+        # Hex string in forms will be 2x this length
+        if self.max_length:
+            defaults["max_length"] = self.max_length * 2
+        defaults.update(kwargs)
+        return super(models.BinaryField, self).formfield(**defaults)  # type: ignore[return-value]
