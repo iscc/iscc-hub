@@ -10,6 +10,7 @@ This module provides atomic sequencing of ISCC declarations with:
 
 import json
 import time
+from binascii import unhexlify
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
@@ -68,6 +69,11 @@ def sequence_iscc_note(iscc_note):
     if not all([nonce, iscc_code, datahash, actor]):
         raise SequencerError("Missing required fields in IsccNote")
 
+    # Convert hex strings to bytes for storage
+    assert nonce is not None and datahash is not None  # Type narrowing for pyright
+    nonce_bytes = unhexlify(nonce)
+    datahash_bytes = unhexlify(datahash)  # Store full datahash with '1e20' prefix
+
     # Check if we're in an atomic block or transaction
     if connection.in_atomic_block:
         raise SequencerError(
@@ -96,11 +102,7 @@ def sequence_iscc_note(iscc_note):
                     ) from e
                 raise
 
-            # 1. Check nonce uniqueness
-            cursor.execute("SELECT 1 FROM iscc_declaration WHERE nonce = %s", (nonce,))
-            if cursor.fetchone():
-                cursor.execute("ROLLBACK")
-                raise NonceConflictError(f"Nonce already exists: {nonce}")
+            # 1. Skip manual nonce check - let database constraint handle it
 
             # 2. Get the last sequence number and timestamp
             cursor.execute("""
@@ -148,13 +150,15 @@ def sequence_iscc_note(iscc_note):
 
             cursor.execute(
                 """
-                INSERT INTO iscc_event (seq, event_type, iscc_id, iscc_note, event_time)
-                VALUES (%s, %s, %s, json(%s), strftime('%%Y-%%m-%%d %%H:%%M:%%f', 'now'))
+                INSERT INTO iscc_event (seq, event_type, iscc_id, nonce, datahash, iscc_note, event_time)
+                VALUES (%s, %s, %s, %s, %s, json(%s), strftime('%%Y-%%m-%%d %%H:%%M:%%f', 'now'))
             """,
                 (
                     new_seq,
                     1,  # EventType.CREATED
                     iscc_id_bytes,
+                    nonce_bytes,
+                    datahash_bytes,
                     iscc_note_json,
                 ),
             )
@@ -192,6 +196,11 @@ def sequence_iscc_note(iscc_note):
                 cursor.execute("ROLLBACK")
             except Exception:
                 pass  # Rollback might fail if connection is broken
+
+            # Check for nonce constraint violation
+            error_msg = str(e).lower()
+            if "unique constraint" in error_msg and "nonce" in error_msg:
+                raise NonceConflictError(f"Nonce already exists: {nonce}") from e
 
             # Re-raise with context
             if isinstance(e, NonceConflictError | SequencerError):

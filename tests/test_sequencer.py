@@ -24,6 +24,7 @@ so we MUST use transaction=True to avoid pytest-django's transaction wrapping.
 
 import os
 import time
+from binascii import unhexlify
 
 import iscc_crypto as icr
 import pytest
@@ -249,6 +250,10 @@ def test_nonce_conflict_detection():
     # Verify only the first note was stored
     with connection.cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM iscc_event")
+        assert cursor.fetchone()[0] == 1
+        cursor.execute(
+            "SELECT COUNT(*) FROM iscc_event WHERE nonce = %s", (unhexlify("00100123456789abcdef0123456789ab"),)
+        )
         assert cursor.fetchone()[0] == 1
         cursor.execute(
             "SELECT COUNT(*) FROM iscc_declaration WHERE nonce = %s", ("00100123456789abcdef0123456789ab",)

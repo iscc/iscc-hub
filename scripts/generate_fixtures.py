@@ -35,7 +35,6 @@ os.environ.setdefault("ISCC_HUB_SECKEY", "zHuboTestKeyFixtureGeneration")
 django.setup()
 
 from django.core.management import call_command  # noqa: E402
-from django.db import transaction  # noqa: E402
 
 from iscc_hub.models import Event, IsccDeclaration  # noqa: E402
 from iscc_hub.sequencer import sequence_iscc_note  # noqa: E402
@@ -180,8 +179,7 @@ def generate_fixtures():
 
     # 1. Create initial declaration with full IsccNote
     note1 = create_full_note(timestamp=create_timestamp(base_time, 0), keypair=keypair1)
-    with transaction.atomic():
-        seq1, iscc_id1 = process_iscc_note(note1)
+    seq1, iscc_id1 = process_iscc_note(note1)
     print("  - Created full declaration")
 
     # 2. Create minimal declaration
@@ -189,8 +187,7 @@ def generate_fixtures():
         timestamp=create_timestamp(base_time, 60),  # 1 minute later
         keypair=keypair2,
     )
-    with transaction.atomic():
-        seq2, iscc_id2 = process_iscc_note(note2)
+    seq2, iscc_id2 = process_iscc_note(note2)
     print("  - Created minimal declaration")
 
     # 3. Create declaration with units
@@ -198,8 +195,7 @@ def generate_fixtures():
         timestamp=create_timestamp(base_time, 120),  # 2 minutes later
         keypair=keypair3,
     )
-    with transaction.atomic():
-        seq3, iscc_id3 = process_iscc_note(note3)
+    seq3, iscc_id3 = process_iscc_note(note3)
     print("  - Created declaration with units")
 
     # 4. Create another minimal declaration (different content)
@@ -207,8 +203,7 @@ def generate_fixtures():
         timestamp=create_timestamp(base_time, 180),  # 3 minutes later
         keypair=keypair1,  # Same actor as first
     )
-    with transaction.atomic():
-        seq4, iscc_id4 = process_iscc_note(note4)
+    seq4, iscc_id4 = process_iscc_note(note4)
     print("  - Created another declaration from first actor")
 
     # 5. Create one more declaration for variety
@@ -216,8 +211,7 @@ def generate_fixtures():
         timestamp=create_timestamp(base_time, 240),  # 4 minutes later
         keypair=keypair2,  # Different actor
     )
-    with transaction.atomic():
-        seq5, iscc_id5 = process_iscc_note(note5)
+    seq5, iscc_id5 = process_iscc_note(note5)
     print("  - Created fifth declaration")
 
     # Print summary

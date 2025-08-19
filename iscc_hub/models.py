@@ -4,7 +4,7 @@ Django models for ISCC Hub.
 
 from django.db import models
 
-from iscc_hub.fields import IsccIDField, SequenceField
+from iscc_hub.fields import HexField, IsccIDField, SequenceField
 
 
 class Event(models.Model):
@@ -27,6 +27,15 @@ class Event(models.Model):
     # Gapless sequence number as primary key
     seq = SequenceField(primary_key=True, help_text="Gapless sequence number for events")
 
+    # ISCC-ID assigned to the declaration (can be non-unique for updates)
+    iscc_id = IsccIDField(db_index=True, help_text="ISCC-ID assigned to the declaration")
+
+    # Unique Nonce
+    nonce = HexField(unique=True, help_text="128-bit hex nonce preventing replay attacks")
+
+    # For application side detection of duplicate declarations (if desired)
+    datahash = HexField(db_index=True, help_text="Hash of the declared content")
+
     # Event type
     event_type = models.PositiveSmallIntegerField(
         choices=EventType.choices,
@@ -34,9 +43,6 @@ class Event(models.Model):
         db_index=True,
         help_text="Type of event (1=CREATED, 2=UPDATED, 3=DELETED)",
     )
-
-    # ISCC-ID assigned to the declaration (can be non-unique for updates)
-    iscc_id = IsccIDField(db_index=True, help_text="ISCC-ID assigned to the declaration")
 
     # The IsccNote stored as JSON
     iscc_note = models.JSONField(help_text="The logged IsccNote as JSON")

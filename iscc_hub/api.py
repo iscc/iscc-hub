@@ -51,17 +51,18 @@ async def declaration(request):
     valid_data = await avalidate_iscc_note(data, True, settings.ISCC_HUB_ID, True)
 
     # Online pre-validation
-    if await IsccDeclaration.objects.filter(nonce=valid_data["nonce"]).aexists():
+    if await Event.objects.filter(nonce=valid_data["nonce"]).aexists():
         raise NonceError("Nonce already used", is_reuse=True)
 
     # Check for duplicate declarations (only if force header not present)
     force_declaration = request.headers.get("X-Force-Declaration", "").lower() in ("true", "1")
     if not force_declaration:
-        existing = await IsccDeclaration.objects.filter(datahash=valid_data["datahash"]).afirst()
+        existing = await Event.objects.filter(datahash=valid_data["datahash"]).afirst()
         if existing:
             message = f"Duplicate declaration for datahash: {valid_data['datahash']}"
+            existing_actor = existing.iscc_note.get("signature", {}).get("pubkey", "")
             raise DuplicateDeclarationError(
-                message, existing_iscc_id=str(existing.iscc_id), existing_actor=existing.actor
+                message, existing_iscc_id=str(IsccID(existing.iscc_id)), existing_actor=existing_actor
             )
 
     # Sequencing

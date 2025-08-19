@@ -2,6 +2,7 @@
 Tests for Django models.
 """
 
+import iscc_crypto as icr
 import pytest
 
 from iscc_hub.models import Event, IsccDeclaration
@@ -24,15 +25,34 @@ def test_event_model_creation(minimal_iscc_note):
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
-def test_event_gapless_sequence(minimal_iscc_note):
-    # type: (dict) -> None
+def test_event_gapless_sequence(example_timestamp, example_keypair, example_iscc_data):
+    # type: (str, object, dict) -> None
     """
     Test that Event model maintains gapless sequence numbers.
     """
-    # Create multiple events
-    event1 = Event.objects.create(iscc_id=generate_test_iscc_id(seq=1), iscc_note=minimal_iscc_note)
-    event2 = Event.objects.create(iscc_id=generate_test_iscc_id(seq=2), iscc_note=minimal_iscc_note)
-    event3 = Event.objects.create(iscc_id=generate_test_iscc_id(seq=3), iscc_note=minimal_iscc_note)
+
+    # Create multiple events with unique nonces
+    def create_unique_event(seq):
+        # Generate unique nonce for each event
+        unique_nonce = f"{seq:03d}faa3f18c7b9407a48536a9b00c4cb"
+        note = {
+            "iscc_code": example_iscc_data["iscc"],
+            "datahash": example_iscc_data["datahash"],
+            "nonce": unique_nonce,
+            "timestamp": example_timestamp,
+        }
+        signed_note = icr.sign_json(note, example_keypair)
+
+        return Event.objects.create(
+            iscc_id=generate_test_iscc_id(seq=seq),
+            nonce=unique_nonce,
+            datahash=example_iscc_data["datahash"],
+            iscc_note=signed_note,
+        )
+
+    event1 = create_unique_event(1)
+    event2 = create_unique_event(2)
+    event3 = create_unique_event(3)
 
     # Verify sequence is gapless
     assert event1.seq == 1
@@ -47,25 +67,41 @@ def test_event_gapless_sequence(minimal_iscc_note):
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
-def test_event_types(minimal_iscc_note):
-    # type: (dict) -> None
+def test_event_types(example_timestamp, example_keypair, example_iscc_data):
+    # type: (str, object, dict) -> None
     """
     Test different event types.
     """
+
+    # Helper function to create unique events
+    def create_unique_event(seq, event_type=Event.EventType.CREATED):
+        unique_nonce = f"{seq:03d}faa3f18c7b9407a48536a9b00c4cb"
+        note = {
+            "iscc_code": example_iscc_data["iscc"],
+            "datahash": example_iscc_data["datahash"],
+            "nonce": unique_nonce,
+            "timestamp": example_timestamp,
+        }
+        signed_note = icr.sign_json(note, example_keypair)
+
+        return Event.objects.create(
+            event_type=event_type,
+            iscc_id=generate_test_iscc_id(seq=seq),
+            nonce=unique_nonce,
+            datahash=example_iscc_data["datahash"],
+            iscc_note=signed_note,
+        )
+
     # Test CREATED (default)
-    created_event = Event.objects.create(iscc_id=generate_test_iscc_id(seq=10), iscc_note=minimal_iscc_note)
+    created_event = create_unique_event(10)
     assert created_event.event_type == Event.EventType.CREATED
 
     # Test UPDATED
-    updated_event = Event.objects.create(
-        event_type=Event.EventType.UPDATED, iscc_id=generate_test_iscc_id(seq=11), iscc_note=minimal_iscc_note
-    )
+    updated_event = create_unique_event(11, Event.EventType.UPDATED)
     assert updated_event.event_type == Event.EventType.UPDATED
 
     # Test DELETED
-    deleted_event = Event.objects.create(
-        event_type=Event.EventType.DELETED, iscc_id=generate_test_iscc_id(seq=12), iscc_note=minimal_iscc_note
-    )
+    deleted_event = create_unique_event(12, Event.EventType.DELETED)
     assert deleted_event.event_type == Event.EventType.DELETED
 
     # Test integer values
@@ -75,47 +111,94 @@ def test_event_types(minimal_iscc_note):
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
-def test_event_str_representation(minimal_iscc_note):
-    # type: (dict) -> None
+def test_event_str_representation(example_timestamp, example_keypair, example_iscc_data):
+    # type: (str, object, dict) -> None
     """
     Test Event model string representation.
     """
+
+    # Helper function to create unique events
+    def create_unique_event(seq, event_type=Event.EventType.CREATED):
+        unique_nonce = f"{seq:03d}faa3f18c7b9407a48536a9b00c4cb"
+        note = {
+            "iscc_code": example_iscc_data["iscc"],
+            "datahash": example_iscc_data["datahash"],
+            "nonce": unique_nonce,
+            "timestamp": example_timestamp,
+        }
+        signed_note = icr.sign_json(note, example_keypair)
+
+        return Event.objects.create(
+            event_type=event_type,
+            iscc_id=generate_test_iscc_id(seq=seq),
+            nonce=unique_nonce,
+            datahash=example_iscc_data["datahash"],
+            iscc_note=signed_note,
+        )
+
     # Test CREATED event
     test_id = generate_test_iscc_id(seq=20)
-    event = Event.objects.create(iscc_id=test_id, iscc_note=minimal_iscc_note)
+    event = create_unique_event(20)
     assert str(event) == f"Event #1: Created {test_id}"
 
     # Test UPDATED event
-    event2 = Event.objects.create(
-        event_type=Event.EventType.UPDATED, iscc_id=test_id, iscc_note=minimal_iscc_note
-    )
-    assert str(event2) == f"Event #2: Updated {test_id}"
+    event2 = create_unique_event(21, Event.EventType.UPDATED)
+    test_id2 = generate_test_iscc_id(seq=21)
+    assert str(event2) == f"Event #2: Updated {test_id2}"
 
     # Test DELETED event
-    event3 = Event.objects.create(
-        event_type=Event.EventType.DELETED, iscc_id=test_id, iscc_note=minimal_iscc_note
-    )
-    assert str(event3) == f"Event #3: Deleted {test_id}"
+    event3 = create_unique_event(22, Event.EventType.DELETED)
+    test_id3 = generate_test_iscc_id(seq=22)
+    assert str(event3) == f"Event #3: Deleted {test_id3}"
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
-def test_event_non_unique_iscc_id(minimal_iscc_note, full_iscc_note):
-    # type: (dict, dict) -> None
+def test_event_non_unique_iscc_id(example_timestamp, example_keypair, example_iscc_data):
+    # type: (str, object, dict) -> None
     """
     Test that multiple events can have the same ISCC-ID (for updates).
     """
     iscc_id = generate_test_iscc_id(seq=30)
 
-    # Create multiple events with same ISCC-ID
-    Event.objects.create(iscc_id=iscc_id, iscc_note=minimal_iscc_note)
+    # Helper function to create unique events
+    def create_unique_event(seq, event_type=Event.EventType.CREATED, gateway=None, metahash=None, units=None):
+        unique_nonce = f"{seq:03d}faa3f18c7b9407a48536a9b00c4cb"
+        note = {
+            "iscc_code": example_iscc_data["iscc"],
+            "datahash": example_iscc_data["datahash"],
+            "nonce": unique_nonce,
+            "timestamp": example_timestamp,
+        }
+        # Add optional fields for full note
+        if gateway:
+            note["gateway"] = gateway
+        if metahash:
+            note["metahash"] = metahash
+        if units:
+            note["units"] = units
 
-    Event.objects.create(
-        event_type=Event.EventType.UPDATED,
-        iscc_id=iscc_id,
-        iscc_note=full_iscc_note,  # Different note content for update
+        signed_note = icr.sign_json(note, example_keypair)
+
+        return Event.objects.create(
+            event_type=event_type,
+            iscc_id=iscc_id,  # Same ISCC-ID for all events
+            nonce=unique_nonce,
+            datahash=example_iscc_data["datahash"],
+            iscc_note=signed_note,
+        )
+
+    # Create multiple events with same ISCC-ID but different nonces
+    create_unique_event(30)
+
+    create_unique_event(
+        31,
+        Event.EventType.UPDATED,
+        gateway="https://example.com/iscc_id/{iscc_id}/metadata",
+        metahash=example_iscc_data.get("metahash"),
+        units=example_iscc_data.get("units"),
     )
 
-    Event.objects.create(event_type=Event.EventType.DELETED, iscc_id=iscc_id, iscc_note=minimal_iscc_note)
+    create_unique_event(32, Event.EventType.DELETED)
 
     # Query all events for this ISCC-ID
     events = Event.objects.filter(iscc_id=iscc_id)
@@ -126,8 +209,8 @@ def test_event_non_unique_iscc_id(minimal_iscc_note, full_iscc_note):
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
-def test_event_indexes(minimal_iscc_note):
-    # type: (dict) -> None
+def test_event_indexes(example_timestamp, example_keypair, example_iscc_data):
+    # type: (str, object, dict) -> None
     """
     Test that indexes are properly applied.
     """
@@ -136,9 +219,20 @@ def test_event_indexes(minimal_iscc_note):
     for i in range(5):
         test_id = generate_test_iscc_id(seq=40 + i)
         test_ids.append(test_id)
+        unique_nonce = f"{40 + i:03d}faa3f18c7b9407a48536a9b00c4cb"
+        note = {
+            "iscc_code": example_iscc_data["iscc"],
+            "datahash": example_iscc_data["datahash"],
+            "nonce": unique_nonce,
+            "timestamp": example_timestamp,
+        }
+        signed_note = icr.sign_json(note, example_keypair)
+
         Event.objects.create(
             iscc_id=test_id,
-            iscc_note=minimal_iscc_note,
+            nonce=unique_nonce,
+            datahash=example_iscc_data["datahash"],
+            iscc_note=signed_note,
             event_type=(i % 3) + 1,  # Cycle through event types
         )
 
