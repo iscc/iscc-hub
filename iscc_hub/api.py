@@ -50,10 +50,6 @@ async def declaration(request):
     # Offline pre-validation
     valid_data = await avalidate_iscc_note(data, True, settings.ISCC_HUB_ID, True)
 
-    # Online pre-validation
-    if await Event.objects.filter(nonce=valid_data["nonce"]).aexists():
-        raise NonceError("Nonce already used", is_reuse=True)
-
     # Check for duplicate declarations (only if force header not present)
     force_declaration = request.headers.get("X-Force-Declaration", "").lower() in ("true", "1")
     if not force_declaration:

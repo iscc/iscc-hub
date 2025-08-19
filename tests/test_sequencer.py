@@ -31,9 +31,9 @@ import pytest
 from django.conf import settings
 from django.db import connection
 
+from iscc_hub.exceptions import NonceError
 from iscc_hub.iscc_id import IsccID
 from iscc_hub.sequencer import (
-    NonceConflictError,
     SequencerError,
     sequence_iscc_note,
 )
@@ -204,12 +204,13 @@ def test_sequencer_error_inheritance():
     assert str(error) == "Test error"
 
 
-def test_nonce_conflict_error_inheritance():
-    """Test that NonceConflictError inherits from SequencerError."""
-    error = NonceConflictError("Test nonce conflict")
-    assert isinstance(error, SequencerError)
+def test_nonce_error_inheritance():
+    """Test that NonceError is properly structured for API responses."""
+    error = NonceError("Test nonce conflict", is_reuse=True)
     assert isinstance(error, Exception)
     assert str(error) == "Test nonce conflict"
+    assert error.code == "nonce_reuse"
+    assert error.field == "nonce"
 
 
 @pytest.mark.django_db(transaction=True)
@@ -239,10 +240,10 @@ def test_nonce_conflict_detection():
     keypair2 = icr.key_generate(controller="did:web:example2.com")
     signed_note2 = icr.sign_json(note2, keypair2)
 
-    with pytest.raises(NonceConflictError) as exc_info:
+    with pytest.raises(NonceError) as exc_info:
         sequence_iscc_note(signed_note2)
 
-    assert "Nonce already exists: 00100123456789abcdef0123456789ab" in str(exc_info.value)
+    assert "Nonce already used" in str(exc_info.value)
 
     # Verify only the first note was stored
     with connection.cursor() as cursor:

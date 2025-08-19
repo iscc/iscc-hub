@@ -16,15 +16,11 @@ from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.db import connection
 
+from iscc_hub.exceptions import NonceError
+
 
 class SequencerError(Exception):
     """Base exception for sequencer errors."""
-
-    pass
-
-
-class NonceConflictError(SequencerError):
-    """Raised when a nonce already exists in the database."""
 
     pass
 
@@ -177,10 +173,10 @@ def sequence_iscc_note(iscc_note):
             # Check for nonce constraint violation
             error_msg = str(e).lower()
             if "unique constraint" in error_msg and "nonce" in error_msg:
-                raise NonceConflictError(f"Nonce already exists: {nonce}") from e
+                raise NonceError("Nonce already used", is_reuse=True) from e
 
             # Re-raise with context
-            if isinstance(e, NonceConflictError | SequencerError):
+            if isinstance(e, NonceError | SequencerError):
                 raise
             else:
                 raise SequencerError(f"Sequencing failed: {e}") from e

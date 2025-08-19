@@ -278,8 +278,10 @@ async def test_declaration_nonce_reuse_error(
         response1 = await client.post(f"{live_server.url}/declaration", json=signed_note)
         assert response1.status_code == 201
 
-        # Second declaration with same nonce should fail
-        response2 = await client.post(f"{live_server.url}/declaration", json=signed_note)
+        # Second declaration with same nonce should fail (use force header to bypass duplicate check)
+        response2 = await client.post(
+            f"{live_server.url}/declaration", json=signed_note, headers={"X-Force-Declaration": "true"}
+        )
 
         assert response2.status_code == 400
         data = response2.json()
