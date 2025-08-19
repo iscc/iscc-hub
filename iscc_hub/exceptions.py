@@ -168,6 +168,17 @@ class HexFormatError(FieldValidationError):
         super().__init__(field, message, "invalid_hex")
 
 
+class SequencerError(BaseApiException):
+    """Sequencer operation error."""
+
+    status_code = 400  # Bad Request
+
+    def __init__(self, message):
+        # type: (str) -> None
+        """Initialize sequencer error."""
+        super().__init__(message, code="sequencer_error")
+
+
 class DuplicateDeclarationError(BaseApiException):
     """Duplicate declaration error."""
 

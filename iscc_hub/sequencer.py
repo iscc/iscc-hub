@@ -16,13 +16,7 @@ from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.db import connection
 
-from iscc_hub.exceptions import NonceError
-
-
-class SequencerError(Exception):
-    """Base exception for sequencer errors."""
-
-    pass
+from iscc_hub.exceptions import NonceError, SequencerError
 
 
 @sync_to_async

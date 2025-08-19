@@ -125,7 +125,7 @@ build-schema = { cmd = "uv run datamodel-codegen", help = "Build pydantic models
 check-python = { cmd = "uv run ruff check --fix --unsafe-fixes .", help = "Check python code"}
 check-types = { cmd = "uv run pyright", help = "Run Pyright type checking"}
 format-python = { cmd = "uv run ruff format .", help = "Format python code"}
-format-markdown = { cmd = "uv run mdformat . notes", help = "Format python code"}
+format-markdown = { cmd = "uv run mdformat . notes", help = "Format markdown"}
 test-python = {cmd = "uv run pytest -m 'not slow'", help = "Run python tests (excluding slow tests)"}
 test-all = {cmd = "uv run pytest", help = "Run all python tests including slow ones"}
 

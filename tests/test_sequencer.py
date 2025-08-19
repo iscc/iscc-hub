@@ -31,12 +31,9 @@ import pytest
 from django.conf import settings
 from django.db import connection
 
-from iscc_hub.exceptions import NonceError
+from iscc_hub.exceptions import NonceError, SequencerError
 from iscc_hub.iscc_id import IsccID
-from iscc_hub.sequencer import (
-    SequencerError,
-    sequence_iscc_note,
-)
+from iscc_hub.sequencer import sequence_iscc_note
 from tests.conftest import create_iscc_from_text
 
 # Note: No clear_database fixture needed!
