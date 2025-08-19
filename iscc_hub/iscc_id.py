@@ -25,7 +25,7 @@ The ISCC-IDv1 has the following format:
     - 12-bit server-id: The Time Server ID (0-4095)
 """
 
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from functools import cached_property
 
 import iscc_core as ic

@@ -7,7 +7,7 @@ from ninja import NinjaAPI
 from ninja.responses import codes_4xx
 
 import iscc_hub
-from iscc_hub.exceptions import BaseApiException, DuplicateDeclarationError, NonceError, ValidationError
+from iscc_hub.exceptions import BaseApiException, DuplicateDeclarationError
 from iscc_hub.iscc_id import IsccID
 from iscc_hub.models import Event, IsccDeclaration
 from iscc_hub.receipt import abuild_iscc_receipt
