@@ -126,7 +126,7 @@ jobs:
             -e DJANGO_SECRET_KEY=test-secret-key-for-ci-only \
             -e ISCC_HUB_SECKEY=z3u2RDonZ81AFKiw8QCPKcsyg8Yy2MmYQNxfBn51SS2QmMiw \
             -e ISCC_HUB_ID=999 \
-            -e ISCC_HUB_DOMAIN=test.local \
+            -e ISCC_HUB_DOMAIN=localhost \
             -e ISCC_HUB_REALM=0 \
             -p 8000:8000 \
             test-image:latest
