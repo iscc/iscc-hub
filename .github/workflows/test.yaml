@@ -2,6 +2,8 @@ name: Test
 
 on:
   push:
+    branches-ignore:
+      - develop  # Tests for develop are handled by build workflow
   pull_request:
   workflow_call:  # Allow this workflow to be called by other workflows
 
