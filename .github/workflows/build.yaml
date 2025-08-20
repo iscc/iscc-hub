@@ -124,15 +124,33 @@ jobs:
           docker run -d --name test-hub \
             -e DJANGO_DEBUG=false \
             -e DJANGO_SECRET_KEY=test-secret-key-for-ci-only \
-            -e ISCC_HUB_SECKEY=0xb0c4e114e9840237e62f9b88d52fe9e8e3b50db3e3faeef5a7bddbe1cc80e640 \
+            -e ISCC_HUB_SECKEY=z3u2RDonZ81AFKiw8QCPKcsyg8Yy2MmYQNxfBn51SS2QmMiw \
             -e ISCC_HUB_ID=999 \
             -e ISCC_HUB_DOMAIN=test.local \
+            -e ISCC_HUB_REALM=0 \
             -p 8000:8000 \
             test-image:latest
 
           echo "Waiting for container to be ready..."
-          timeout 120 bash -c 'until curl -f http://localhost:8000/health >/dev/null 2>&1; do echo "Waiting..."; sleep 3; done'
-          echo "Container is healthy!"
+          # Check container logs periodically and fail fast if container exits
+          for i in {1..40}; do
+            if ! docker ps | grep -q test-hub; then
+              echo "Container exited unexpectedly. Logs:"
+              docker logs test-hub
+              exit 1
+            fi
+            if curl -f http://localhost:8000/health >/dev/null 2>&1; then
+              echo "Container is healthy!"
+              break
+            fi
+            if [ $i -eq 40 ]; then
+              echo "Container failed to become healthy. Logs:"
+              docker logs test-hub
+              exit 1
+            fi
+            echo "Waiting... ($i/40)"
+            sleep 3
+          done
 
       - name: Test API endpoints
         run: |
