@@ -12,7 +12,13 @@ env:
   IMAGE_NAME: iscc/iscc-hub
 
 jobs:
+  # Call the test workflow first
+  test:
+    uses: ./.github/workflows/test.yaml
+
+  # Build only after tests pass
   docker-build:
+    needs: test
     runs-on: ubuntu-latest
     
     steps:
