@@ -10,9 +10,9 @@ DATA_DIR.mkdir(exist_ok=True)
 
 DEV = (BASE_DIR / "tests").exists()
 if DEV:
-    print("📦 Development mode detected (tests/ directory found)")
-    print("⚠️  Using INSECURE development defaults - DO NOT USE IN PRODUCTION!")
-    print("⚠️  These defaults are for local development only and are NOT secure.\n")
+    print("[DEV] Development mode detected (tests/ directory found)")
+    print("[WARNING] Using INSECURE development defaults - DO NOT USE IN PRODUCTION!")
+    print("[WARNING] These defaults are for local development only and are NOT secure.\n")
 
 
 env = environ.Env()
