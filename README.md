@@ -6,6 +6,7 @@ A Django-based timestamping service implementing the
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Django 5.2+](https://img.shields.io/badge/django-5.2+-green.svg)](https://www.djangoproject.com/)
 [![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](#testing)
+[![Tests](https://github.com/iscc/iscc-hub/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/iscc/iscc-hub/actions/workflows/test.yml)
 
 ## Overview
 
