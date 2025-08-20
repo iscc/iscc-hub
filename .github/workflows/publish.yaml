@@ -51,13 +51,13 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             # For develop branch
-            type=raw,value=dev,enable={{is_default_branch}}
-            type=raw,value=dev-{{sha}},enable={{is_default_branch}},suffix={{date '.YYYYMMDD-HHmm' tz='UTC'}}
+            type=raw,value=dev,enable=${{ github.event.workflow_run.head_branch == 'develop' }}
+            type=raw,value=dev-{{sha}},enable=${{ github.event.workflow_run.head_branch == 'develop' }}
             # For version tags  
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}},enable=${{ !startsWith(github.event.workflow_run.head_branch, 'v0.') }}
-            type=raw,value=latest,enable=${{ startsWith(github.event.workflow_run.head_branch, 'refs/tags/v') }}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.event.workflow_run.head_ref, 'refs/tags/v0.') }}
+            type=raw,value=latest,enable=${{ startsWith(github.event.workflow_run.head_ref, 'refs/tags/v') }}
           labels: |
             org.opencontainers.image.title=ISCC Hub
             org.opencontainers.image.description=Django-based ISCC Discovery Protocol Hub
