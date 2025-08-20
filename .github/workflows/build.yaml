@@ -2,10 +2,13 @@ name: Build Docker Images
 
 on:
   push:
-    branches:
-      - develop
     tags:
-      - 'v*'
+      - 'v*'  # Only trigger directly on version tags
+  workflow_call:  # Allow this workflow to be called by other workflows
+    outputs:
+      image-artifact:
+        description: "Name of the uploaded image artifact"
+        value: ${{ jobs.docker-build.outputs.artifact-name }}
 
 env:
   REGISTRY: ghcr.io
@@ -20,6 +23,8 @@ jobs:
   docker-build:
     needs: test
     runs-on: ubuntu-latest
+    outputs:
+      artifact-name: iscc-hub-image
     
     steps:
       - name: Checkout

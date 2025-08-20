@@ -1,15 +1,19 @@
 name: Publish Docker Images
 
 on:
-  workflow_run:
-    workflows: ["Build Docker Images"]
-    types: [completed]
+  push:
+    branches:
+      - develop  # Now the entry point for develop branch CI/CD
 
 jobs:
+  # Call the build workflow first (which calls test)
+  build:
+    uses: ./.github/workflows/build.yaml
+
+  # Publish only after build succeeds
   publish:
+    needs: build
     runs-on: ubuntu-latest
-    # Only run if the build workflow succeeded
-    if: github.event.workflow_run.conclusion == 'success'
     
     permissions:
       contents: read
@@ -22,15 +26,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Download image artifact
         uses: actions/download-artifact@v4
         with:
           name: iscc-hub-image
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ github.event.workflow_run.id }}
 
       - name: Load Docker image
         run: |
@@ -51,13 +51,13 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             # For develop branch
-            type=raw,value=dev,enable=${{ github.event.workflow_run.head_branch == 'develop' }}
-            type=raw,value=dev-{{sha}},enable=${{ github.event.workflow_run.head_branch == 'develop' }}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' }}
+            type=raw,value=dev-{{sha}},enable=${{ github.ref == 'refs/heads/develop' }}
             # For version tags  
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}},enable=${{ !startsWith(github.event.workflow_run.head_ref, 'refs/tags/v0.') }}
-            type=raw,value=latest,enable=${{ startsWith(github.event.workflow_run.head_ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
           labels: |
             org.opencontainers.image.title=ISCC Hub
             org.opencontainers.image.description=Django-based ISCC Discovery Protocol Hub
