@@ -20,9 +20,6 @@ coverage.xml
 *.cover
 .hypothesis/
 
-# UV
-.venv/
-
 # Django
 *.log
 *.pot
@@ -53,6 +50,8 @@ data/*.db-wal
 .github/
 .gitlab-ci.yml
 .travis.yml
+build.yaml
+publish.yaml
 
 # Documentation
 *.md

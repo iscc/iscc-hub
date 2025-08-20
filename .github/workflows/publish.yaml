@@ -1,0 +1,129 @@
+name: Publish Docker Images
+
+on:
+  workflow_run:
+    workflows: ["Build and Test Docker Images"]
+    types:
+      - completed
+    branches: [develop]
+    # Also trigger on successful tag builds
+  workflow_run:
+    workflows: ["Build and Test Docker Images"] 
+    types:
+      - completed
+    branches-ignore: ['**']  # This will catch tag pushes
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # Only run if the build workflow succeeded and it was triggered by develop or a tag
+    if: |
+      github.event.workflow_run.conclusion == 'success' && 
+      (github.event.workflow_run.head_branch == 'develop' || 
+       startsWith(github.event.workflow_run.head_branch, 'refs/tags/v'))
+    
+    permissions:
+      contents: read
+      packages: write
+      
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: iscc/iscc-hub
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: iscc-hub-image
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Load Docker image
+        run: |
+          docker load < iscc-hub-image.tar.gz
+          rm iscc-hub-image.tar.gz
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for tagging
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # For develop branch
+            type=raw,value=dev,enable={{is_default_branch}}
+            type=raw,value=dev-{{sha}},enable={{is_default_branch}},suffix={{date '.YYYYMMDD-HHmm' tz='UTC'}}
+            # For version tags  
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.event.workflow_run.head_branch, 'v0.') }}
+            type=raw,value=latest,enable=${{ startsWith(github.event.workflow_run.head_branch, 'refs/tags/v') }}
+          labels: |
+            org.opencontainers.image.title=ISCC Hub
+            org.opencontainers.image.description=Django-based ISCC Discovery Protocol Hub
+            org.opencontainers.image.vendor=ISCC Foundation
+            org.opencontainers.image.licenses=Apache-2.0
+
+      - name: Tag and push images
+        run: |
+          SOURCE_IMAGE="test-image:latest"
+          
+          # Get tags from metadata action
+          TAGS="${{ steps.meta.outputs.tags }}"
+          
+          # Split tags by newline and process each one
+          echo "$TAGS" | while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then
+              echo "Tagging and pushing: $tag"
+              docker tag "$SOURCE_IMAGE" "$tag"
+              docker push "$tag"
+            fi
+          done
+
+      - name: Generate deployment summary
+        run: |
+          echo "## 🚀 Docker Image Published Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Published Tags:**" >> $GITHUB_STEP_SUMMARY
+          
+          # Get tags from metadata action
+          TAGS="${{ steps.meta.outputs.tags }}"
+          echo "$TAGS" | while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then
+              echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Commands:**" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "# Pull and run the image:" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "docker run -d \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -e DJANGO_SECRET_KEY=\$SECRET_KEY \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -e ISCC_HUB_SECKEY=\$HUB_SECKEY \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -e ISCC_HUB_ID=\$HUB_ID \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -e ISCC_HUB_DOMAIN=\$DOMAIN \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -p 8000:8000 \\" >> $GITHUB_STEP_SUMMARY
+          echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rmi test-image:latest || true
+          # Clean up any tagged images
+          docker images "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" --format "table {{.Repository}}:{{.Tag}}" | \
+            tail -n +2 | xargs -r docker rmi || true
