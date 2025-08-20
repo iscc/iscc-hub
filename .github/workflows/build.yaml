@@ -155,7 +155,7 @@ jobs:
           curl -f http://localhost:8000/.well-known/did.json
           
           echo "Testing OpenAPI schema..."
-          curl -f http://localhost:8000/static/openapi.yaml >/dev/null
+          curl -f http://localhost:8000/openapi.yaml >/dev/null
           
           echo "Testing declaration endpoint..."
           response=$(curl -s -w "HTTP_STATUS:%{http_code}" -X POST http://localhost:8000/declaration \

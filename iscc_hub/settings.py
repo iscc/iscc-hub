@@ -158,6 +158,9 @@ STATICFILES_DIRS = [
 # ServeStatic configuration
 SERVESTATIC_ROOT = BASE_DIR / "iscc_hub" / "static"
 SERVESTATIC_INDEX_FILE = "index.html"
+# Enable finders in production to serve static files without collectstatic
+SERVESTATIC_USE_FINDERS = True
+SERVESTATIC_USE_MANIFEST = False
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
