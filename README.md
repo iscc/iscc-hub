@@ -10,9 +10,10 @@ A Django-based timestamping service implementing the
 
 ## Overview
 
-ISCC Hub accepts cryptographically signed ISCC declarations, assigns globally unique ISCC-IDs with
-precise timestamps, and issues verifiable receipts. It serves as a neutral timestamping authority in
-the ISCC ecosystem.
+ISCC-HUBs accept cryptographically signed ISCC declarations, assign globally unique ISCC-IDs with
+precise timestamps, and issue verifiable credentials of ISCC-ID ownership. They also resolve
+ISCC-IDs to owner-controlled metdata and service endpoints and support interoperable cross-registry
+search and discovery by ISCC-CODEs.
 
 **Key Features:**
 
@@ -39,37 +40,6 @@ uv run poe serve
 
 Visit http://localhost:8000 for the web interface or http://localhost:8000/docs for API
 documentation.
-
-## API Usage
-
-### Submit Declaration
-
-```bash
-curl -X POST http://localhost:8000/declaration \
-  -H "Content-Type: application/json" \
-  -d '{
-    "iscc": "ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY",
-    "signature": {
-      "controller": "did:key:z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWp",
-      "signature": "3044022...",
-      "timestamp": "2025-01-15T12:34:56.789Z"
-    }
-  }'
-```
-
-### Response
-
-```json
-{
-  "iscc_id": "ISCC:MIAGQ6LK5YWXAAIC",
-  "receipt": {
-    "@context": ["https://www.w3.org/2018/credentials/v1"],
-    "type": ["VerifiableCredential", "IsccReceipt"],
-    "credentialSubject": { ... },
-    "proof": { ... }
-  }
-}
-```
 
 ## Development
 
@@ -103,22 +73,6 @@ The project maintains 100% test coverage with comprehensive test suites:
 - **Integration tests**: Full API workflow testing
 - **Property-based tests**: API contract validation with Schemathesis
 
-```bash
-# Run property-based API tests
-uv run schemathesis run iscc_hub/static/openapi.yaml --base-url http://localhost:8000
-```
-
-### Environment Variables
-
-```bash
-DJANGO_DEBUG=true
-DJANGO_SECRET_KEY=your-secret-key
-ISCC_HUB_DB_NAME=dev_db.sqlite3
-ISCC_HUB_DOMAIN=localhost:8000
-ISCC_HUB_SECKEY=ed25519-private-key-hex
-ISCC_HUB_ID=1
-```
-
 ## Architecture
 
 ### Core Components
@@ -139,9 +93,9 @@ ISCC_HUB_ID=1
 
 The ISCC Discovery Protocol implements a three-layer architecture:
 
-1. **HUBs**: Core timestamping and discovery network
-2. **GATEWAYs**: Routing and service discovery layer
-3. **REGISTRIEs**: Metadata and service provisioning layer
+1. **HUB**: Core timestamping and discovery network
+2. **GATEWAY**: Routing and service discovery layer
+3. **REGISTRY**: Metadata and service layer
 
 See [specification.md](docs/specification.md) for draft protocol details.
 
