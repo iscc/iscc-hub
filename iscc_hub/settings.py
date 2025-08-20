@@ -8,26 +8,38 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
+DEV = (BASE_DIR / "tests").exists()
+if DEV:
+    print("📦 Development mode detected (tests/ directory found)")
+    print("⚠️  Using INSECURE development defaults - DO NOT USE IN PRODUCTION!")
+    print("⚠️  These defaults are for local development only and are NOT secure.\n")
+
+
 env = environ.Env()
-environ.Env.read_env(BASE_DIR / ".env")
 
 ####################################################################################################
 # Mandatory Settings (no defaults - must be set explicitly)                                        #
 ####################################################################################################
 
-DEBUG = env.bool("DJANGO_DEBUG")
-SECRET_KEY = env("DJANGO_SECRET_KEY")
-ISCC_HUB_DB_NAME = env("ISCC_HUB_DB_NAME")
-ISCC_HUB_DOMAIN = env("ISCC_HUB_DOMAIN")
-ISCC_HUB_SECKEY = env("ISCC_HUB_SECKEY")
-ISCC_HUB_ID = env.int("ISCC_HUB_ID")
+DEBUG = env.bool("DJANGO_DEBUG", default=True if DEV else env.NOTSET)
+SECRET_KEY = env("DJANGO_SECRET_KEY", default="test-secret-key-for-testing-only" if DEV else env.NOTSET)
+ISCC_HUB_DOMAIN = env("ISCC_HUB_DOMAIN", default="localhost" if DEV else env.NOTSET)
+ISCC_HUB_SECKEY = env(
+    "ISCC_HUB_SECKEY", default="z3u2RDonZ81AFKiw8QCPKcsyg8Yy2MmYQNxfBn51SS2QmMiw" if DEV else env.NOTSET
+)
+ISCC_HUB_ID = env.int("ISCC_HUB_ID", default=0 if DEV else env.NOTSET)
 
 ####################################################################################################
 
+# Database file name - defaults based on DEBUG setting
+# Development: iscc-hub-dev.db
+# Production: iscc-hub-{ID}.db where ID is the hub ID
+default_db_name = "iscc-hub-dev.db" if DEV else f"iscc-hub-{ISCC_HUB_ID:04d}.db"
+ISCC_HUB_DB_NAME = env("ISCC_HUB_DB_NAME", default=default_db_name)
 
 # Realm-0 (SUBTYPE="0000") for sanbdox hub network
 # Realm-1 (SUBTYPE="0001") for operational network
-ISCC_HUB_REALM = env.int("ISCC_HUB_REALM", default=0)
+ISCC_HUB_REALM = env.int("ISCC_HUB_REALM", default=0 if DEV else env.NOTSET)
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=(ISCC_HUB_DOMAIN,))
 

@@ -1,0 +1,61 @@
+services:
+  # Development configuration only
+  iscc-hub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount project directory for live code reloading
+      - .:/app
+      # Use anonymous volume for .venv to preserve container's environment
+      - /app/.venv
+      # Persist database between container restarts
+      - ./data:/app/data
+    environment:
+      # Development environment
+      ENVIRONMENT: development
+      PORT: 8000
+      
+      # Django settings
+      DJANGO_DEBUG: "true"
+      DJANGO_SECRET_KEY: "dev-secret-key-change-in-production"
+
+      # ISCC Hub configuration
+      # ISCC_HUB_DB_NAME is now optional - defaults to iscc-hub-dev.db in development
+      ISCC_HUB_DOMAIN: "localhost"
+      ISCC_HUB_SECKEY: "0xb0c4e114e9840237e62f9b88d52fe9e8e3b50db3e3faeef5a7bddbe1cc80e640"
+      ISCC_HUB_ID: "42"
+
+      # Python settings
+      PYTHONUNBUFFERED: "1"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Restart policy for development
+    restart: unless-stopped
+
+    # For development with watch mode (requires Docker Compose v2.22+)
+    develop:
+      watch:
+        - action: sync
+          path: ./iscc_hub
+          target: /app/iscc_hub
+        - action: sync
+          path: ./tests
+          target: /app/tests
+        - action: sync
+          path: ./scripts
+          target: /app/scripts
+        - action: rebuild
+          path: ./pyproject.toml
+        - action: rebuild
+          path: ./uv.lock
