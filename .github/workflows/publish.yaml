@@ -4,8 +4,6 @@ on:
   workflow_run:
     workflows: ["Build and Test Docker Images"]
     types: [completed]
-    branches: [develop]
-    tags: ['v*.*.*']
 
 jobs:
   publish:

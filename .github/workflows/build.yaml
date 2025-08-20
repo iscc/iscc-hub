@@ -4,21 +4,33 @@ on:
   workflow_run:
     workflows: ["Test"]
     types: [completed]
-    branches: [develop]
-    tags: ['v*.*.*']
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: iscc/iscc-hub
 
 jobs:
+  debug:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Debug workflow_run event
+        run: |
+          echo "Workflow run conclusion: ${{ github.event.workflow_run.conclusion }}"
+          echo "Workflow run head_branch: ${{ github.event.workflow_run.head_branch }}"
+          echo "Workflow run head_ref: ${{ github.event.workflow_run.head_ref }}"
+          echo "Workflow run head_sha: ${{ github.event.workflow_run.head_sha }}"
+          echo "Full event context:"
+          echo '${{ toJSON(github.event) }}'
+
   docker-build:
     runs-on: ubuntu-latest
+    needs: debug
     # Only run if the Test workflow succeeded and it's develop branch or version tag
     if: |
       github.event.workflow_run.conclusion == 'success' &&
       (github.event.workflow_run.head_branch == 'develop' || 
-       startsWith(github.event.workflow_run.head_branch, 'refs/tags/v'))
+       startsWith(github.event.workflow_run.head_ref, 'refs/tags/v'))
     
     steps:
       - name: Checkout
