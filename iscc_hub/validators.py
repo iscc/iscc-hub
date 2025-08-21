@@ -15,12 +15,14 @@ from iscc_hub.exceptions import (
     HashError,
     HexFormatError,
     IsccCodeError,
+    IsccIdError,
     LengthError,
     NonceError,
     SignatureError,
     TimestampError,
     ValidationError,
 )
+from iscc_hub.iscc_id import IsccID
 
 # Constants for better maintainability
 DATAHASH_PREFIX = "1e20"
@@ -700,3 +702,28 @@ def validate_datahash_match(iscc_code, datahash):
     except ValueError as e:
         # Convert iscc_core validation errors to our format
         raise IsccCodeError(f"Invalid ISCC code: {str(e)}") from e
+
+
+def validate_iscc_id(iscc_id, hub_id=None):
+    # type: (str, int|None) -> None
+    """
+    Validate ISCC-ID format and optionally check hub ID match.
+
+    Validates that the ISCC-ID has the correct MainType (ID) and version (V1).
+    Optionally validates that the embedded hub ID matches the expected value.
+
+    :param iscc_id: The ISCC-ID string to validate
+    :param hub_id: Optional hub ID (0-4095) to validate against embedded value
+    :raises IsccIdError: If ISCC-ID format is invalid or hub ID doesn't match
+    """
+    try:
+        mt, st, vs, ln, body = ic.iscc_decode(iscc_id)
+        if mt != ic.MT.ID or vs != ic.VS.V1:
+            raise
+    except Exception as e:
+        raise IsccIdError("Invalid ISCC-ID format") from e
+
+    if hub_id is not None:
+        iscc_id_obj = IsccID(iscc_id)
+        if iscc_id_obj.hub_id != hub_id:
+            raise IsccIdError(f"ISCC-ID with invalid hub_id {iscc_id_obj.hub_id}")

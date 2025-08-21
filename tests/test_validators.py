@@ -1251,3 +1251,50 @@ def test_validate_iscc_code_non_string():
     """Test validate_iscc_code raises IsccCodeError for non-string input."""
     with pytest.raises(ValueError, match="ISCC code must be a string, got int"):
         validators.validate_iscc_code(12345)
+
+
+def test_validate_iscc_id_valid():
+    # type: () -> None
+    """Test validates a valid ISCC-ID."""
+    # Valid ISCC-ID with hub_id=1
+    iscc_id = "ISCC:MAIWFKM3UDDAAEAB"
+    validators.validate_iscc_id(iscc_id)  # Should not raise
+
+
+def test_validate_iscc_id_invalid_format():
+    # type: () -> None
+    """Test raises IsccIdError for invalid ISCC-ID format."""
+    from iscc_hub.exceptions import IsccIdError
+
+    with pytest.raises(IsccIdError, match="Invalid ISCC-ID format"):
+        validators.validate_iscc_id("ISCC:INVALID")
+
+
+def test_validate_iscc_id_wrong_maintype():
+    # type: () -> None
+    """Test raises IsccIdError for non-ID MainType."""
+    from iscc_hub.exceptions import IsccIdError
+
+    # Valid ISCC-CODE but not an ISCC-ID
+    iscc_code = "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA"
+    with pytest.raises(IsccIdError, match="Invalid ISCC-ID format"):
+        validators.validate_iscc_id(iscc_code)
+
+
+def test_validate_iscc_id_with_hub_id_match():
+    # type: () -> None
+    """Test validates ISCC-ID when hub_id matches."""
+    # ISCC-ID with hub_id=1
+    iscc_id = "ISCC:MAIWFKM3UDDAAEAB"
+    validators.validate_iscc_id(iscc_id, hub_id=1)  # Should not raise
+
+
+def test_validate_iscc_id_with_hub_id_mismatch():
+    # type: () -> None
+    """Test raises IsccIdError when hub_id doesn't match."""
+    from iscc_hub.exceptions import IsccIdError
+
+    # ISCC-ID with hub_id=1, but we'll check for hub_id=2
+    iscc_id = "ISCC:MAIWFKM3UDDAAEAB"
+    with pytest.raises(IsccIdError, match="ISCC-ID with invalid hub_id 1"):
+        validators.validate_iscc_id(iscc_id, hub_id=2)

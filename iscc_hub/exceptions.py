@@ -78,8 +78,17 @@ class IsccCodeError(FieldValidationError):
 
     def __init__(self, message):
         # type: (str) -> None
-        """Initialize ISCC code error."""
+        """Initialize ISCC-CODE error."""
         super().__init__("iscc_code", message, "invalid_iscc")
+
+
+class IsccIdError(FieldValidationError):
+    """ISCC-ID validation error."""
+
+    def __init__(self, message):
+        # type: (str) -> None
+        """Initialize ISCC-ID error."""
+        super().__init__("iscc_id", message, "invalid_iscc")
 
 
 class TimestampError(FieldValidationError):

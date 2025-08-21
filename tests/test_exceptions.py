@@ -3,12 +3,15 @@
 import pytest
 
 from iscc_hub.exceptions import (
+    DuplicateDeclarationError,
     FieldValidationError,
     HashError,
     HexFormatError,
     IsccCodeError,
+    IsccIdError,
     LengthError,
     NonceError,
+    SequencerError,
     SignatureError,
     TimestampError,
     ValidationError,
@@ -73,6 +76,20 @@ def test_iscc_code_error():
     response = error.to_error_response()
     assert response == {
         "error": {"message": "Invalid ISCC format", "code": "invalid_iscc", "field": "iscc_code"}
+    }
+
+
+def test_iscc_id_error():
+    # type: () -> None
+    """Test IsccIdError with automatic field and code."""
+    error = IsccIdError("Invalid ISCC-ID format")
+    assert error.field == "iscc_id"
+    assert error.code == "invalid_iscc"
+    assert error.message == "Invalid ISCC-ID format"
+
+    response = error.to_error_response()
+    assert response == {
+        "error": {"message": "Invalid ISCC-ID format", "code": "invalid_iscc", "field": "iscc_id"}
     }
 
 
@@ -206,11 +223,83 @@ def test_hex_format_error():
     }
 
 
+def test_sequencer_error():
+    # type: () -> None
+    """Test SequencerError."""
+    error = SequencerError("Failed to acquire sequence lock")
+    assert error.message == "Failed to acquire sequence lock"
+    assert error.code == "sequencer_error"
+    assert error.field is None
+    assert error.status_code == 400
+
+    response = error.to_error_response()
+    assert response == {"error": {"message": "Failed to acquire sequence lock", "code": "sequencer_error"}}
+
+
+def test_duplicate_declaration_error():
+    # type: () -> None
+    """Test DuplicateDeclarationError without additional context."""
+    error = DuplicateDeclarationError("Datahash already declared")
+    assert error.message == "Datahash already declared"
+    assert error.code == "duplicate_declaration"
+    assert error.field == "datahash"
+    assert error.status_code == 409
+    assert error.existing_iscc_id is None
+    assert error.existing_actor is None
+
+    response = error.to_error_response()
+    assert response == {
+        "error": {"message": "Datahash already declared", "code": "duplicate_declaration", "field": "datahash"}
+    }
+
+
+def test_duplicate_declaration_error_with_context():
+    # type: () -> None
+    """Test DuplicateDeclarationError with existing declaration details."""
+    error = DuplicateDeclarationError(
+        "Datahash already declared",
+        existing_iscc_id="ISCC:MAIWFKM3UDDAAEAB",
+        existing_actor="did:key:z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+    )
+    assert error.existing_iscc_id == "ISCC:MAIWFKM3UDDAAEAB"
+    assert error.existing_actor == "did:key:z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"
+
+    response = error.to_error_response()
+    assert response == {
+        "error": {
+            "message": "Datahash already declared",
+            "code": "duplicate_declaration",
+            "field": "datahash",
+            "existing_iscc_id": "ISCC:MAIWFKM3UDDAAEAB",
+            "existing_actor": "did:key:z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+        }
+    }
+
+
+def test_duplicate_declaration_error_partial_context():
+    # type: () -> None
+    """Test DuplicateDeclarationError with only ISCC-ID context."""
+    error = DuplicateDeclarationError("Datahash already declared", existing_iscc_id="ISCC:MAIWFKM3UDDAAEAB")
+    assert error.existing_iscc_id == "ISCC:MAIWFKM3UDDAAEAB"
+    assert error.existing_actor is None
+
+    response = error.to_error_response()
+    assert response == {
+        "error": {
+            "message": "Datahash already declared",
+            "code": "duplicate_declaration",
+            "field": "datahash",
+            "existing_iscc_id": "ISCC:MAIWFKM3UDDAAEAB",
+        }
+    }
+
+
 def test_exception_inheritance():
     # type: () -> None
     """Test that all custom exceptions inherit from ValidationError."""
     assert issubclass(FieldValidationError, ValidationError)
     assert issubclass(IsccCodeError, FieldValidationError)
+    assert issubclass(IsccIdError, FieldValidationError)
     assert issubclass(TimestampError, FieldValidationError)
     assert issubclass(NonceError, FieldValidationError)
     assert issubclass(SignatureError, ValidationError)
@@ -227,6 +316,7 @@ def test_error_response_conforms_to_schema():
         ValidationError("Generic error"),
         FieldValidationError("field", "Field error", "field_code"),
         IsccCodeError("Invalid ISCC"),
+        IsccIdError("Invalid ISCC-ID"),
         TimestampError("Bad time", out_of_range=True),
         NonceError("Bad nonce", is_reuse=True),
         SignatureError("Bad sig"),
