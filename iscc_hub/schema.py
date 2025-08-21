@@ -159,6 +159,16 @@ class Signature(RootModel[IsccSignature]):
     root: IsccSignature
 
 
+class IsccNoteDelete(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    iscc_id: IsccId
+    timestamp: Timestamp
+    nonce: Nonce
+    signature: Signature
+
+
 class IsccNote(Schema):
     model_config = ConfigDict(
         extra="forbid",

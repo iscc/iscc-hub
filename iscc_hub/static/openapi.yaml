@@ -6,13 +6,13 @@ info:
 paths:
   /declaration:
     post:
-      summary: Declare an ISCC-CODE
+      summary: Declare ISCC-CODE
       description: |
         Submit an IsccNote for declaration. The server validates the submission,
         sequences it in the declaration log, and returns an IsccReceipt as a verifiable credential.
-        
-        **Duplicate Protection:** By default, the server rejects duplicate declarations 
-        (same datahash) with a 409 Conflict error. To force a duplicate declaration, 
+
+        **Duplicate Protection:** By default, the server rejects duplicate declarations
+        (same datahash) with a 409 Conflict error. To force a duplicate declaration,
         include the `X-Force-Declaration: true` header.
       operationId: declare
       parameters:
@@ -23,7 +23,7 @@ paths:
             type: string
             enum: ["true", "1"]
           description: |
-            Set to "true" or "1" to bypass duplicate declaration checks and force 
+            Set to "true" or "1" to bypass duplicate declaration checks and force
             creation of a new ISCC-ID for the same content (datahash).
       requestBody:
         required: true
@@ -93,6 +93,71 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /declaration/{iscc_id}:
+    delete:
+      summary: Delete ISCC-ID
+      description: |
+        Delete a previously timestamped ISCC declaration. The deletion request must be signed
+        by the same controller that created the original declaration.
+
+        **Side Effects:**
+        - A deletion event is logged in the Event table with a new sequence number
+        - The deletion is timestamped with microsecond precision
+      operationId: delete_declaration
+      parameters:
+        - name: iscc_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ISCC:[A-Z2-7]{16}$"
+          description: The ISCC-ID of the declaration to delete
+          example: "ISCC:MAACCD3C6YZJ4IQM"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IsccNoteDelete'
+            examples:
+              delete_example:
+                summary: Delete declaration request
+                value:
+                  iscc_id: "ISCC:MAACCD3C6YZJ4IQM"
+                  timestamp: "2025-01-15T12:00:00.000Z"
+                  nonce: "000faa3f18c7b9407a48536a9b00c4cb"
+                  signature:
+                    version: "ISCC-SIG v1.0"
+                    controller: "did:web:example.com"
+                    pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+                    proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
+      responses:
+        '204':
+          description: No Content - Declaration successfully deleted
+        '400':
+          description: Bad Request - Client error (malformed request, validation errors, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid signature or not authorized to delete this declaration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found - ISCC-ID does not exist or declaration already deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity - Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     ErrorResponse:
@@ -103,3 +168,5 @@ components:
       $ref: './schemas/IsccSignature.yaml'
     IsccNote:
       $ref: './schemas/IsccNote.yaml'
+    IsccNoteDelete:
+      $ref: './schemas/IsccNoteDelete.yaml'
