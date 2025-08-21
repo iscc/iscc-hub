@@ -46,7 +46,7 @@ properties:
     type: string
     format: date-time
     description: |
-      RFC 3339 formatted timestamp in UTC with millisecond precision
+      RFC 3339 formatted timestamp of IsccNote creation in UTC with millisecond precision
 
       **Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`
       **Example:** `2025-08-04T12:34:56.789Z`
