@@ -17,6 +17,7 @@ from pathlib import Path
 import django
 import iscc_core as ic
 import iscc_crypto as icr
+from django.core.serializers.json import DjangoJSONEncoder
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -39,6 +40,26 @@ from django.core.management import call_command  # noqa: E402
 from iscc_hub.models import Event, IsccDeclaration  # noqa: E402
 from iscc_hub.sequencer import sequence_iscc_note  # noqa: E402
 from iscc_hub.validators import validate_iscc_note  # noqa: E402
+
+####################################################################################################
+# Monkey patch Django's JSON encoder to support datetime with microseconds'                        #
+####################################################################################################
+original_default = DjangoJSONEncoder.default
+
+
+def patched_default(self, o):
+    if isinstance(o, datetime):
+        if o.tzinfo and o.utcoffset() is not None:
+            utc_time = o.astimezone(UTC)
+            return utc_time.strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
+        else:
+            # Naive datetime
+            return o.strftime("%Y-%m-%dT%H:%M:%S.%f")
+    return original_default(self, o)
+
+
+DjangoJSONEncoder.default = patched_default
+####################################################################################################
 
 
 def create_iscc_from_text(text="Hello World!"):
@@ -137,7 +158,7 @@ def create_timestamp(base_time, offset_seconds=0):
 def process_iscc_note(iscc_note):
     # type: (dict) -> tuple[int, bytes]
     """
-    Validate and sequence an ISCC note.
+    Validate and sequence an ISCC note, then create the IsccDeclaration.
 
     :param iscc_note: The signed ISCC note to process
     :return: Tuple of (sequence_number, iscc_id_bytes)
@@ -151,7 +172,21 @@ def process_iscc_note(iscc_note):
     )
 
     # Sequence the validated note
-    return sequence_iscc_note(validated_note)
+    seq, iscc_id = sequence_iscc_note(validated_note)
+
+    # Create the IsccDeclaration (moved from sequencer to API layer)
+    IsccDeclaration.objects.create(
+        iscc_id=iscc_id,
+        event_seq=seq,
+        iscc_code=validated_note["iscc_code"],
+        datahash=validated_note["datahash"],
+        nonce=validated_note["nonce"],
+        actor=validated_note["signature"]["pubkey"],
+        gateway=validated_note.get("gateway", ""),
+        metahash=validated_note.get("metahash", ""),
+    )
+
+    return seq, iscc_id
 
 
 def generate_fixtures():
@@ -222,7 +257,7 @@ def generate_fixtures():
     output_file = Path(__file__).parent.parent / "iscc_hub" / "fixtures" / "test_data.json"
     print(f"\nDumping fixtures to {output_file}...")
 
-    with open(output_file, "w") as f:
+    with open(output_file, "w", newline="\n") as f:
         call_command(
             "dumpdata",
             "iscc_hub.Event",
