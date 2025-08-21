@@ -182,7 +182,7 @@ class EventAdmin(ModelAdmin):
         "event_type_display",
         "iscc_id_display",
         "iscc_id_timestamp",
-        "event_time_iso",
+        "event_time",
     ]
 
     list_filter = [
@@ -263,16 +263,6 @@ class EventAdmin(ModelAdmin):
 
     iscc_id_timestamp.short_description = "Declaration Time (ISCC-ID)"
     iscc_id_timestamp.admin_order_field = "iscc_id"
-
-    def event_time_iso(self, obj):
-        # type: (Event) -> str
-        """Display event time in ISO format with millisecond precision."""
-        if obj.event_time:
-            return obj.event_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-        return "—"
-
-    event_time_iso.short_description = "Event Time"
-    event_time_iso.admin_order_field = "event_time"
 
     def iscc_note_formatted(self, obj):
         # type: (Event) -> str

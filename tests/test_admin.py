@@ -407,19 +407,3 @@ class TestEventAdmin:
         iscc_hub.admin.json.dumps = original_dumps
 
         assert result == "fallback_string"
-
-    def test_event_time_iso_with_time(self, event):
-        # type: (Event) -> None
-        """Test event time ISO formatting with timestamp."""
-        admin_obj = EventAdmin(Event, site)
-        event.event_time = datetime(2025, 8, 12, 10, 30, 45, 123456)
-        result = admin_obj.event_time_iso(event)
-        assert result == "2025-08-12T10:30:45.123Z"
-
-    def test_event_time_iso_without_time(self, event):
-        # type: (Event) -> None
-        """Test event time ISO formatting without timestamp."""
-        admin_obj = EventAdmin(Event, site)
-        event.event_time = None
-        result = admin_obj.event_time_iso(event)
-        assert result == "—"

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import environ
+from django.conf.locale.en import formats as en_formats
 from django.templatetags.static import static
 
 # Build paths inside the project
@@ -146,6 +147,11 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
+# Override default datetime formats for microsecond precision in django admin
+en_formats.DATETIME_FORMAT = "Y-m-d\\TH:i:s.u\\Z"
+en_formats.SHORT_DATETIME_FORMAT = en_formats.DATETIME_FORMAT
+
+SERIALIZATION_MODULES = {"json_micro": "iscc_hub.serializers"}
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/

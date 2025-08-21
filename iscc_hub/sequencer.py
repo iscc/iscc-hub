@@ -10,6 +10,7 @@ This module provides atomic sequencing of ISCC declarations with:
 
 import time
 from binascii import unhexlify
+from datetime import datetime
 
 import jcs
 from asgiref.sync import sync_to_async
@@ -74,13 +75,21 @@ def sequence_iscc_note(iscc_note):
             else:
                 new_timestamp_us = current_time_us
 
+            seconds = new_timestamp_us // 1_000_000
+            microseconds = new_timestamp_us % 1_000_000
+            event_time_str = (
+                datetime.fromtimestamp(seconds)
+                .replace(microsecond=microseconds)
+                .strftime("%Y-%m-%d %H:%M:%S.%f")
+            )
+
             iscc_id_uint = (new_timestamp_us << 12) | settings.ISCC_HUB_ID
             iscc_id_bytes = iscc_id_uint.to_bytes(8, "big")
 
             cursor.execute(
                 """
                 INSERT INTO iscc_event (seq, event_type, iscc_id, nonce, datahash, iscc_note, event_time)
-                VALUES (%s, %s, %s, %s, %s, json(%s), strftime('%%Y-%%m-%%d %%H:%%M:%%f', 'now'))
+                VALUES (%s, %s, %s, %s, %s, json(%s), %s)
             """,
                 (
                     new_seq,
@@ -89,6 +98,7 @@ def sequence_iscc_note(iscc_note):
                     nonce_bytes,
                     datahash_bytes,
                     iscc_note_json,
+                    event_time_str,
                 ),
             )
 
