@@ -150,7 +150,7 @@ class IsccNote(Schema):
     timestamp: Annotated[
         AwareDatetime,
         Field(
-            description="RFC 3339 formatted timestamp of IsccNote creation in UTC with millisecond precision\n\n**Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`\n**Example:** `2025-08-04T12:34:56.789Z`\n\n**Requirements:**\n- The `Z` suffix MUST be used to indicate UTC\n- Indicates when the IsccNote was created and signed\n- HUBs MUST reject timestamps outside ±10 minutes from current time\n",
+            description="RFC 3339 formatted timestamp of IsccNote creation time in UTC with millisecond precision\n\n**Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`\n**Example:** `2025-08-04T12:34:56.789Z`\n\n**Requirements:**\n- The `Z` suffix MUST be used to indicate UTC\n- Indicates when the IsccNote was created and signed\n- HUBs MUST reject timestamps outside ±10 minutes from current time\n",
             examples=["2025-01-15T12:00:00.000Z", "2025-08-12T14:30:00.123Z"],
         ),
     ]
