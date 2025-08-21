@@ -69,15 +69,7 @@ properties:
               **Guarantee:** No gaps in sequence
             minimum: 0
           iscc_id:
-            type: string
-            description: |
-              Unique ISCC-ID assigned by the ISCC-HUB
-
-              **Format:** `ISCC:` followed by 16 characters encoding timestamp and hub ID
-              **Structure:** 64-bit identifier (52-bit timestamp + 12-bit hub ID)
-            pattern: "^ISCC:[A-Z0-9]{16}$"
-            minLength: 21
-            maxLength: 21
+            $ref: "./CommonProperties.yaml#/properties/iscc_id"
           iscc_note:
             $ref: "./IsccNote.yaml"
   proof:

@@ -1,0 +1,33 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "http://purl.org/iscc/schema/iscc-note-delete.json"
+title: "IsccNoteDelete"
+type: object
+description: |
+  ISCC declaration deletion request object.
+  
+  Allows the original signer to request deletion of a previously timestamped ISCC declaration.
+  Contains the ISCC-ID to delete along with signature for verifiable authorization.
+required:
+  - iscc_id
+  - timestamp
+  - nonce
+  - signature
+additionalProperties: false
+properties:
+  iscc_id:
+    $ref: "./CommonProperties.yaml#/properties/iscc_id"
+  timestamp:
+    $ref: "./CommonProperties.yaml#/properties/timestamp"
+  nonce:
+    $ref: "./CommonProperties.yaml#/properties/nonce"
+  signature:
+    $ref: "./CommonProperties.yaml#/properties/signature"
+examples:
+  - iscc_id: "ISCC:MAACCD3C6YZJ4IQM"
+    timestamp: "2025-01-15T12:00:00.000Z"
+    nonce: "000faa3f18c7b9407a48536a9b00c4cb"
+    signature:
+      version: "ISCC-SIG v1.0"
+      controller: "did:web:example.com"
+      pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+      proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"

@@ -70,6 +70,19 @@ class Proof(Schema):
     ]
 
 
+class IsccId(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="Unique ISCC-ID assigned by the ISCC-HUB\n\n**Format:** `ISCC:` followed by 16 characters encoding timestamp and hub ID\n**Structure:** 64-bit identifier (52-bit timestamp + 12-bit hub ID)\n",
+            examples=["ISCC:MAACCD3C6YZJ4IQM", "ISCC:MAACEF5G8YZJ7KLN"],
+            max_length=21,
+            min_length=21,
+            pattern="^ISCC:[A-Z0-9]{16}$",
+        ),
+    ]
+
+
 class Unit(RootModel[str]):
     root: Annotated[
         str,
@@ -78,6 +91,32 @@ class Unit(RootModel[str]):
             max_length=73,
             min_length=21,
             pattern="^ISCC:[A-Z0-9]{16,68}$",
+        ),
+    ]
+
+
+class Timestamp(RootModel[AwareDatetime]):
+    root: Annotated[
+        AwareDatetime,
+        Field(
+            description="RFC 3339 formatted timestamp of IsccNote creation time in UTC with millisecond precision\n\n**Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`\n**Example:** `2025-08-04T12:34:56.789Z`\n\n**Requirements:**\n- The `Z` suffix MUST be used to indicate UTC\n- Indicates when the IsccNote was created and signed\n- HUBs MUST reject timestamps outside ±10 minutes from current time\n",
+            examples=["2025-01-15T12:00:00.000Z", "2025-08-12T14:30:00.123Z"],
+        ),
+    ]
+
+
+class Nonce(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="Unique 128-bit random value for replay protection\n\n**Format:** 32 lowercase hex characters\n**Structure:** First 12 bits encode the target hub_id (0-4095)\n",
+            examples=[
+                "000faa3f18c7b9407a48536a9b00c4cb",
+                "001234567890abcdef1234567890abcd",
+            ],
+            max_length=32,
+            min_length=32,
+            pattern="^[0-9a-f]{32}$",
         ),
     ]
 
@@ -116,6 +155,10 @@ class IsccSignature(Schema):
     ]
 
 
+class Signature(RootModel[IsccSignature]):
+    root: IsccSignature
+
+
 class IsccNote(Schema):
     model_config = ConfigDict(
         extra="forbid",
@@ -147,27 +190,9 @@ class IsccNote(Schema):
             pattern="^1e20[0-9a-f]{64}$",
         ),
     ]
-    timestamp: Annotated[
-        AwareDatetime,
-        Field(
-            description="RFC 3339 formatted timestamp of IsccNote creation time in UTC with millisecond precision\n\n**Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`\n**Example:** `2025-08-04T12:34:56.789Z`\n\n**Requirements:**\n- The `Z` suffix MUST be used to indicate UTC\n- Indicates when the IsccNote was created and signed\n- HUBs MUST reject timestamps outside ±10 minutes from current time\n",
-            examples=["2025-01-15T12:00:00.000Z", "2025-08-12T14:30:00.123Z"],
-        ),
-    ]
-    nonce: Annotated[
-        str,
-        Field(
-            description="Unique 128-bit random value for replay protection\n\n**Format:** 32 lowercase hex characters\n**Structure:** First 12 bits encode the target hub_id (0-4095)\n",
-            examples=[
-                "000faa3f18c7b9407a48536a9b00c4cb",
-                "001234567890abcdef1234567890abcd",
-            ],
-            max_length=32,
-            min_length=32,
-            pattern="^[0-9a-f]{32}$",
-        ),
-    ]
-    signature: IsccSignature
+    timestamp: Timestamp
+    nonce: Nonce
+    signature: Signature
     units: Annotated[
         list[Unit] | None,
         Field(
@@ -223,15 +248,7 @@ class Declaration(Schema):
             ge=0,
         ),
     ]
-    iscc_id: Annotated[
-        str,
-        Field(
-            description="Unique ISCC-ID assigned by the ISCC-HUB\n\n**Format:** `ISCC:` followed by 16 characters encoding timestamp and hub ID\n**Structure:** 64-bit identifier (52-bit timestamp + 12-bit hub ID)\n",
-            max_length=21,
-            min_length=21,
-            pattern="^ISCC:[A-Z0-9]{16}$",
-        ),
-    ]
+    iscc_id: IsccId
     iscc_note: IsccNote
 
 

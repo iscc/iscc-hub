@@ -43,36 +43,11 @@ properties:
       - "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
       - "1e201234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
   timestamp:
-    type: string
-    format: date-time
-    description: |
-      RFC 3339 formatted timestamp of IsccNote creation time in UTC with millisecond precision
-
-      **Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`
-      **Example:** `2025-08-04T12:34:56.789Z`
-
-      **Requirements:**
-      - The `Z` suffix MUST be used to indicate UTC
-      - Indicates when the IsccNote was created and signed
-      - HUBs MUST reject timestamps outside ±10 minutes from current time
-    examples:
-      - "2025-01-15T12:00:00.000Z"
-      - "2025-08-12T14:30:00.123Z"
+    $ref: "./CommonProperties.yaml#/properties/timestamp"
   nonce:
-    type: string
-    minLength: 32
-    maxLength: 32
-    description: |
-      Unique 128-bit random value for replay protection
-
-      **Format:** 32 lowercase hex characters
-      **Structure:** First 12 bits encode the target hub_id (0-4095)
-    pattern: "^[0-9a-f]{32}$"
-    examples:
-      - "000faa3f18c7b9407a48536a9b00c4cb"
-      - "001234567890abcdef1234567890abcd"
+    $ref: "./CommonProperties.yaml#/properties/nonce"
   signature:
-    $ref: "./IsccSignature.yaml"
+    $ref: "./CommonProperties.yaml#/properties/signature"
   units:
     type: array
     minItems: 1
