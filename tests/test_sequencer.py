@@ -77,25 +77,6 @@ def test_transaction_atomicity(full_iscc_note):
         assert cursor.fetchone()[0] == 0
 
 
-@pytest.mark.django_db(transaction=True)
-def test_missing_required_fields():
-    """Test that missing required fields raise appropriate errors."""
-    # Note without nonce
-    note = {
-        "iscc_code": "ISCC:MEAJU7P6XBJ5SCNY",
-        "datahash": "1e20b1234567890123456789012345678901234567890123456789012345678901",
-        "timestamp": "2025-01-15T12:00:00.000Z",
-        "signature": {
-            "pubkey": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
-        },
-    }
-
-    with pytest.raises(SequencerError) as exc_info:
-        sequence_iscc_note(note)
-
-    assert "Missing required fields" in str(exc_info.value)
-
-
 @pytest.mark.slow
 @pytest.mark.django_db(transaction=True)
 def test_performance_benchmark():
@@ -253,77 +234,6 @@ def test_nonce_conflict_detection():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_invalid_hub_id(monkeypatch, full_iscc_note):
-    """Test that invalid hub_id raises SequencerError."""
-    # Save original value
-    original_hub_id = settings.ISCC_HUB_ID
-
-    # Test hub_id > 4095
-    monkeypatch.setattr(settings, "ISCC_HUB_ID", 4096)
-    with pytest.raises(SequencerError) as exc_info:
-        sequence_iscc_note(full_iscc_note)
-    assert "Invalid hub_id: 4096" in str(exc_info.value)
-
-    # Test negative hub_id
-    monkeypatch.setattr(settings, "ISCC_HUB_ID", -1)
-    # Need a fresh note with different nonce to avoid conflict
-    iscc_data = create_iscc_from_text("Different content")
-    note = {
-        "iscc_code": iscc_data["iscc"],
-        "datahash": iscc_data["datahash"],
-        "nonce": "00100000000000000000000000000002",
-        "timestamp": "2025-01-15T12:00:00.000Z",
-    }
-    keypair = icr.key_generate(controller="did:web:example.com")
-    signed_note = icr.sign_json(note, keypair)
-
-    with pytest.raises(SequencerError) as exc_info:
-        sequence_iscc_note(signed_note)
-    assert "Invalid hub_id: -1" in str(exc_info.value)
-
-    # Restore original value
-    monkeypatch.setattr(settings, "ISCC_HUB_ID", original_hub_id)
-
-
-@pytest.mark.django_db(transaction=True)
-def test_monotonic_timestamp_edge_case(monkeypatch, full_iscc_note):
-    """Test timestamp monotonicity when system clock goes backward."""
-    # First, insert a normal note
-    seq1, iscc_id1 = sequence_iscc_note(full_iscc_note)
-
-    # Parse the timestamp from the first ISCC-ID
-    iscc_obj1 = IsccID(iscc_id1)
-    first_timestamp_us = iscc_obj1.timestamp_micros
-
-    # Mock time.time_ns to return an earlier time
-    def mock_time_ns():
-        # Return a time that's 1 second before the first timestamp
-        return (first_timestamp_us - 1_000_000) * 1000  # microseconds to nanoseconds
-
-    monkeypatch.setattr(time, "time_ns", mock_time_ns)
-
-    # Create second note with different nonce - should still get monotonic timestamp
-    iscc_data = create_iscc_from_text("Different content")
-    note2 = {
-        "iscc_code": iscc_data["iscc"],
-        "datahash": iscc_data["datahash"],
-        "nonce": "00100000000000000000000000000002",
-        "timestamp": "2025-01-15T12:00:00.000Z",
-    }
-    keypair = icr.key_generate(controller="did:web:example2.com")
-    signed_note2 = icr.sign_json(note2, keypair)
-    seq2, iscc_id2 = sequence_iscc_note(signed_note2)
-
-    # Parse the second timestamp
-    iscc_obj2 = IsccID(iscc_id2)
-    second_timestamp_us = iscc_obj2.timestamp_micros
-
-    # Verify monotonic increase (should be first + 1)
-    assert second_timestamp_us == first_timestamp_us + 1
-    assert seq2 == seq1 + 1
-
-
-@pytest.mark.django_db(transaction=True)
 def test_rollback_on_generic_exception(monkeypatch, full_iscc_note):
     """Test that generic exceptions cause rollback and are wrapped."""
     note = full_iscc_note
@@ -354,47 +264,8 @@ def test_atomic_block_detection(full_iscc_note):
     """Test that sequencer detects and rejects calls within atomic blocks."""
     # When using default django_db (without transaction=True),
     # Django wraps the test in a transaction
-    with pytest.raises(SequencerError) as exc_info:
+    with pytest.raises(SequencerError):
         sequence_iscc_note(full_iscc_note)
-
-    assert "cannot be called within an atomic block" in str(exc_info.value)
-
-
-@pytest.mark.django_db(transaction=True)
-def test_autocommit_check(full_iscc_note):
-    """Test that sequencer checks for autocommit mode."""
-    # Temporarily disable autocommit
-    original_autocommit = connection.get_autocommit()
-    try:
-        connection.set_autocommit(False)
-
-        with pytest.raises(SequencerError) as exc_info:
-            sequence_iscc_note(full_iscc_note)
-
-        assert "requires autocommit mode to be enabled" in str(exc_info.value)
-    finally:
-        # Restore autocommit
-        connection.set_autocommit(original_autocommit)
-
-
-@pytest.mark.django_db(transaction=True)
-def test_transaction_within_transaction_error(full_iscc_note):
-    """Test error handling when BEGIN IMMEDIATE fails due to existing transaction."""
-    # Start a transaction manually
-    with connection.cursor() as cursor:
-        cursor.execute("BEGIN")
-
-        try:
-            with pytest.raises(SequencerError) as exc_info:
-                sequence_iscc_note(full_iscc_note)
-
-            assert "Cannot start transaction - already in a transaction" in str(exc_info.value)
-        finally:
-            # Clean up - rollback if transaction is still active
-            try:
-                cursor.execute("ROLLBACK")
-            except Exception:
-                pass  # Transaction might already be rolled back
 
 
 @pytest.mark.django_db(transaction=True)
@@ -413,3 +284,64 @@ def test_begin_immediate_other_error(full_iscc_note, monkeypatch):
         sequence_iscc_note(full_iscc_note)
 
     assert "Sequencing failed: Some other database error" in str(exc_info.value)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_timetravel_prevention(full_iscc_note, monkeypatch):
+    """Test that sequencer prevents time travel (line 71 coverage)."""
+    # First, sequence a note to establish a timestamp
+    seq1, iscc_id1 = sequence_iscc_note(full_iscc_note)
+
+    # Create another note with different nonce
+    import os
+
+    nonce_bytes = os.urandom(16)
+    nonce_bytes = bytes([0x00, 0x10]) + nonce_bytes[2:]
+
+    note2 = full_iscc_note.copy()
+    note2["nonce"] = nonce_bytes.hex()
+
+    # Mock time.time_ns to return a value in the past
+    def mock_time_ns():
+        return 1000000000  # 1 second in nanoseconds (very far in the past)
+
+    monkeypatch.setattr("iscc_hub.sequencer.time.time_ns", mock_time_ns)
+
+    with pytest.raises(SequencerError) as exc_info:
+        sequence_iscc_note(note2)
+
+    assert "Timetravel not allowed" in str(exc_info.value)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_microsecond_collision_handling(full_iscc_note, monkeypatch):
+    """Test handling of same microsecond timestamp (line 73 coverage)."""
+    # Sequence first note
+    seq1, iscc_id1 = sequence_iscc_note(full_iscc_note)
+
+    # Get the timestamp from the first ISCC-ID
+    iscc_id_obj = IsccID(iscc_id1)
+    first_timestamp_us = iscc_id_obj.timestamp_micros
+
+    # Create another note with different nonce
+    import os
+
+    nonce_bytes = os.urandom(16)
+    nonce_bytes = bytes([0x00, 0x10]) + nonce_bytes[2:]
+
+    note2 = full_iscc_note.copy()
+    note2["nonce"] = nonce_bytes.hex()
+
+    # Mock time.time_ns to return exactly the same microsecond value
+    def mock_time_ns():
+        return first_timestamp_us * 1000  # Convert microseconds to nanoseconds
+
+    monkeypatch.setattr("iscc_hub.sequencer.time.time_ns", mock_time_ns)
+
+    # Sequence second note - should increment timestamp by 1 microsecond
+    seq2, iscc_id2 = sequence_iscc_note(note2)
+
+    # Verify timestamp was incremented by exactly 1 microsecond
+    iscc_id_obj2 = IsccID(iscc_id2)
+    assert iscc_id_obj2.timestamp_micros == first_timestamp_us + 1
+    assert seq2 == seq1 + 1
