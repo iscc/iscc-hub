@@ -58,13 +58,24 @@ def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_t
     :param verify_hub_id: Hub ID to validate nonce against (0-4095, default: None)
     :param verify_timestamp: Whether to verify timestamp is within tolerance (default: True)
     :return: Validated IsccNote data ready for notarization
-    :raises ValueError: If validation fails with detailed error information
+    :raises ValidationError: If validation fails with detailed error information
     """
     # Validate input size limits to prevent DOS
-    validate_input_size(data)
+    allowed_fields = {
+        "iscc_code",
+        "datahash",
+        "nonce",
+        "timestamp",
+        "signature",
+        "units",
+        "metahash",
+        "gateway",
+    }
+    validate_input_size(data, allowed_fields)
 
     # Validate required fields
-    validate_required_fields(data)
+    required_fields = {"iscc_code", "datahash", "nonce", "timestamp", "signature"}
+    validate_required_fields(data, required_fields)
 
     # Validate ISCC-CODE
     validate_iscc_code(data["iscc_code"])
@@ -114,13 +125,15 @@ def validate_iscc_note_delete(data, verify_signature=True, verify_hub_id=None, v
     :param verify_hub_id: Hub ID to validate nonce against (0-4095, default: None)
     :param verify_timestamp: Whether to verify timestamp is within tolerance (default: True)
     :return: Validated IsccNoteDelete data ready for deletion processing
-    :raises ValueError: If validation fails with detailed error information
+    :raises ValidationError: If validation fails with detailed error information
     """
     # Validate input size limits to prevent DOS
-    validate_input_size_delete(data)
+    allowed_fields = {"iscc_id", "nonce", "timestamp", "signature"}
+    validate_input_size(data, allowed_fields)
 
     # Validate required fields for delete
-    validate_required_fields_delete(data)
+    required_fields = {"iscc_id", "nonce", "timestamp", "signature"}
+    validate_required_fields(data, required_fields)
 
     # Validate ISCC-ID format
     validate_iscc_id(data["iscc_id"], verify_hub_id)
@@ -141,63 +154,8 @@ def validate_iscc_note_delete(data, verify_signature=True, verify_hub_id=None, v
     return data
 
 
-def validate_input_size_delete(data):
-    # type: (dict) -> None
-    """
-    Validate input size limits for delete requests to prevent DOS attacks.
-
-    Similar to validate_input_size but with delete-specific allowed fields.
-
-    :param data: The data dictionary to validate
-    :raises ValueError: If data exceeds size limits
-    """
-    import json
-
-    # Ensure data is a dictionary
-    if not isinstance(data, dict):
-        raise ValidationError(f"Invalid input: expected JSON object, got {type(data).__name__}", code="invalid_type")
-
-    json_size = len(json.dumps(data))
-    if json_size > MAX_JSON_SIZE:
-        raise ValidationError(f"Input data exceeds maximum size of {MAX_JSON_SIZE} bytes", code="invalid_length")
-
-    # Check string field lengths
-    for key, value in data.items():
-        if isinstance(value, str) and len(value) > MAX_STRING_LENGTH:
-            raise LengthError(key, f"Field '{key}' exceeds maximum string length of {MAX_STRING_LENGTH}")
-
-    # Check for unknown fields at the top level
-    allowed_fields = {
-        "iscc_id",
-        "nonce",
-        "timestamp",
-        "signature",
-    }
-    unknown_fields = set(data.keys()) - allowed_fields
-    if unknown_fields:
-        raise ValidationError(
-            f"Unknown fields not allowed: {', '.join(sorted(unknown_fields))}", code="validation_failed"
-        )
-
-
-def validate_required_fields_delete(data):
-    # type: (dict) -> None
-    """
-    Validate presence of all required IsccNoteDelete fields.
-
-    Required fields: iscc_id, nonce, timestamp, signature
-
-    :param data: The data dictionary to validate
-    :raises ValueError: If any required field is missing
-    """
-    required_fields = {"iscc_id", "nonce", "timestamp", "signature"}
-    for field in required_fields:
-        if field not in data:
-            raise FieldValidationError(field, f"Missing required field: {field}", code="validation_failed")
-
-
-def validate_input_size(data):
-    # type: (dict) -> None
+def validate_input_size(data, allowed_fields=None):
+    # type: (dict, set|None) -> None
     """
     Validate input size limits to prevent DOS attacks.
 
@@ -205,7 +163,8 @@ def validate_input_size(data):
     maximum allowed sizes to prevent memory exhaustion attacks.
 
     :param data: The data dictionary to validate
-    :raises ValueError: If data exceeds size limits
+    :param allowed_fields: Set of allowed field names (optional, defaults to IsccNote fields)
+    :raises ValidationError: If data exceeds size limits or contains unknown fields
     """
     import json
 
@@ -213,7 +172,7 @@ def validate_input_size(data):
     if not isinstance(data, dict):
         raise ValidationError(f"Invalid input: expected JSON object, got {type(data).__name__}", code="invalid_type")
 
-    json_size = len(json.dumps(data))
+    json_size = len(json.dumps(data, separators=(",", ":")))
     if json_size > MAX_JSON_SIZE:
         raise ValidationError(f"Input data exceeds maximum size of {MAX_JSON_SIZE} bytes", code="invalid_length")
 
@@ -223,16 +182,18 @@ def validate_input_size(data):
             raise LengthError(key, f"Field '{key}' exceeds maximum string length of {MAX_STRING_LENGTH}")
 
     # Check for unknown fields at the top level
-    allowed_fields = {
-        "iscc_code",
-        "datahash",
-        "nonce",
-        "timestamp",
-        "signature",
-        "units",
-        "metahash",
-        "gateway",
-    }
+    if allowed_fields is None:
+        # Default to IsccNote fields for backward compatibility
+        allowed_fields = {
+            "iscc_code",
+            "datahash",
+            "nonce",
+            "timestamp",
+            "signature",
+            "units",
+            "metahash",
+            "gateway",
+        }
     unknown_fields = set(data.keys()) - allowed_fields
     if unknown_fields:
         raise ValidationError(
@@ -240,17 +201,18 @@ def validate_input_size(data):
         )
 
 
-def validate_required_fields(data):
-    # type: (dict) -> None
+def validate_required_fields(data, required_fields=None):
+    # type: (dict, set|None) -> None
     """
-    Validate presence of all required IsccNote fields.
-
-    Required fields: iscc_code, datahash, nonce, timestamp, signature
+    Validate presence of all required fields.
 
     :param data: The data dictionary to validate
-    :raises ValueError: If any required field is missing
+    :param required_fields: Set of required field names (optional, defaults to IsccNote fields)
+    :raises FieldValidationError: If any required field is missing
     """
-    required_fields = {"iscc_code", "datahash", "nonce", "timestamp", "signature"}
+    if required_fields is None:
+        # Default to IsccNote fields for backward compatibility
+        required_fields = {"iscc_code", "datahash", "nonce", "timestamp", "signature"}
     for field in required_fields:
         if field not in data:
             raise FieldValidationError(field, f"Missing required field: {field}", code="validation_failed")
@@ -265,7 +227,7 @@ def validate_iscc_code(iscc_code):
     Individual ISCC-UNITs should be placed in the units array field.
 
     :param iscc_code: The ISCC code string to validate
-    :raises ValueError: If ISCC code is invalid or not composite type
+    :raises IsccCodeError: If ISCC code is invalid or not composite type
     """
     # Ensure iscc_code is a string
     if not isinstance(iscc_code, str):
@@ -292,7 +254,7 @@ def validate_nonce(nonce, hub_id=None):
 
     :param nonce: The 32-character hex nonce string
     :param hub_id: Optional hub ID (0-4095) to validate against
-    :raises ValueError: If nonce format is invalid or hub ID doesn't match
+    :raises NonceError: If nonce format is invalid or hub ID doesn't match
     """
     if not isinstance(nonce, str):
         raise NonceError("nonce must be a string")
@@ -314,7 +276,8 @@ def validate_nonce_hub_id(nonce, expected_hub_id):
 
     :param nonce: The 32-character hex nonce string
     :param expected_hub_id: The expected hub ID (0-4095)
-    :raises ValueError: If hub ID is invalid or doesn't match
+    :raises ValidationError: If hub ID is out of range
+    :raises NonceError: If hub ID doesn't match nonce
     """
     # Validate hub ID range
     if not 0 <= expected_hub_id <= MAX_HUB_ID:
@@ -344,7 +307,7 @@ def validate_timestamp(timestamp_str, check_tolerance=True, reference_time=None)
     :param timestamp_str: The timestamp string to validate
     :param check_tolerance: Whether to check if timestamp is within ±10 minutes (default: True)
     :param reference_time: Reference time for tolerance check (default: current UTC time)
-    :raises ValueError: If timestamp is invalid or outside tolerance
+    :raises TimestampError: If timestamp is invalid or outside tolerance
     """
     if not isinstance(timestamp_str, str):
         raise TimestampError("timestamp must be a string")
@@ -400,7 +363,8 @@ def validate_hex_string(value, field_name, expected_length):
     :param value: The hex string to validate
     :param field_name: Name of the field for error messages
     :param expected_length: Expected character length of the hex string
-    :raises ValueError: If hex string format is invalid
+    :raises HexFormatError: If hex string format is invalid
+    :raises LengthError: If hex string has incorrect length
     """
     # Check lowercase
     if value != value.lower():
@@ -428,7 +392,7 @@ def validate_optional_field(field_name, value, special_validators=None):
     :param field_name: Name of the field being validated
     :param value: The field value to validate
     :param special_validators: Dictionary of field-specific validator functions
-    :raises ValueError: If field value is invalid
+    :raises FieldValidationError: If field value is invalid
     """
     # Check for null
     if value is None:
@@ -462,7 +426,8 @@ def validate_optional_fields(data):
     Ensures optional fields meet protocol requirements when present.
 
     :param data: The data dictionary containing optional fields
-    :raises ValueError: If any optional field validation fails
+    :raises FieldValidationError: If any optional field validation fails
+    :raises HashError: If metahash format is invalid
     """
     # Create validators dict for special field validation
     validators = {
@@ -487,7 +452,8 @@ def validate_signature_structure(signature):
     (controller, keyid). Ensures signature version matches expected format.
 
     :param signature: The signature dictionary to validate
-    :raises ValueError: If signature structure is invalid
+    :raises SignatureError: If signature structure is invalid
+    :raises FieldValidationError: If optional signature fields are invalid
     """
     if not isinstance(signature, dict):
         raise SignatureError("Signature must be a dictionary")
@@ -531,7 +497,7 @@ def verify_signature_cryptographically(data):
     public key. Ensures data integrity and authenticity.
 
     :param data: The complete data dictionary including signature
-    :raises ValueError: If signature verification fails or errors occur
+    :raises SignatureError: If signature verification fails or errors occur
     """
     try:
         # Do not raise inside the verifier to allow consistent error handling here
@@ -554,7 +520,7 @@ def validate_multihash(value, field_name):
 
     :param value: The hash value to validate
     :param field_name: Name of the field being validated (for error messages)
-    :raises ValueError: If validation fails
+    :raises HashError: If hash format is invalid
     """
     # Check type
     if not isinstance(value, str):
@@ -588,7 +554,7 @@ def validate_gateway(gateway):
     {iscc_id}, {iscc_code}, {pubkey}, {datahash}, {controller}
 
     :param gateway: The gateway URL or URI template string to validate
-    :raises ValueError: If gateway is invalid or uses unsupported variables
+    :raises FieldValidationError: If gateway is invalid or uses unsupported variables
     """
     # Check for basic template syntax errors first
     if "{" in gateway or "}" in gateway:
@@ -624,7 +590,7 @@ def validate_url(url):
     Ensures URL has a valid HTTP/HTTPS scheme and hostname.
 
     :param url: The URL string to validate
-    :raises ValueError: If URL is invalid
+    :raises FieldValidationError: If URL is invalid
     """
     # Check for whitespace
     if url != url.strip():
@@ -654,7 +620,7 @@ def validate_units_reconstruction(units, datahash, iscc_code):
     :param units: List of ISCC unit strings (excluding Instance-Code)
     :param datahash: Pre-validated datahash string
     :param iscc_code: Original ISCC-CODE to validate against
-    :raises ValueError: If reconstruction fails or units contain invalid ISCC codes
+    :raises FieldValidationError: If reconstruction fails or units contain invalid ISCC codes
     """
     # Input validation
     if not isinstance(units, list):
@@ -742,7 +708,8 @@ def validate_datahash_match(iscc_code, datahash):
 
     :param iscc_code: Pre-validated ISCC-CODE string
     :param datahash: Pre-validated datahash string (with "1e20" prefix)
-    :raises ValueError: If datahash does not match ISCC Instance-Code
+    :raises HashError: If datahash does not match ISCC Instance-Code
+    :raises IsccCodeError: If ISCC code is invalid
     """
     try:
         # Remove multihash prefix from datahash

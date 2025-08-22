@@ -1238,6 +1238,27 @@ def test_validate_input_size_non_dict():
         validators.validate_input_size("not_a_dict")
 
 
+def test_validate_input_size_default_allowed_fields():
+    # type: () -> None
+    """Test validate_input_size with default allowed_fields (IsccNote fields)."""
+    # Valid data with IsccNote fields (should pass with default allowed_fields)
+    data = {
+        "iscc_code": "ISCC:MAACCD3C6YZJ4IQM",
+        "datahash": "1e20b6bb2709e15bc4e80f85e7de019f666e1c66fe34accc4a99db21e8c00cb0bbaf",
+        "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
+        "timestamp": "2025-01-15T12:00:00.000Z",
+        "signature": {"version": "ISCC-SIG v1.0", "pubkey": "test", "proof": "test"},
+    }
+    # Should not raise when called without allowed_fields parameter
+    validators.validate_input_size(data)
+
+    # Data with unknown field should fail with default allowed_fields
+    data_with_unknown = data.copy()
+    data_with_unknown["unknown_field"] = "value"
+    with pytest.raises(ValueError, match="Unknown fields not allowed: unknown_field"):
+        validators.validate_input_size(data_with_unknown)
+
+
 def test_validate_iscc_code_non_string():
     # type: () -> None
     """Test validate_iscc_code raises IsccCodeError for non-string input."""
@@ -1401,14 +1422,15 @@ def test_validate_iscc_note_delete_unknown_fields():
 
 def test_validate_input_size_delete_non_dict():
     # type: () -> None
-    """Test validate_input_size_delete raises for non-dict input."""
+    """Test validate_input_size raises for non-dict input with delete fields."""
+    allowed_fields = {"iscc_id", "nonce", "timestamp", "signature"}
     with pytest.raises(ValueError, match="Invalid input: expected JSON object, got list"):
-        validators.validate_input_size_delete([])
+        validators.validate_input_size([], allowed_fields)
 
 
 def test_validate_input_size_delete_exceeds_limit():
     # type: () -> None
-    """Test validate_input_size_delete raises for oversized input."""
+    """Test validate_input_size raises for oversized input with delete fields."""
     # Create data that actually exceeds MAX_JSON_SIZE (8192 bytes)
     large_string = "x" * 2000  # Each string is 2000 chars (under individual limit)
     oversized_data = {
@@ -1424,18 +1446,20 @@ def test_validate_input_size_delete_exceeds_limit():
         },
     }
     # This should now exceed 8192 bytes when JSON serialized
+    allowed_fields = {"iscc_id", "nonce", "timestamp", "signature"}
     with pytest.raises(ValueError, match="Input data exceeds maximum size"):
-        validators.validate_input_size_delete(oversized_data)
+        validators.validate_input_size(oversized_data, allowed_fields)
 
 
 def test_validate_input_size_delete_string_too_long():
     # type: () -> None
-    """Test validate_input_size_delete raises for oversized string field."""
+    """Test validate_input_size raises for oversized string field with delete fields."""
     data = {
         "iscc_id": "x" * 3000,  # Exceeds MAX_STRING_LENGTH
     }
+    allowed_fields = {"iscc_id", "nonce", "timestamp", "signature"}
     with pytest.raises(ValueError, match="Field 'iscc_id' exceeds maximum string length"):
-        validators.validate_input_size_delete(data)
+        validators.validate_input_size(data, allowed_fields)
 
 
 def test_not_found_error_to_error_response():
@@ -1460,8 +1484,9 @@ def test_not_found_error_to_error_response():
     response_minimal = error_minimal.to_error_response()
     assert response_minimal == {"error": {"message": "Not found", "code": "not_found"}}
 
-    # Test with field set (to cover line 218)
+    # Test that field is removed even when set (404 errors shouldn't have field)
     error_with_field = NotFoundError("Not found")
-    error_with_field.field = "iscc_id"  # Manually set field to test the conditional
+    error_with_field.field = "iscc_id"  # Manually set field to test it gets removed
     response_with_field = error_with_field.to_error_response()
-    assert response_with_field == {"error": {"message": "Not found", "code": "not_found", "field": "iscc_id"}}
+    # Field should be removed from 404 errors as it's not semantically meaningful
+    assert response_with_field == {"error": {"message": "Not found", "code": "not_found"}}

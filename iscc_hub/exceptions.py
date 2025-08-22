@@ -213,14 +213,15 @@ class NotFoundError(BaseApiException):
 
         :return: Dictionary conforming to ErrorResponse schema with additional context
         """
-        error_detail = {"message": self.message, "code": self.code}
-        if self.field:
-            error_detail["field"] = self.field
+        resp = super().to_error_response()
+        err = resp["error"]
+        # Remove field from 404 errors as it's not semantically meaningful
+        err.pop("field", None)
         if self.resource_type:
-            error_detail["resource_type"] = self.resource_type
+            err["resource_type"] = self.resource_type
         if self.resource_id:
-            error_detail["resource_id"] = self.resource_id
-        return {"error": error_detail}
+            err["resource_id"] = self.resource_id
+        return resp
 
 
 class DuplicateDeclarationError(BaseApiException):
