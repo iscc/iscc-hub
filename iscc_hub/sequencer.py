@@ -19,12 +19,19 @@ from django.conf import settings
 from django.db import connection
 
 from iscc_hub.exceptions import NonceError, SequencerError
+from iscc_hub.iscc_id import IsccID
 
 
 @sync_to_async
 def asequence_iscc_note(iscc_note):  # pragma: no cover
     """Async wrapper for sequence_iscc_note."""
     return sequence_iscc_note(iscc_note)
+
+
+@sync_to_async
+def asequence_iscc_delete(iscc_note_delete, original_datahash):  # pragma: no cover
+    """Async wrapper for sequence_iscc_delete."""
+    return sequence_iscc_delete(iscc_note_delete, original_datahash)
 
 
 def sequence_iscc_note(iscc_note):
@@ -92,6 +99,91 @@ def sequence_iscc_note(iscc_note):
                 VALUES (%s, %s, %s, %s, %s, %s, json(%s), %s)
             """,
                 (new_seq, 1, iscc_id_bytes, nonce_bytes, datahash_bytes, pubkey_bytes, iscc_note_json, event_time_str),
+            )
+
+            cursor.execute("COMMIT")
+            return new_seq, iscc_id_bytes
+
+        except Exception as e:
+            try:
+                cursor.execute("ROLLBACK")
+            except Exception:
+                pass
+            error_msg = str(e).lower()
+            if "unique constraint" in error_msg and "nonce" in error_msg:
+                raise NonceError("Nonce already used", is_reuse=True) from e
+
+            if isinstance(e, NonceError | SequencerError):
+                raise
+            else:
+                raise SequencerError(f"Sequencing failed: {e}") from e
+
+
+def sequence_iscc_delete(iscc_note_delete, original_datahash):
+    # type: (dict, bytes) -> tuple[int, bytes]
+    """
+    Atomically sequence an ISCC deletion with gapless numbering and monotonic timestamps.
+
+    This function:
+    1. Verifies nonce uniqueness (fails if duplicate)
+    2. Issues the next gapless sequence number
+    3. Issues the next unique microsecond timestamp (ISCC-ID)
+    4. Stores the IsccNoteDelete in the iscc_event table as a DELETE event
+    5. Returns the issued seq and iscc_id_bytes
+
+    All operations are atomic - either all succeed or none.
+
+    :param iscc_note_delete: Pre-validated IsccNoteDelete dictionary
+    :param original_datahash: Datahash bytes from the original CREATED event
+    :return: Tuple of (sequence_number, iscc_id_bytes)
+    :raises NonceConflictError: If nonce already exists
+    :raises SequencerError: For other sequencing failures
+    """
+
+    # Prepare data before acquiring transaction lock
+    nonce_bytes = unhexlify(iscc_note_delete["nonce"])
+    pubkey_bytes = base58.b58decode(iscc_note_delete["signature"]["pubkey"][1:])[2:]
+    iscc_note_json = jcs.canonicalize(iscc_note_delete)
+
+    # Use IsccID class to properly decode the ISCC-ID string
+    iscc_id_obj = IsccID(iscc_note_delete["iscc_id"])
+    iscc_id_bytes = bytes(iscc_id_obj)  # Get the 8-byte body representation
+
+    with connection.cursor() as cursor:
+        try:
+            cursor.execute("BEGIN IMMEDIATE")
+            cursor.execute("SELECT seq, iscc_id FROM iscc_event ORDER BY seq DESC LIMIT 1")
+            row = cursor.fetchone()
+
+            if row:
+                last_seq = row[0]
+            else:
+                raise SequencerError("No previous event found")
+
+            new_seq = last_seq + 1
+            event_time_us = time.time_ns() // 1000
+            seconds = event_time_us // 1_000_000
+            microseconds = event_time_us % 1_000_000
+            event_time_str = (
+                datetime.fromtimestamp(seconds).replace(microsecond=microseconds).strftime("%Y-%m-%d %H:%M:%S.%f")
+            )
+
+            # Use the original ISCC-ID from the delete request (not generating a new one)
+            cursor.execute(
+                """
+                INSERT INTO iscc_event (seq, event_type, iscc_id, nonce, datahash, pubkey, iscc_note, event_time)
+                VALUES (%s, %s, %s, %s, %s, %s, json(%s), %s)
+            """,
+                (
+                    new_seq,
+                    3,
+                    iscc_id_bytes,
+                    nonce_bytes,
+                    original_datahash,
+                    pubkey_bytes,
+                    iscc_note_json,
+                    event_time_str,
+                ),
             )
 
             cursor.execute("COMMIT")

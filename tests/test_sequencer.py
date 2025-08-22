@@ -26,6 +26,7 @@ import os
 import time
 from binascii import unhexlify
 
+import base58
 import iscc_crypto as icr
 import pytest
 from django.conf import settings
@@ -33,7 +34,7 @@ from django.db import connection
 
 from iscc_hub.exceptions import NonceError, SequencerError
 from iscc_hub.iscc_id import IsccID
-from iscc_hub.sequencer import sequence_iscc_note
+from iscc_hub.sequencer import sequence_iscc_delete, sequence_iscc_note
 from tests.conftest import create_iscc_from_text
 
 # Note: No clear_database fixture needed!
@@ -345,3 +346,202 @@ def test_microsecond_collision_handling(full_iscc_note, monkeypatch):
     iscc_id_obj2 = IsccID(iscc_id2)
     assert iscc_id_obj2.timestamp_micros == first_timestamp_us + 1
     assert seq2 == seq1 + 1
+
+
+# Tests for sequence_iscc_delete
+
+
+@pytest.mark.django_db(transaction=True)
+def test_sequence_iscc_delete_basic(full_iscc_note):
+    """Test basic delete sequencing functionality."""
+    # First create a declaration
+    seq1, iscc_id1 = sequence_iscc_note(full_iscc_note)
+
+    # Extract datahash from the note
+    datahash_bytes = unhexlify(full_iscc_note["datahash"])
+
+    # Create a delete note - use proper ISCC-ID string format
+    delete_note = {
+        "iscc_id": str(IsccID(iscc_id1)),
+        "timestamp": "2025-01-15T12:00:01.000Z",
+        "nonce": "00100123456789abcdef0123456789ff",  # Different nonce
+    }
+
+    # Sign the delete note with same keypair (for testing)
+    keypair = icr.key_generate(controller="did:web:example.com")
+    signed_delete = icr.sign_json(delete_note, keypair)
+
+    # Sequence the delete
+    seq2, iscc_id_returned = sequence_iscc_delete(signed_delete, datahash_bytes)
+
+    # Verify sequence number incremented
+    assert seq2 == seq1 + 1
+
+    # Verify same ISCC-ID is used
+    assert iscc_id_returned == iscc_id1
+
+    # Verify event was created with DELETE type
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT event_type, datahash FROM iscc_event WHERE seq = %s", (seq2,))
+        row = cursor.fetchone()
+        assert row[0] == 3  # EventType.DELETED
+        assert row[1] == datahash_bytes
+
+
+@pytest.mark.django_db(transaction=True)
+def test_sequence_iscc_delete_nonce_uniqueness():
+    """Test that delete events enforce nonce uniqueness."""
+    # Create initial declaration
+    iscc_data = create_iscc_from_text("Test content")
+    note = {
+        "iscc_code": iscc_data["iscc"],
+        "datahash": iscc_data["datahash"],
+        "nonce": "00100123456789abcdef0123456789ab",
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    keypair = icr.key_generate(controller="did:web:example.com")
+    signed_note = icr.sign_json(note, keypair)
+    seq1, iscc_id1 = sequence_iscc_note(signed_note)
+
+    datahash_bytes = unhexlify(iscc_data["datahash"])
+
+    # Create delete note with specific nonce
+    delete_note = {
+        "iscc_id": str(IsccID(iscc_id1)),
+        "timestamp": "2025-01-15T12:00:01.000Z",
+        "nonce": "00100123456789abcdef0123456789ff",
+    }
+    signed_delete1 = icr.sign_json(delete_note, keypair)
+
+    # First delete should succeed
+    seq2, _ = sequence_iscc_delete(signed_delete1, datahash_bytes)
+    assert seq2 == 2
+
+    # Try to use the same nonce again (different delete request)
+    delete_note2 = {
+        "iscc_id": str(IsccID(iscc_id1)),
+        "timestamp": "2025-01-15T12:00:02.000Z",
+        "nonce": "00100123456789abcdef0123456789ff",  # Same nonce
+    }
+    signed_delete2 = icr.sign_json(delete_note2, keypair)
+
+    # Should fail with nonce error
+    with pytest.raises(NonceError) as exc_info:
+        sequence_iscc_delete(signed_delete2, datahash_bytes)
+
+    assert "Nonce already used" in str(exc_info.value)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_sequence_iscc_delete_atomicity(full_iscc_note):
+    """Test that delete sequencing is atomic."""
+    # Create initial declaration
+    seq1, iscc_id1 = sequence_iscc_note(full_iscc_note)
+    datahash_bytes = unhexlify(full_iscc_note["datahash"])
+
+    # Create delete note
+    delete_note = {
+        "iscc_id": str(IsccID(iscc_id1)),
+        "timestamp": "2025-01-15T12:00:01.000Z",
+        "nonce": "00100123456789abcdef0123456789ee",
+    }
+    keypair = icr.key_generate(controller="did:web:example.com")
+    signed_delete = icr.sign_json(delete_note, keypair)
+
+    # Mock failure during INSERT
+    original_execute = connection.cursor().__class__.execute
+
+    def failing_execute(self, sql, params=None):
+        if "INSERT INTO iscc_event" in sql and params and params[1] == 3:  # DELETE event type
+            raise Exception("Simulated failure during delete")
+        return original_execute(self, sql, params)
+
+    connection.cursor().__class__.execute = failing_execute
+
+    try:
+        with pytest.raises(SequencerError) as exc_info:
+            sequence_iscc_delete(signed_delete, datahash_bytes)
+
+        assert "Sequencing failed: Simulated failure during delete" in str(exc_info.value)
+    finally:
+        connection.cursor().__class__.execute = original_execute
+
+    # Verify no DELETE event was created
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT COUNT(*) FROM iscc_event WHERE event_type = 3")
+        assert cursor.fetchone()[0] == 0
+
+
+@pytest.mark.django_db(transaction=True)
+def test_sequence_iscc_delete_with_empty_database():
+    """Test delete sequencing fails with empty database."""
+    # Create a delete note (edge case - no previous events)
+    iscc_id_bytes = b"\x00\x01\x02\x03\x04\x05\x06\x07"
+    delete_note = {
+        "iscc_id": str(IsccID(iscc_id_bytes)),
+        "timestamp": "2025-01-15T12:00:00.000Z",
+        "nonce": "00100123456789abcdef0123456789bb",
+    }
+    keypair = icr.key_generate(controller="did:web:example.com")
+    signed_delete = icr.sign_json(delete_note, keypair)
+
+    datahash_bytes = b"test_datahash_bytes"
+
+    # Should fail with empty database
+    with pytest.raises(SequencerError) as exc_info:
+        sequence_iscc_delete(signed_delete, datahash_bytes)
+
+    assert "No previous event found" in str(exc_info.value)
+
+    # Verify no event was created
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT COUNT(*) FROM iscc_event")
+        assert cursor.fetchone()[0] == 0
+
+
+@pytest.mark.django_db(transaction=True)
+def test_sequence_iscc_delete_rollback_exception(full_iscc_note):
+    """Test that rollback exceptions are handled gracefully in delete."""
+    # Create initial declaration
+    seq1, iscc_id1 = sequence_iscc_note(full_iscc_note)
+    datahash_bytes = unhexlify(full_iscc_note["datahash"])
+
+    # Create delete note
+    delete_note = {
+        "iscc_id": str(IsccID(iscc_id1)),
+        "timestamp": "2025-01-15T12:00:01.000Z",
+        "nonce": "00100123456789abcdef0123456789aa",
+    }
+    keypair = icr.key_generate(controller="did:web:example.com")
+    signed_delete = icr.sign_json(delete_note, keypair)
+
+    # Mock both INSERT failure and ROLLBACK failure
+    original_execute = connection.cursor().__class__.execute
+    rollback_called = [False]
+
+    def failing_execute(self, sql, params=None):
+        if "INSERT INTO iscc_event" in sql and params and params[1] == 3:
+            raise Exception("Insert failed")
+        if "ROLLBACK" in sql:
+            rollback_called[0] = True
+            raise Exception("Rollback also failed")
+        return original_execute(self, sql, params)
+
+    connection.cursor().__class__.execute = failing_execute
+
+    try:
+        # Should still raise the original error even if rollback fails
+        with pytest.raises(SequencerError) as exc_info:
+            sequence_iscc_delete(signed_delete, datahash_bytes)
+
+        assert "Sequencing failed: Insert failed" in str(exc_info.value)
+        assert rollback_called[0]  # Verify rollback was attempted
+    finally:
+        # Always restore original execute method
+        connection.cursor().__class__.execute = original_execute
+        # Clean up any hanging transaction
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("ROLLBACK")
+        except Exception:
+            pass
