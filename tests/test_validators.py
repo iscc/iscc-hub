@@ -1290,3 +1290,178 @@ def test_validate_iscc_id_with_hub_id_mismatch():
     iscc_id = "ISCC:MAIWFKM3UDDAAEAB"
     with pytest.raises(IsccIdError, match="ISCC-ID with invalid hub_id 1"):
         validators.validate_iscc_id(iscc_id, hub_id=2)
+
+
+def test_validate_iscc_note_delete_valid(example_nonce, example_keypair):
+    # type: (str, Any) -> None
+    """Test validate_iscc_note_delete with valid delete request."""
+    import iscc_crypto as icr
+
+    # Create a valid delete note
+    delete_note = {
+        "iscc_id": "ISCC:MAIWFKM3UDDAAEAB",
+        "nonce": example_nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+
+    # Sign the note
+    signed_delete = icr.sign_json(delete_note, example_keypair)
+
+    # Should validate successfully (without timestamp/signature checks for test)
+    validated = validators.validate_iscc_note_delete(signed_delete, verify_signature=True, verify_timestamp=False)
+    assert validated == signed_delete
+
+
+def test_validate_iscc_note_delete_missing_field():
+    # type: () -> None
+    """Test validate_iscc_note_delete raises for missing required field."""
+    delete_note = {
+        "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
+        "timestamp": "2025-01-15T12:00:00.000Z",
+        "signature": {},
+    }
+    with pytest.raises(ValueError, match="Missing required field: iscc_id"):
+        validators.validate_iscc_note_delete(delete_note)
+
+
+def test_validate_iscc_note_delete_invalid_iscc_id():
+    # type: () -> None
+    """Test validate_iscc_note_delete raises for invalid ISCC-ID."""
+    from iscc_hub.exceptions import IsccIdError
+
+    delete_note = {
+        "iscc_id": "ISCC:INVALID",
+        "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
+        "timestamp": "2025-01-15T12:00:00.000Z",
+        "signature": {
+            "version": "ISCC-SIG v1.0",
+            "pubkey": "zPubkey",
+            "proof": "zProof",
+        },
+    }
+    with pytest.raises(IsccIdError, match="Invalid ISCC-ID format"):
+        validators.validate_iscc_note_delete(delete_note, verify_signature=False, verify_timestamp=False)
+
+
+def test_validate_iscc_note_delete_with_hub_id():
+    # type: () -> None
+    """Test validate_iscc_note_delete with hub ID verification."""
+    delete_note = {
+        "iscc_id": "ISCC:MAIWFKM3UDDAAEAB",  # hub_id=1
+        "nonce": "001faa3f18c7b9407a48536a9b00c4cb",  # hub_id=1
+        "timestamp": "2025-01-15T12:00:00.000Z",
+        "signature": {
+            "version": "ISCC-SIG v1.0",
+            "pubkey": "zPubkey",
+            "proof": "zProof",
+        },
+    }
+    validators.validate_iscc_note_delete(delete_note, verify_signature=False, verify_hub_id=1, verify_timestamp=False)
+
+
+def test_validate_iscc_note_delete_hub_id_mismatch():
+    # type: () -> None
+    """Test validate_iscc_note_delete raises when hub_id doesn't match."""
+    from iscc_hub.exceptions import IsccIdError
+
+    delete_note = {
+        "iscc_id": "ISCC:MAIWFKM3UDDAAEAB",  # hub_id=1
+        "nonce": "000faa3f18c7b9407a48536a9b00c4cb",  # hub_id=0
+        "timestamp": "2025-01-15T12:00:00.000Z",
+        "signature": {
+            "version": "ISCC-SIG v1.0",
+            "pubkey": "zPubkey",
+            "proof": "zProof",
+        },
+    }
+    # ISCC-ID check should fail
+    with pytest.raises(IsccIdError, match="ISCC-ID with invalid hub_id"):
+        validators.validate_iscc_note_delete(
+            delete_note, verify_signature=False, verify_hub_id=0, verify_timestamp=False
+        )
+
+
+def test_validate_iscc_note_delete_unknown_fields():
+    # type: () -> None
+    """Test validate_iscc_note_delete rejects unknown fields."""
+    delete_note = {
+        "iscc_id": "ISCC:MAIWFKM3UDDAAEAB",
+        "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
+        "timestamp": "2025-01-15T12:00:00.000Z",
+        "unknown_field": "should_cause_error",
+        "signature": {
+            "version": "ISCC-SIG v1.0",
+            "pubkey": "zPubkey",
+            "proof": "zProof",
+        },
+    }
+    with pytest.raises(ValueError, match="Unknown fields not allowed: unknown_field"):
+        validators.validate_iscc_note_delete(delete_note, verify_signature=False, verify_timestamp=False)
+
+
+def test_validate_input_size_delete_non_dict():
+    # type: () -> None
+    """Test validate_input_size_delete raises for non-dict input."""
+    with pytest.raises(ValueError, match="Invalid input: expected JSON object, got list"):
+        validators.validate_input_size_delete([])
+
+
+def test_validate_input_size_delete_exceeds_limit():
+    # type: () -> None
+    """Test validate_input_size_delete raises for oversized input."""
+    # Create data that actually exceeds MAX_JSON_SIZE (8192 bytes)
+    large_string = "x" * 2000  # Each string is 2000 chars (under individual limit)
+    oversized_data = {
+        "iscc_id": "ISCC:MAIWFKM3UDDAAEAB",
+        "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
+        "timestamp": "2025-01-15T12:00:00.000Z",
+        "signature": {
+            "version": "ISCC-SIG v1.0",
+            "pubkey": "z" + large_string,  # 2001 chars
+            "proof": "z" + large_string,  # 2001 chars
+            "controller": "did:web:" + large_string,  # 2008 chars
+            "keyid": large_string,  # 2000 chars
+        },
+    }
+    # This should now exceed 8192 bytes when JSON serialized
+    with pytest.raises(ValueError, match="Input data exceeds maximum size"):
+        validators.validate_input_size_delete(oversized_data)
+
+
+def test_validate_input_size_delete_string_too_long():
+    # type: () -> None
+    """Test validate_input_size_delete raises for oversized string field."""
+    data = {
+        "iscc_id": "x" * 3000,  # Exceeds MAX_STRING_LENGTH
+    }
+    with pytest.raises(ValueError, match="Field 'iscc_id' exceeds maximum string length"):
+        validators.validate_input_size_delete(data)
+
+
+def test_not_found_error_to_error_response():
+    # type: () -> None
+    """Test NotFoundError.to_error_response method with all fields."""
+    from iscc_hub.exceptions import NotFoundError
+
+    # Test with all fields
+    error = NotFoundError("Declaration not found", resource_type="declaration", resource_id="ISCC:MAACCD3C6YZJ4IQM")
+    response = error.to_error_response()
+    assert response == {
+        "error": {
+            "message": "Declaration not found",
+            "code": "not_found",
+            "resource_type": "declaration",
+            "resource_id": "ISCC:MAACCD3C6YZJ4IQM",
+        }
+    }
+
+    # Test with minimal fields
+    error_minimal = NotFoundError("Not found")
+    response_minimal = error_minimal.to_error_response()
+    assert response_minimal == {"error": {"message": "Not found", "code": "not_found"}}
+
+    # Test with field set (to cover line 218)
+    error_with_field = NotFoundError("Not found")
+    error_with_field.field = "iscc_id"  # Manually set field to test the conditional
+    response_with_field = error_with_field.to_error_response()
+    assert response_with_field == {"error": {"message": "Not found", "code": "not_found", "field": "iscc_id"}}

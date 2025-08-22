@@ -94,6 +94,108 @@ def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_t
     return data
 
 
+@sync_to_async
+def avalidate_iscc_note_delete(*args, **kwargs):  # pragma: no cover
+    """Async wrapper for validate_iscc_note_delete."""
+    return validate_iscc_note_delete(*args, **kwargs)
+
+
+def validate_iscc_note_delete(data, verify_signature=True, verify_hub_id=None, verify_timestamp=True):
+    # type: (dict, bool, int|None, bool) -> dict
+    """
+    Validate an IsccNoteDelete request body for ISCC-ID deletion.
+
+    Performs format validation and cryptographic verification on ISCC deletion
+    requests. Validates required fields, timestamps, signatures, and ensures
+    the ISCC-ID format is correct.
+
+    :param data: Raw dictionary containing the IsccNoteDelete fields
+    :param verify_signature: Whether to verify the cryptographic signature (default: True)
+    :param verify_hub_id: Hub ID to validate nonce against (0-4095, default: None)
+    :param verify_timestamp: Whether to verify timestamp is within tolerance (default: True)
+    :return: Validated IsccNoteDelete data ready for deletion processing
+    :raises ValueError: If validation fails with detailed error information
+    """
+    # Validate input size limits to prevent DOS
+    validate_input_size_delete(data)
+
+    # Validate required fields for delete
+    validate_required_fields_delete(data)
+
+    # Validate ISCC-ID format
+    validate_iscc_id(data["iscc_id"], verify_hub_id)
+
+    # Validate nonce
+    validate_nonce(data["nonce"], verify_hub_id)
+
+    # Validate timestamp
+    validate_timestamp(data["timestamp"], verify_timestamp)
+
+    # Validate signature structure
+    validate_signature_structure(data["signature"])
+
+    # Validate signature cryptographically if requested
+    if verify_signature:
+        verify_signature_cryptographically(data)
+
+    return data
+
+
+def validate_input_size_delete(data):
+    # type: (dict) -> None
+    """
+    Validate input size limits for delete requests to prevent DOS attacks.
+
+    Similar to validate_input_size but with delete-specific allowed fields.
+
+    :param data: The data dictionary to validate
+    :raises ValueError: If data exceeds size limits
+    """
+    import json
+
+    # Ensure data is a dictionary
+    if not isinstance(data, dict):
+        raise ValidationError(f"Invalid input: expected JSON object, got {type(data).__name__}", code="invalid_type")
+
+    json_size = len(json.dumps(data))
+    if json_size > MAX_JSON_SIZE:
+        raise ValidationError(f"Input data exceeds maximum size of {MAX_JSON_SIZE} bytes", code="invalid_length")
+
+    # Check string field lengths
+    for key, value in data.items():
+        if isinstance(value, str) and len(value) > MAX_STRING_LENGTH:
+            raise LengthError(key, f"Field '{key}' exceeds maximum string length of {MAX_STRING_LENGTH}")
+
+    # Check for unknown fields at the top level
+    allowed_fields = {
+        "iscc_id",
+        "nonce",
+        "timestamp",
+        "signature",
+    }
+    unknown_fields = set(data.keys()) - allowed_fields
+    if unknown_fields:
+        raise ValidationError(
+            f"Unknown fields not allowed: {', '.join(sorted(unknown_fields))}", code="validation_failed"
+        )
+
+
+def validate_required_fields_delete(data):
+    # type: (dict) -> None
+    """
+    Validate presence of all required IsccNoteDelete fields.
+
+    Required fields: iscc_id, nonce, timestamp, signature
+
+    :param data: The data dictionary to validate
+    :raises ValueError: If any required field is missing
+    """
+    required_fields = {"iscc_id", "nonce", "timestamp", "signature"}
+    for field in required_fields:
+        if field not in data:
+            raise FieldValidationError(field, f"Missing required field: {field}", code="validation_failed")
+
+
 def validate_input_size(data):
     # type: (dict) -> None
     """

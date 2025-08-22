@@ -188,6 +188,41 @@ class SequencerError(BaseApiException):
         super().__init__(message, code="sequencer_error")
 
 
+class NotFoundError(BaseApiException):
+    """Resource not found error."""
+
+    status_code = 404  # Not Found
+
+    def __init__(self, message, resource_type=None, resource_id=None):
+        # type: (str, str|None, str|None) -> None
+        """
+        Initialize not found error.
+
+        :param message: Human-readable error message
+        :param resource_type: Type of resource not found (e.g., "declaration")
+        :param resource_id: ID of the resource not found
+        """
+        super().__init__(message, "not_found", None)
+        self.resource_type = resource_type
+        self.resource_id = resource_id
+
+    def to_error_response(self):
+        # type: () -> dict
+        """
+        Convert exception to ErrorResponse format for API.
+
+        :return: Dictionary conforming to ErrorResponse schema with additional context
+        """
+        error_detail = {"message": self.message, "code": self.code}
+        if self.field:
+            error_detail["field"] = self.field
+        if self.resource_type:
+            error_detail["resource_type"] = self.resource_type
+        if self.resource_id:
+            error_detail["resource_id"] = self.resource_id
+        return {"error": error_detail}
+
+
 class DuplicateDeclarationError(BaseApiException):
     """Duplicate declaration error."""
 
