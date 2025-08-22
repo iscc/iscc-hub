@@ -4,7 +4,7 @@ Django models for ISCC Hub.
 
 from django.db import models
 
-from iscc_hub.fields import HexField, IsccIDField, SequenceField
+from iscc_hub.fields import HexField, IsccIDField, PubkeyField, SequenceField
 
 
 class Event(models.Model):
@@ -35,6 +35,9 @@ class Event(models.Model):
 
     # For application side detection of duplicate declarations (if desired)
     datahash = HexField(db_index=True, help_text="Hash of the declared content")
+
+    # Public key of the declaring actor
+    pubkey = PubkeyField(null=True, blank=True, help_text="Ed25519 public key of the declaring actor")
 
     # Event type
     event_type = models.PositiveSmallIntegerField(

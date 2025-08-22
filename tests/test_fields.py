@@ -2,7 +2,7 @@
 Tests for custom Django field implementations.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -492,3 +492,427 @@ def test_hex_field_roundtrip():
         # Convert back from storage
         result = field.from_db_value(bytes_value, None, None)
         assert result == expected_bytes  # Now returns bytes directly
+
+
+# Tests for PubkeyField
+def test_pubkey_field_init():
+    # type: () -> None
+    """Test PubkeyField initialization."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    assert field.max_length == 32
+    assert field.description == "Ed25519 public key stored as 32-byte binary"
+
+
+def test_pubkey_field_init_with_kwargs():
+    # type: () -> None
+    """Test PubkeyField initialization with additional kwargs."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField(null=True, blank=True)
+    assert field.max_length == 32  # Always fixed
+    assert field.null is True
+    assert field.blank is True
+
+
+def test_pubkey_field_to_python_none():
+    # type: () -> None
+    """Test to_python with None value."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    assert field.to_python(None) is None
+
+
+def test_pubkey_field_to_python_empty_string():
+    # type: () -> None
+    """Test to_python with empty string."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    assert field.to_python("") is None
+
+
+def test_pubkey_field_to_python_valid_string():
+    # type: () -> None
+    """Test to_python with valid Multibase encoded public key string."""
+    import iscc_crypto as icr
+
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    # Generate a valid keypair to get a real public key
+    kp = icr.key_generate()
+    valid_pubkey = kp.public_key
+
+    result = field.to_python(valid_pubkey)
+    assert result == valid_pubkey
+    assert result.startswith("z")
+
+
+def test_pubkey_field_to_python_invalid_string():
+    # type: () -> None
+    """Test to_python with invalid public key string."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+
+    # Test invalid format (no z prefix)
+    with pytest.raises(ValidationError) as exc_info:
+        field.to_python("invalid_key")
+    assert exc_info.value.code == "invalid_pubkey"
+    assert "Invalid public key format" in str(exc_info.value)
+
+    # Test invalid base58
+    with pytest.raises(ValidationError) as exc_info:
+        field.to_python("z!!!!")
+    assert exc_info.value.code == "invalid_pubkey"
+
+    # Test wrong prefix (not ED01 for Ed25519)
+    import base58
+
+    wrong_prefix = base58.b58encode(b"\x00\x00" + b"\xaa" * 32).decode("utf-8")
+    with pytest.raises(ValidationError) as exc_info:
+        field.to_python("z" + wrong_prefix)
+    assert exc_info.value.code == "invalid_pubkey"
+    assert "not an Ed25519 public key" in str(exc_info.value)
+
+    # Test wrong length after prefix (not 32 bytes)
+    wrong_length = base58.b58encode(bytes.fromhex("ED01") + b"\xaa" * 31).decode("utf-8")
+    with pytest.raises(ValidationError) as exc_info:
+        field.to_python("z" + wrong_length)
+    assert exc_info.value.code == "invalid_pubkey"
+    assert "must be exactly 32 bytes" in str(exc_info.value)
+
+
+def test_pubkey_field_to_python_valid_bytes():
+    # type: () -> None
+    """Test to_python with valid 32-byte raw public key."""
+    import iscc_crypto as icr
+
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    # Generate a valid keypair and get raw bytes
+    kp = icr.key_generate()
+    raw_bytes = icr.pubkey_decode(kp.public_key).public_bytes_raw()
+
+    result = field.to_python(raw_bytes)
+    assert result == kp.public_key
+    assert result.startswith("z")
+
+
+def test_pubkey_field_to_python_invalid_bytes_length():
+    # type: () -> None
+    """Test to_python with bytes of incorrect length."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+
+    # Too short
+    with pytest.raises(ValidationError) as exc_info:
+        field.to_python(b"SHORT")
+    assert exc_info.value.code == "invalid_length"
+    assert "exactly 32 bytes" in str(exc_info.value)
+
+    # Too long
+    with pytest.raises(ValidationError) as exc_info:
+        field.to_python(b"\x00" * 33)
+    assert exc_info.value.code == "invalid_length"
+
+    # Test _encode_to_multibase directly with wrong length
+    with pytest.raises(ValidationError) as exc_info:
+        field._encode_to_multibase(b"SHORT")
+    assert exc_info.value.code == "invalid_length"
+    assert "exactly 32 bytes" in str(exc_info.value)
+
+
+def test_pubkey_field_to_python_invalid_bytes(example_keypair, monkeypatch):
+    # type: (object, object) -> None
+    """Test to_python with invalid 32-byte data that's not a valid public key."""
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+
+    # Most 32-byte values are actually valid Ed25519 public keys
+    # We need to simulate an error in the validation process to test the error path
+    # We'll mock the Ed25519PublicKey.from_public_bytes to raise an error
+    def mock_from_public_bytes(data):
+        # type: (bytes) -> None
+        """Mock from_public_bytes that always raises an error."""
+        raise ValueError("Simulated validation error")
+
+    # Use monkeypatch to temporarily replace the function
+    monkeypatch.setattr(ed25519.Ed25519PublicKey, "from_public_bytes", staticmethod(mock_from_public_bytes))
+
+    # Now test with any valid 32-byte value
+    with pytest.raises(ValidationError) as exc_info:
+        field.to_python(b"\xaa" * 32)
+    assert exc_info.value.code == "invalid_pubkey_bytes"
+    assert "Invalid public key bytes" in str(exc_info.value)
+
+
+def test_pubkey_field_to_python_invalid_type():
+    # type: () -> None
+    """Test to_python with unsupported type."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+
+    with pytest.raises(ValidationError) as exc_info:
+        field.to_python(12345)
+    assert exc_info.value.code == "invalid_type"
+    assert "must be a string or bytes" in str(exc_info.value)
+
+
+def test_pubkey_field_from_db_value_none():
+    # type: () -> None
+    """Test from_db_value with None."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    result = field.from_db_value(None, None, None)
+    assert result is None
+
+
+def test_pubkey_field_from_db_value_bytes():
+    # type: () -> None
+    """Test from_db_value with valid 32-byte raw public key."""
+    import iscc_crypto as icr
+
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    # Generate a valid keypair and get raw bytes
+    kp = icr.key_generate()
+    raw_bytes = icr.pubkey_decode(kp.public_key).public_bytes_raw()
+
+    result = field.from_db_value(raw_bytes, None, None)
+    assert result == kp.public_key
+    assert result.startswith("z")
+
+
+def test_pubkey_field_get_prep_value_none():
+    # type: () -> None
+    """Test get_prep_value with None."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    assert field.get_prep_value(None) is None
+
+
+def test_pubkey_field_get_prep_value_empty_string():
+    # type: () -> None
+    """Test get_prep_value with empty string."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    assert field.get_prep_value("") is None
+
+
+def test_pubkey_field_get_prep_value_valid_string():
+    # type: () -> None
+    """Test get_prep_value with valid Multibase encoded public key string."""
+    import iscc_crypto as icr
+
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    # Generate a valid keypair
+    kp = icr.key_generate()
+    valid_pubkey = kp.public_key
+
+    result = field.get_prep_value(valid_pubkey)
+    assert isinstance(result, bytes)
+    assert len(result) == 32
+
+    # Verify round-trip
+    expected_raw = icr.pubkey_decode(valid_pubkey).public_bytes_raw()
+    assert result == expected_raw
+
+
+def test_pubkey_field_get_prep_value_valid_bytes():
+    # type: () -> None
+    """Test get_prep_value with valid 32-byte raw public key."""
+    import iscc_crypto as icr
+
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    # Generate a valid keypair and get raw bytes
+    kp = icr.key_generate()
+    raw_bytes = icr.pubkey_decode(kp.public_key).public_bytes_raw()
+
+    result = field.get_prep_value(raw_bytes)
+    assert result == raw_bytes
+
+
+def test_pubkey_field_get_prep_value_invalid_bytes():
+    # type: () -> None
+    """Test get_prep_value with invalid bytes length."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+
+    with pytest.raises(ValidationError) as exc_info:
+        field.get_prep_value(b"TOOLONG" * 5)
+    assert exc_info.value.code == "invalid_length"
+    assert "exactly 32 bytes" in str(exc_info.value)
+
+
+def test_pubkey_field_get_prep_value_invalid_string():
+    # type: () -> None
+    """Test get_prep_value with invalid public key string."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+
+    with pytest.raises(ValidationError) as exc_info:
+        field.get_prep_value("invalid_pubkey")
+    assert exc_info.value.code == "invalid_pubkey"
+    assert "Invalid public key" in str(exc_info.value)
+
+
+def test_pubkey_field_value_to_string():
+    # type: () -> None
+    """Test value_to_string method for serialization."""
+    import iscc_crypto as icr
+
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+
+    # Generate a valid keypair
+    kp = icr.key_generate()
+    raw_bytes = icr.pubkey_decode(kp.public_key).public_bytes_raw()
+
+    # Create a mock object with pubkey value as bytes
+    class MockObject:
+        pubkey = raw_bytes
+
+    obj = MockObject()
+
+    # Test with valid bytes value
+    field.attname = "pubkey"
+    result = field.value_to_string(obj)
+    assert result == kp.public_key
+    assert result.startswith("z")
+
+    # Test with None value
+    obj.pubkey = None
+    result = field.value_to_string(obj)
+    assert result is None
+
+    # Test with string value (shouldn't normally happen but test str() fallback)
+    obj.pubkey = kp.public_key
+    result = field.value_to_string(obj)
+    assert result == kp.public_key
+
+
+def test_pubkey_field_formfield():
+    # type: () -> None
+    """Test formfield returns CharField with correct defaults."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    form_field = field.formfield()
+    assert isinstance(form_field, CharField)
+    assert form_field.max_length == 50
+
+
+def test_pubkey_field_formfield_with_kwargs():
+    # type: () -> None
+    """Test formfield with custom kwargs."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    form_field = field.formfield(max_length=60, help_text="Enter public key")
+    assert isinstance(form_field, CharField)
+    assert form_field.max_length == 60
+    assert form_field.help_text == "Enter public key"
+
+
+def test_pubkey_field_roundtrip():
+    # type: () -> None
+    """Test complete roundtrip: encoded string -> raw bytes -> encoded string."""
+    import iscc_crypto as icr
+
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+
+    # Generate multiple test keypairs
+    for _ in range(3):
+        kp = icr.key_generate()
+        pubkey_str = kp.public_key
+        expected_bytes = icr.pubkey_decode(pubkey_str).public_bytes_raw()
+
+        # Convert to bytes for storage
+        bytes_value = field.get_prep_value(pubkey_str)
+        assert bytes_value == expected_bytes
+        assert len(bytes_value) == 32
+
+        # Convert back from storage
+        result = field.from_db_value(bytes_value, None, None)
+        assert result == pubkey_str
+
+
+# Parameterized tests for PubkeyField
+@pytest.mark.parametrize(
+    "input_value,should_raise,error_code",
+    [
+        (None, False, None),
+        ("", False, None),
+        ("invalid", True, "invalid_pubkey"),
+        ("z!!!!", True, "invalid_pubkey"),
+        (b"SHORT", True, "invalid_length"),
+        (b"\x00" * 33, True, "invalid_length"),
+        (12345, True, "invalid_type"),
+        ([], True, "invalid_type"),
+    ],
+)
+def test_pubkey_field_to_python_parameterized(input_value, should_raise, error_code):
+    # type: (str|bytes|int|list|None, bool, str|None) -> None
+    """Parameterized test for PubkeyField.to_python method."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+
+    if should_raise:
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_python(input_value)
+        assert exc_info.value.code == error_code
+    else:
+        result = field.to_python(input_value)
+        assert result is None  # Only None and "" return None in our params
+
+
+@pytest.mark.parametrize(
+    "input_value,expected_type,should_raise",
+    [
+        (None, type(None), False),
+        ("", type(None), False),
+        ("invalid", None, True),
+        (b"SHORT", None, True),
+        (b"\x00" * 40, None, True),
+    ],
+)
+def test_pubkey_field_get_prep_value_parameterized(input_value, expected_type, should_raise):
+    # type: (str|bytes|None, type|None, bool) -> None
+    """Parameterized test for PubkeyField.get_prep_value method."""
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+
+    if should_raise:
+        with pytest.raises(ValidationError):
+            field.get_prep_value(input_value)
+    else:
+        result = field.get_prep_value(input_value)
+        if expected_type is type(None):
+            assert result is None
+        else:
+            assert isinstance(result, expected_type)
