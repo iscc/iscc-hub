@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Redoc</title>
+    <title>ISCC-HUB - API Docs -  ISCC Discovery Protocol (IDP)</title>
     <!-- needed for adaptive design -->
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,7 +18,14 @@
     </style>
   </head>
   <body>
-    <redoc spec-url='/openapi.yaml'></redoc>
+    <redoc
+        spec-url="/openapi.yaml"
+        side-nav-style="summary-only"
+        sort-tags-alphabetically="true"
+        path-in-middle-panel="false"
+        schema-definitions-tag-name="Models"
+        theme='{"rightPanel":{"backgroundColor":"#123663"}}'
+    ></redoc>
     <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"> </script>
   </body>
 </html>

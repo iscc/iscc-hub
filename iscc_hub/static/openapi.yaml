@@ -3,6 +3,10 @@ info:
   title: ISCC-HUB API
   description: Sign, timestamp, and discover content with ISCC-IDs
   version: 0.1.0
+  x-logo:
+    url: "/img/iscc-logo-white.png"
+    backgroundColor: "#0054b2"
+    altText: "International Standard Content Code (ISCC) - Logo"
 paths:
   /declaration:
     post:
