@@ -224,6 +224,17 @@ class NotFoundError(BaseApiException):
         return resp
 
 
+class UnauthorizedError(BaseApiException):
+    """Unauthorized access error."""
+
+    status_code = 401  # Unauthorized
+
+    def __init__(self, message):
+        # type: (str) -> None
+        """Initialize unauthorized error."""
+        super().__init__(message, "unauthorized", None)
+
+
 class DuplicateDeclarationError(BaseApiException):
     """Duplicate declaration error."""
 
