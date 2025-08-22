@@ -12,6 +12,7 @@ import time
 from binascii import unhexlify
 from datetime import datetime
 
+import base58
 import jcs
 from asgiref.sync import sync_to_async
 from django.conf import settings
@@ -50,6 +51,7 @@ def sequence_iscc_note(iscc_note):
 
     nonce_bytes = unhexlify(iscc_note["nonce"])
     datahash_bytes = unhexlify(iscc_note["datahash"])
+    pubkey_bytes = base58.b58decode(iscc_note["signature"]["pubkey"][1:])[2:]
     iscc_note_json = jcs.canonicalize(iscc_note)
 
     with connection.cursor() as cursor:
@@ -78,9 +80,7 @@ def sequence_iscc_note(iscc_note):
             seconds = new_timestamp_us // 1_000_000
             microseconds = new_timestamp_us % 1_000_000
             event_time_str = (
-                datetime.fromtimestamp(seconds)
-                .replace(microsecond=microseconds)
-                .strftime("%Y-%m-%d %H:%M:%S.%f")
+                datetime.fromtimestamp(seconds).replace(microsecond=microseconds).strftime("%Y-%m-%d %H:%M:%S.%f")
             )
 
             iscc_id_uint = (new_timestamp_us << 12) | settings.ISCC_HUB_ID
@@ -88,18 +88,10 @@ def sequence_iscc_note(iscc_note):
 
             cursor.execute(
                 """
-                INSERT INTO iscc_event (seq, event_type, iscc_id, nonce, datahash, iscc_note, event_time)
-                VALUES (%s, %s, %s, %s, %s, json(%s), %s)
+                INSERT INTO iscc_event (seq, event_type, iscc_id, nonce, datahash, pubkey, iscc_note, event_time)
+                VALUES (%s, %s, %s, %s, %s, %s, json(%s), %s)
             """,
-                (
-                    new_seq,
-                    1,  # EventType.CREATED
-                    iscc_id_bytes,
-                    nonce_bytes,
-                    datahash_bytes,
-                    iscc_note_json,
-                    event_time_str,
-                ),
+                (new_seq, 1, iscc_id_bytes, nonce_bytes, datahash_bytes, pubkey_bytes, iscc_note_json, event_time_str),
             )
 
             cursor.execute("COMMIT")

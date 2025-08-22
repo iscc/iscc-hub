@@ -60,9 +60,7 @@ def test_field_validation_error():
     assert error.code == "missing_field"
 
     response = error.to_error_response()
-    assert response == {
-        "error": {"message": "Username is required", "code": "missing_field", "field": "username"}
-    }
+    assert response == {"error": {"message": "Username is required", "code": "missing_field", "field": "username"}}
 
 
 def test_iscc_code_error():
@@ -74,9 +72,7 @@ def test_iscc_code_error():
     assert error.message == "Invalid ISCC format"
 
     response = error.to_error_response()
-    assert response == {
-        "error": {"message": "Invalid ISCC format", "code": "invalid_iscc", "field": "iscc_code"}
-    }
+    assert response == {"error": {"message": "Invalid ISCC format", "code": "invalid_iscc", "field": "iscc_code"}}
 
 
 def test_iscc_id_error():
@@ -88,9 +84,7 @@ def test_iscc_id_error():
     assert error.message == "Invalid ISCC-ID format"
 
     response = error.to_error_response()
-    assert response == {
-        "error": {"message": "Invalid ISCC-ID format", "code": "invalid_iscc", "field": "iscc_id"}
-    }
+    assert response == {"error": {"message": "Invalid ISCC-ID format", "code": "invalid_iscc", "field": "iscc_id"}}
 
 
 def test_timestamp_error_format():
@@ -218,9 +212,7 @@ def test_hex_format_error():
     assert error.code == "invalid_hex"
 
     response = error.to_error_response()
-    assert response == {
-        "error": {"message": "Must be lowercase hex", "code": "invalid_hex", "field": "datahash"}
-    }
+    assert response == {"error": {"message": "Must be lowercase hex", "code": "invalid_hex", "field": "datahash"}}
 
 
 def test_sequencer_error():

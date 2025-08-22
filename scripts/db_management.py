@@ -62,9 +62,7 @@ def ensure_migrations():
     :return: True if migrations were created, False if they already existed
     """
     migrations_dir = Path("iscc_hub/migrations")
-    has_migrations = migrations_dir.exists() and any(
-        f.name.startswith("0001_") for f in migrations_dir.glob("*.py")
-    )
+    has_migrations = migrations_dir.exists() and any(f.name.startswith("0001_") for f in migrations_dir.glob("*.py"))
 
     if not has_migrations:
         print("  ✓ Creating migrations...")

@@ -109,15 +109,11 @@ def validate_input_size(data):
 
     # Ensure data is a dictionary
     if not isinstance(data, dict):
-        raise ValidationError(
-            f"Invalid input: expected JSON object, got {type(data).__name__}", code="invalid_type"
-        )
+        raise ValidationError(f"Invalid input: expected JSON object, got {type(data).__name__}", code="invalid_type")
 
     json_size = len(json.dumps(data))
     if json_size > MAX_JSON_SIZE:
-        raise ValidationError(
-            f"Input data exceeds maximum size of {MAX_JSON_SIZE} bytes", code="invalid_length"
-        )
+        raise ValidationError(f"Input data exceeds maximum size of {MAX_JSON_SIZE} bytes", code="invalid_length")
 
     # Check string field lengths
     for key, value in data.items():
@@ -414,18 +410,14 @@ def validate_signature_structure(signature):
                 validate_optional_field(field, signature[field])
             except FieldValidationError as e:
                 # Update message to be more specific for signature fields
-                new_message = e.message.replace(
-                    f"Optional field '{field}'", f"Optional field '{field}' in signature"
-                )
+                new_message = e.message.replace(f"Optional field '{field}'", f"Optional field '{field}' in signature")
                 raise FieldValidationError(field, new_message, e.code) from e
 
     # Check for unknown fields in signature
     allowed_signature_fields = required_signature_fields | optional_fields_signature
     unknown_signature_fields = set(signature.keys()) - allowed_signature_fields
     if unknown_signature_fields:
-        raise SignatureError(
-            f"Unknown fields in signature not allowed: {', '.join(sorted(unknown_signature_fields))}"
-        )
+        raise SignatureError(f"Unknown fields in signature not allowed: {', '.join(sorted(unknown_signature_fields))}")
 
 
 def verify_signature_cryptographically(data):
@@ -472,9 +464,7 @@ def validate_multihash(value, field_name):
 
     # Check prefix (BLAKE3 multihash identifier)
     if not value.startswith(DATAHASH_PREFIX):
-        raise HashError(
-            field_name, f"{field_name} must start with '{DATAHASH_PREFIX}' (BLAKE3 multihash prefix)"
-        )
+        raise HashError(field_name, f"{field_name} must start with '{DATAHASH_PREFIX}' (BLAKE3 multihash prefix)")
 
     # Check length
     if len(value) != HASH_LENGTH:
@@ -502,9 +492,7 @@ def validate_gateway(gateway):
     if "{" in gateway or "}" in gateway:
         # Check for mismatched braces
         if gateway.count("{") != gateway.count("}"):
-            raise FieldValidationError(
-                "gateway", "gateway has invalid URI template syntax", code="invalid_format"
-            )
+            raise FieldValidationError("gateway", "gateway has invalid URI template syntax", code="invalid_format")
 
     # Create URI template and extract variables
     template = uritemplate.URITemplate(gateway)
@@ -538,24 +526,18 @@ def validate_url(url):
     """
     # Check for whitespace
     if url != url.strip():
-        raise FieldValidationError(
-            "gateway", "gateway must be a valid URL or URI template", code="invalid_format"
-        )
+        raise FieldValidationError("gateway", "gateway must be a valid URL or URI template", code="invalid_format")
 
     # Parse URL
     parsed = urlparse(url)
 
     # Check if it has a valid scheme
     if parsed.scheme not in SUPPORTED_URL_SCHEMES:
-        raise FieldValidationError(
-            "gateway", "gateway must be a valid URL or URI template", code="invalid_format"
-        )
+        raise FieldValidationError("gateway", "gateway must be a valid URL or URI template", code="invalid_format")
 
     # Check if it has a hostname
     if not parsed.netloc:
-        raise FieldValidationError(
-            "gateway", "gateway must be a valid URL or URI template", code="invalid_format"
-        )
+        raise FieldValidationError("gateway", "gateway must be a valid URL or URI template", code="invalid_format")
 
 
 def validate_units_reconstruction(units, datahash, iscc_code):

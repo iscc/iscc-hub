@@ -110,9 +110,7 @@ def validate_state(iscc_note, actor, iscc_id=None):
         if not declaration:
             raise StateValidationError(code="NOT_FOUND", message=f"ISCC-ID not found: {iscc_id}")
         if declaration.actor != actor:
-            raise StateValidationError(
-                code="UNAUTHORIZED", message="Cannot update declaration owned by another actor"
-            )
+            raise StateValidationError(code="UNAUTHORIZED", message="Cannot update declaration owned by another actor")
         # For updates, we don't check nonce uniqueness (it's a new nonce)
         # But we do check that the new nonce is not already used
         check_nonce_unused(iscc_note["nonce"])

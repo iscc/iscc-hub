@@ -37,7 +37,7 @@ class Event(models.Model):
     datahash = HexField(db_index=True, help_text="Hash of the declared content")
 
     # Public key of the declaring actor
-    pubkey = PubkeyField(null=True, blank=True, help_text="Ed25519 public key of the declaring actor")
+    pubkey = PubkeyField(db_index=True, help_text="Ed25519 public key of the declaring actor")
 
     # Event type
     event_type = models.PositiveSmallIntegerField(
@@ -105,9 +105,7 @@ class IsccDeclaration(models.Model):
     )
 
     # Actor identity
-    actor = models.CharField(
-        max_length=128, db_index=True, help_text="Ed25519 public key of the declaring actor"
-    )
+    actor = models.CharField(max_length=128, db_index=True, help_text="Ed25519 public key of the declaring actor")
 
     # Optional fields
     gateway = models.URLField(

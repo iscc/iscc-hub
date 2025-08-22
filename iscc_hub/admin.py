@@ -270,8 +270,7 @@ class EventAdmin(ModelAdmin):
         try:
             formatted = json.dumps(obj.iscc_note, indent=2)
             return format_html(
-                '<pre style="background: #f5f5f5; padding: 10px; '
-                'border-radius: 4px; overflow-x: auto;">{}</pre>',
+                '<pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">{}</pre>',
                 formatted,
             )
         except (TypeError, ValueError):

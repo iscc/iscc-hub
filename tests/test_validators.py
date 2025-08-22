@@ -980,9 +980,7 @@ def test_validate_url_with_whitespace():
         validators.validate_url(" https://example.com ")
 
 
-def test_validate_iscc_note_full_validation(
-    example_nonce, current_timestamp, example_keypair, example_iscc_data
-):
+def test_validate_iscc_note_full_validation(example_nonce, current_timestamp, example_keypair, example_iscc_data):
     # type: (str, str, Any, dict) -> None
     """Test validate_iscc_note with full validation."""
     # Create a note with current timestamp for tolerance testing
@@ -1006,9 +1004,7 @@ def test_validate_iscc_note_full_validation(
 def test_validate_iscc_note_skip_signature(unsigned_iscc_note):
     # type: () -> None
     """Test validate_iscc_note without signature verification."""
-    validated = validators.validate_iscc_note(
-        unsigned_iscc_note, verify_signature=False, verify_timestamp=False
-    )
+    validated = validators.validate_iscc_note(unsigned_iscc_note, verify_signature=False, verify_timestamp=False)
     assert validated == unsigned_iscc_note
 
 
@@ -1153,9 +1149,7 @@ def test_validate_signature_invalid_version(example_iscc_data, example_nonce):
         validators.validate_signature_structure(signature)
 
 
-def test_verify_signature_cryptographically_valid_with_keypair(
-    example_iscc_data, example_nonce, example_keypair
-):
+def test_verify_signature_cryptographically_valid_with_keypair(example_iscc_data, example_nonce, example_keypair):
     # type: () -> None
     """Test successful cryptographic signature verification."""
     import iscc_crypto as icr
@@ -1187,9 +1181,7 @@ def test_validate_units_exceeds_max_size(example_iscc_data):
     ]
 
     with pytest.raises(ValueError, match="units array exceeds maximum size"):
-        validators.validate_units_reconstruction(
-            units, example_iscc_data["datahash"], example_iscc_data["iscc"]
-        )
+        validators.validate_units_reconstruction(units, example_iscc_data["datahash"], example_iscc_data["iscc"])
 
 
 # Tests from test_signature_exception.py
