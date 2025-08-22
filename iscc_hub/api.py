@@ -1,5 +1,3 @@
-import json
-
 import iscc_crypto as icr
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
@@ -41,14 +39,8 @@ def handle_api_exception(request, exc):
 
 @api.post("/declaration", response={201: IsccReceipt, codes_4xx: ErrorResponse})
 async def declaration(request):
-    # Parse JSON with error handling
-    try:
-        data = json.loads(request.body)
-    except (json.JSONDecodeError, UnicodeDecodeError) as e:
-        raise BaseApiException("Invalid JSON in request body") from e
-
-    # Offline pre-validation
-    valid_data = await avalidate_iscc_note(data, True, settings.ISCC_HUB_ID, True)
+    # Validate and parse request body (includes size check and JSON parsing)
+    valid_data = await avalidate_iscc_note(request.body, True, settings.ISCC_HUB_ID, True)
 
     # Check for duplicate declarations (only if force header not present)
     force_declaration = request.headers.get("X-Force-Declaration", "").lower() in ("true", "1")

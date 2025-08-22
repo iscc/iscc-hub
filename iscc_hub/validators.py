@@ -35,7 +35,32 @@ MAX_HUB_ID = 4095  # 12-bit maximum (2^12 - 1)
 SIGNATURE_VERSION = "ISCC-SIG v1.0"
 MAX_UNITS_ARRAY_SIZE = 4  # Prevent DOS attacks
 MAX_STRING_LENGTH = 2048  # Maximum length for string fields
-MAX_JSON_SIZE = 2048 * 4
+
+
+def deserialize_request(data, max_size=8192):
+    # type: (bytes, int) -> dict
+    """
+    Safely deserialize JSON request body with size limit.
+
+    :param data: Raw request body bytes
+    :param max_size: Maximum allowed request size in bytes
+    :return: Deserialized JSON dictionary
+    :raises ValidationError: If request is too large or invalid JSON
+    """
+    import json
+
+    if not isinstance(data, bytes):
+        raise ValidationError("Request body must be bytes", code="invalid_type")
+
+    # Check size before deserialization to prevent DOS
+    if len(data) > max_size:
+        raise ValidationError(f"Request body exceeds maximum size of {max_size} bytes", code="invalid_length")
+
+    # Parse JSON
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise ValidationError("Invalid JSON in request body", code="invalid_format") from e
 
 
 @sync_to_async
@@ -45,7 +70,7 @@ def avalidate_iscc_note(*args, **kwargs):  # pragma: no cover
 
 
 def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_timestamp=True):
-    # type: (dict, bool, int|None, bool) -> dict
+    # type: (bytes, bool, int|None, bool) -> dict
     """
     Validate an IsccNote request body with comprehensive security checks.
 
@@ -53,14 +78,17 @@ def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_t
     declaration data before notarization. Validates field formats, timestamps, signatures,
     and ensures data integrity between related fields.
 
-    :param data: Raw dictionary containing the IsccNote fields
+    :param data: Raw request body bytes
     :param verify_signature: Whether to verify the cryptographic signature (default: True)
     :param verify_hub_id: Hub ID to validate nonce against (0-4095, default: None)
     :param verify_timestamp: Whether to verify timestamp is within tolerance (default: True)
     :return: Validated IsccNote data ready for notarization
     :raises ValidationError: If validation fails with detailed error information
     """
-    # Validate input size limits to prevent DOS
+    # Deserialize with size check
+    data_dict = deserialize_request(data)
+
+    # Validate allowed fields and basic structure
     allowed_fields = {
         "iscc_code",
         "datahash",
@@ -71,38 +99,38 @@ def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_t
         "metahash",
         "gateway",
     }
-    validate_input_size(data, allowed_fields)
+    validate_structure(data_dict, allowed_fields)
 
     # Validate required fields
     required_fields = {"iscc_code", "datahash", "nonce", "timestamp", "signature"}
-    validate_required_fields(data, required_fields)
+    validate_required_fields(data_dict, required_fields)
 
     # Validate ISCC-CODE
-    validate_iscc_code(data["iscc_code"])
+    validate_iscc_code(data_dict["iscc_code"])
 
     # Validate datahash
-    validate_multihash(data["datahash"], "datahash")
+    validate_multihash(data_dict["datahash"], "datahash")
 
     # Validate nonce
-    validate_nonce(data["nonce"], verify_hub_id)
+    validate_nonce(data_dict["nonce"], verify_hub_id)
 
     # Validate timestamp
-    validate_timestamp(data["timestamp"], verify_timestamp)
+    validate_timestamp(data_dict["timestamp"], verify_timestamp)
 
     # Validate optional fields
-    validate_optional_fields(data)
+    validate_optional_fields(data_dict)
 
     # Validate signature structure
-    validate_signature_structure(data["signature"])
+    validate_signature_structure(data_dict["signature"])
 
     # Validate cross-field datahash match with ISCC-CODE
-    validate_datahash_match(data["iscc_code"], data["datahash"])
+    validate_datahash_match(data_dict["iscc_code"], data_dict["datahash"])
 
     # Validate signature cryptographically if requested
     if verify_signature:
-        verify_signature_cryptographically(data)
+        verify_signature_cryptographically(data_dict)
 
-    return data
+    return data_dict
 
 
 @sync_to_async
@@ -112,7 +140,7 @@ def avalidate_iscc_note_delete(*args, **kwargs):  # pragma: no cover
 
 
 def validate_iscc_note_delete(data, verify_signature=True, verify_hub_id=None, verify_timestamp=True):
-    # type: (dict, bool, int|None, bool) -> dict
+    # type: (bytes, bool, int|None, bool) -> dict
     """
     Validate an IsccNoteDelete request body for ISCC-ID deletion.
 
@@ -120,85 +148,67 @@ def validate_iscc_note_delete(data, verify_signature=True, verify_hub_id=None, v
     requests. Validates required fields, timestamps, signatures, and ensures
     the ISCC-ID format is correct.
 
-    :param data: Raw dictionary containing the IsccNoteDelete fields
+    :param data: Raw request body bytes
     :param verify_signature: Whether to verify the cryptographic signature (default: True)
     :param verify_hub_id: Hub ID to validate nonce against (0-4095, default: None)
     :param verify_timestamp: Whether to verify timestamp is within tolerance (default: True)
     :return: Validated IsccNoteDelete data ready for deletion processing
     :raises ValidationError: If validation fails with detailed error information
     """
-    # Validate input size limits to prevent DOS
+    # Deserialize with size check
+    data_dict = deserialize_request(data)
+
+    # Validate allowed fields and basic structure
     allowed_fields = {"iscc_id", "nonce", "timestamp", "signature"}
-    validate_input_size(data, allowed_fields)
+    validate_structure(data_dict, allowed_fields)
 
     # Validate required fields for delete
     required_fields = {"iscc_id", "nonce", "timestamp", "signature"}
-    validate_required_fields(data, required_fields)
+    validate_required_fields(data_dict, required_fields)
 
     # Validate ISCC-ID format
-    validate_iscc_id(data["iscc_id"], verify_hub_id)
+    validate_iscc_id(data_dict["iscc_id"], verify_hub_id)
 
     # Validate nonce
-    validate_nonce(data["nonce"], verify_hub_id)
+    validate_nonce(data_dict["nonce"], verify_hub_id)
 
     # Validate timestamp
-    validate_timestamp(data["timestamp"], verify_timestamp)
+    validate_timestamp(data_dict["timestamp"], verify_timestamp)
 
     # Validate signature structure
-    validate_signature_structure(data["signature"])
+    validate_signature_structure(data_dict["signature"])
 
     # Validate signature cryptographically if requested
     if verify_signature:
-        verify_signature_cryptographically(data)
+        verify_signature_cryptographically(data_dict)
 
-    return data
+    return data_dict
 
 
-def validate_input_size(data, allowed_fields=None):
-    # type: (dict, set|None) -> None
+def validate_structure(data, allowed_fields):
+    # type: (dict, set) -> None
     """
-    Validate input size limits to prevent DOS attacks.
-
-    Checks that the JSON data and individual string fields don't exceed
-    maximum allowed sizes to prevent memory exhaustion attacks.
+    Validate basic structure and field constraints.
 
     :param data: The data dictionary to validate
-    :param allowed_fields: Set of allowed field names (optional, defaults to IsccNote fields)
-    :raises ValidationError: If data exceeds size limits or contains unknown fields
+    :param allowed_fields: Set of allowed field names
+    :raises ValidationError: If structure is invalid or contains unknown fields
     """
-    import json
-
     # Ensure data is a dictionary
     if not isinstance(data, dict):
         raise ValidationError(f"Invalid input: expected JSON object, got {type(data).__name__}", code="invalid_type")
 
-    json_size = len(json.dumps(data, separators=(",", ":")))
-    if json_size > MAX_JSON_SIZE:
-        raise ValidationError(f"Input data exceeds maximum size of {MAX_JSON_SIZE} bytes", code="invalid_length")
-
-    # Check string field lengths
-    for key, value in data.items():
-        if isinstance(value, str) and len(value) > MAX_STRING_LENGTH:
-            raise LengthError(key, f"Field '{key}' exceeds maximum string length of {MAX_STRING_LENGTH}")
-
-    # Check for unknown fields at the top level
-    if allowed_fields is None:
-        # Default to IsccNote fields for backward compatibility
-        allowed_fields = {
-            "iscc_code",
-            "datahash",
-            "nonce",
-            "timestamp",
-            "signature",
-            "units",
-            "metahash",
-            "gateway",
-        }
+    # Check for unknown fields
     unknown_fields = set(data.keys()) - allowed_fields
     if unknown_fields:
         raise ValidationError(
             f"Unknown fields not allowed: {', '.join(sorted(unknown_fields))}", code="validation_failed"
         )
+
+    # Check string field lengths
+    for key, value in data.items():
+        if isinstance(value, str) and len(value) > MAX_STRING_LENGTH:
+            raise LengthError(key, f"Field '{key}' exceeds maximum string length of {MAX_STRING_LENGTH}")
 
 
 def validate_required_fields(data, required_fields=None):

@@ -74,7 +74,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/IsccReceipt'
         '400':
-          description: Bad Request - Client error (malformed request, validation errors, etc.). Returns the first error encountered.
+          description: Bad Request - General client error
           content:
             application/json:
               schema:

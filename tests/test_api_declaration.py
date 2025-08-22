@@ -88,7 +88,7 @@ async def test_declaration_invalid_json(live_server):
             headers={"Content-Type": "application/json"},
         )
 
-        assert response.status_code == 400
+        assert response.status_code == 422  # Unprocessable Entity for invalid JSON
         data = response.json()
 
         # Verify ErrorResponse structure
@@ -97,7 +97,7 @@ async def test_declaration_invalid_json(live_server):
         assert "message" in error
         assert "code" in error
         assert error["message"] == "Invalid JSON in request body"
-        assert error["code"] == "error"
+        assert error["code"] == "invalid_format"  # ValidationError uses specific codes
 
 
 @pytest.mark.asyncio

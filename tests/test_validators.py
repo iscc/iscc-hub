@@ -1,10 +1,17 @@
 """Comprehensive tests for iscc_hub.validators module."""
 
+import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from iscc_hub import validators
+
+
+def to_bytes(data):
+    # type: (dict) -> bytes
+    """Convert dict to JSON bytes for validator input."""
+    return json.dumps(data).encode()
 
 
 # Parameterized test examples for nonce validation
@@ -997,14 +1004,16 @@ def test_validate_iscc_note_full_validation(example_nonce, current_timestamp, ex
     signed_note = icr.sign_json(minimal_note, example_keypair)
 
     # Should validate successfully with current timestamp
-    validated = validators.validate_iscc_note(signed_note)
+    validated = validators.validate_iscc_note(to_bytes(signed_note))
     assert validated == signed_note
 
 
 def test_validate_iscc_note_skip_signature(unsigned_iscc_note):
     # type: () -> None
     """Test validate_iscc_note without signature verification."""
-    validated = validators.validate_iscc_note(unsigned_iscc_note, verify_signature=False, verify_timestamp=False)
+    validated = validators.validate_iscc_note(
+        to_bytes(unsigned_iscc_note), verify_signature=False, verify_timestamp=False
+    )
     assert validated == unsigned_iscc_note
 
 
@@ -1022,7 +1031,7 @@ def test_validate_iscc_note_with_hub_id():
             "proof": "zInvalidButWeSkipVerification",
         },
     }
-    validators.validate_iscc_note(note, verify_signature=False, verify_hub_id=0, verify_timestamp=False)
+    validators.validate_iscc_note(to_bytes(note), verify_signature=False, verify_hub_id=0, verify_timestamp=False)
 
 
 def test_validate_iscc_note_missing_field():
@@ -1035,7 +1044,7 @@ def test_validate_iscc_note_missing_field():
         "signature": {},
     }
     with pytest.raises(ValueError, match="Missing required field: iscc_code"):
-        validators.validate_iscc_note(note)
+        validators.validate_iscc_note(to_bytes(note))
 
 
 def test_validate_iscc_note_skip_timestamp(example_nonce, example_keypair, example_iscc_data):
@@ -1056,39 +1065,45 @@ def test_validate_iscc_note_skip_timestamp(example_nonce, example_keypair, examp
 
     # Would fail with timestamp check
     with pytest.raises(ValueError, match="timestamp is outside"):
-        validators.validate_iscc_note(signed_note, verify_timestamp=True)
+        validators.validate_iscc_note(to_bytes(signed_note), verify_timestamp=True)
 
     # Should pass without timestamp check
-    validators.validate_iscc_note(signed_note, verify_timestamp=False)
+    validators.validate_iscc_note(to_bytes(signed_note), verify_timestamp=False)
 
 
 # Tests from test_missing_coverage.py
-def test_validate_input_size_exceeds_json_limit(example_iscc_data, example_nonce, example_keypair):
+def test_validate_iscc_note_bytes_input(example_iscc_data, example_nonce, example_keypair):
     # type: () -> None
-    """Test that oversized JSON input is rejected."""
-    # Create a note with very large strings that will exceed JSON size limit (8192 bytes)
-    # Each string is 2000 chars (under individual limit of 2048)
-    large_string = "x" * 2000
-    oversized_note = {
+    """Test that validate_iscc_note accepts bytes input and rejects oversized requests."""
+    import json
+
+    # Test valid bytes input
+    valid_note = {
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
         "timestamp": "2025-01-01T00:00:00.000Z",
-        "gateway": large_string,
-        "metahash": "1e20" + "a" * 64,
-        "extra1": large_string,  # Add more fields to exceed 8192 bytes total
-        "extra2": large_string,
-        "extra3": large_string,
         "signature": {
             "version": "ISCC-SIG v1.0",
-            "proof": "z" + "A" * 100,
-            "pubkey": "z" + "B" * 100,
-            "controller": large_string,
+            "proof": "test",
+            "pubkey": example_keypair.pubkey_multikey,
         },
     }
+    valid_bytes = json.dumps(valid_note).encode()
+    result = validators.validate_iscc_note(valid_bytes, verify_signature=False, verify_timestamp=False)
+    assert result["iscc_code"] == example_iscc_data["iscc"]
 
-    with pytest.raises(ValueError, match="Input data exceeds maximum size"):
-        validators.validate_input_size(oversized_note)
+    # Test oversized bytes input (>8192 bytes)
+    large_string = "x" * 3000
+    oversized_note = valid_note.copy()
+    oversized_note["gateway"] = large_string
+    oversized_note["metahash"] = "1e20" + "a" * 64
+    oversized_note["extra1"] = large_string
+    oversized_note["extra2"] = large_string
+    oversized_bytes = json.dumps(oversized_note).encode()
+
+    with pytest.raises(ValueError, match="Request body exceeds maximum size"):
+        validators.validate_iscc_note(oversized_bytes)
 
 
 def test_validate_input_size_exceeds_string_limit(example_iscc_data):
@@ -1096,9 +1111,10 @@ def test_validate_input_size_exceeds_string_limit(example_iscc_data):
     """Test that oversized string fields are rejected."""
     oversized_string = "x" * 3000  # Exceeds MAX_STRING_LENGTH (2048)
     data = {"gateway": oversized_string}
+    allowed_fields = {"gateway"}
 
     with pytest.raises(ValueError, match="Field 'gateway' exceeds maximum string length"):
-        validators.validate_input_size(data)
+        validators.validate_structure(data, allowed_fields)
 
 
 def test_validate_nonce_hub_id_out_of_range():
@@ -1209,7 +1225,7 @@ def test_validator_rejects_extra_fields(unsigned_iscc_note):
     unsigned_iscc_note["unknown_field"] = "should_cause_error"
 
     with pytest.raises(ValueError, match="Unknown fields not allowed: unknown_field"):
-        validators.validate_iscc_note(unsigned_iscc_note, verify_signature=False, verify_timestamp=False)
+        validators.validate_iscc_note(to_bytes(unsigned_iscc_note), verify_signature=False, verify_timestamp=False)
 
 
 def test_validator_rejects_extra_signature_fields(unsigned_iscc_note):
@@ -1218,14 +1234,14 @@ def test_validator_rejects_extra_signature_fields(unsigned_iscc_note):
     unsigned_iscc_note["signature"]["extra_sig_field"] = "should_cause_error"
 
     with pytest.raises(ValueError, match="Unknown fields in signature not allowed: extra_sig_field"):
-        validators.validate_iscc_note(unsigned_iscc_note, verify_signature=False, verify_timestamp=False)
+        validators.validate_iscc_note(to_bytes(unsigned_iscc_note), verify_signature=False, verify_timestamp=False)
 
 
 def test_validator_accepts_all_valid_fields(full_iscc_note):
     # type: (dict) -> None
     """Test that validator accepts all valid optional fields."""
     # Should not raise any exception
-    result = validators.validate_iscc_note(full_iscc_note, verify_signature=False, verify_timestamp=False)
+    result = validators.validate_iscc_note(to_bytes(full_iscc_note), verify_signature=False, verify_timestamp=False)
     assert result["gateway"] == full_iscc_note["gateway"]
     assert result["metahash"] == full_iscc_note["metahash"]
     assert result["units"] == full_iscc_note["units"]
@@ -1235,7 +1251,7 @@ def test_validate_input_size_non_dict():
     # type: () -> None
     """Test validate_input_size raises ValidationError for non-dict input."""
     with pytest.raises(ValueError, match="Invalid input: expected JSON object, got str"):
-        validators.validate_input_size("not_a_dict")
+        validators.validate_structure("not_a_dict", set())
 
 
 def test_validate_input_size_default_allowed_fields():
@@ -1249,14 +1265,15 @@ def test_validate_input_size_default_allowed_fields():
         "timestamp": "2025-01-15T12:00:00.000Z",
         "signature": {"version": "ISCC-SIG v1.0", "pubkey": "test", "proof": "test"},
     }
-    # Should not raise when called without allowed_fields parameter
-    validators.validate_input_size(data)
+    # Should not raise when called with correct allowed_fields
+    allowed_fields = {"iscc_code", "datahash", "nonce", "timestamp", "signature"}
+    validators.validate_structure(data, allowed_fields)
 
-    # Data with unknown field should fail with default allowed_fields
+    # Data with unknown field should fail
     data_with_unknown = data.copy()
     data_with_unknown["unknown_field"] = "value"
     with pytest.raises(ValueError, match="Unknown fields not allowed: unknown_field"):
-        validators.validate_input_size(data_with_unknown)
+        validators.validate_structure(data_with_unknown, allowed_fields)
 
 
 def test_validate_iscc_code_non_string():
@@ -1329,7 +1346,9 @@ def test_validate_iscc_note_delete_valid(example_nonce, example_keypair):
     signed_delete = icr.sign_json(delete_note, example_keypair)
 
     # Should validate successfully (without timestamp/signature checks for test)
-    validated = validators.validate_iscc_note_delete(signed_delete, verify_signature=True, verify_timestamp=False)
+    validated = validators.validate_iscc_note_delete(
+        to_bytes(signed_delete), verify_signature=True, verify_timestamp=False
+    )
     assert validated == signed_delete
 
 
@@ -1342,7 +1361,7 @@ def test_validate_iscc_note_delete_missing_field():
         "signature": {},
     }
     with pytest.raises(ValueError, match="Missing required field: iscc_id"):
-        validators.validate_iscc_note_delete(delete_note)
+        validators.validate_iscc_note_delete(to_bytes(delete_note))
 
 
 def test_validate_iscc_note_delete_invalid_iscc_id():
@@ -1361,7 +1380,7 @@ def test_validate_iscc_note_delete_invalid_iscc_id():
         },
     }
     with pytest.raises(IsccIdError, match="Invalid ISCC-ID format"):
-        validators.validate_iscc_note_delete(delete_note, verify_signature=False, verify_timestamp=False)
+        validators.validate_iscc_note_delete(to_bytes(delete_note), verify_signature=False, verify_timestamp=False)
 
 
 def test_validate_iscc_note_delete_with_hub_id():
@@ -1377,7 +1396,9 @@ def test_validate_iscc_note_delete_with_hub_id():
             "proof": "zProof",
         },
     }
-    validators.validate_iscc_note_delete(delete_note, verify_signature=False, verify_hub_id=1, verify_timestamp=False)
+    validators.validate_iscc_note_delete(
+        to_bytes(delete_note), verify_signature=False, verify_hub_id=1, verify_timestamp=False
+    )
 
 
 def test_validate_iscc_note_delete_hub_id_mismatch():
@@ -1398,7 +1419,7 @@ def test_validate_iscc_note_delete_hub_id_mismatch():
     # ISCC-ID check should fail
     with pytest.raises(IsccIdError, match="ISCC-ID with invalid hub_id"):
         validators.validate_iscc_note_delete(
-            delete_note, verify_signature=False, verify_hub_id=0, verify_timestamp=False
+            to_bytes(delete_note), verify_signature=False, verify_hub_id=0, verify_timestamp=False
         )
 
 
@@ -1417,15 +1438,15 @@ def test_validate_iscc_note_delete_unknown_fields():
         },
     }
     with pytest.raises(ValueError, match="Unknown fields not allowed: unknown_field"):
-        validators.validate_iscc_note_delete(delete_note, verify_signature=False, verify_timestamp=False)
+        validators.validate_iscc_note_delete(to_bytes(delete_note), verify_signature=False, verify_timestamp=False)
 
 
 def test_validate_input_size_delete_non_dict():
     # type: () -> None
-    """Test validate_input_size raises for non-dict input with delete fields."""
+    """Test validate_structure raises for non-dict input with delete fields."""
     allowed_fields = {"iscc_id", "nonce", "timestamp", "signature"}
     with pytest.raises(ValueError, match="Invalid input: expected JSON object, got list"):
-        validators.validate_input_size([], allowed_fields)
+        validators.validate_structure([], allowed_fields)
 
 
 def test_validate_input_size_delete_exceeds_limit():
@@ -1446,20 +1467,36 @@ def test_validate_input_size_delete_exceeds_limit():
         },
     }
     # This should now exceed 8192 bytes when JSON serialized
-    allowed_fields = {"iscc_id", "nonce", "timestamp", "signature"}
-    with pytest.raises(ValueError, match="Input data exceeds maximum size"):
-        validators.validate_input_size(oversized_data, allowed_fields)
+    import json
+
+    oversized_bytes = json.dumps(oversized_data).encode()
+    with pytest.raises(ValueError, match="Request body exceeds maximum size"):
+        validators.validate_iscc_note_delete(oversized_bytes)
+
+
+def test_deserialize_request_non_bytes():
+    # type: () -> None
+    """Test deserialize_request raises for non-bytes input."""
+    with pytest.raises(ValueError, match="Request body must be bytes"):
+        validators.deserialize_request("not bytes")
+
+
+def test_deserialize_request_invalid_json():
+    # type: () -> None
+    """Test deserialize_request raises for invalid JSON."""
+    with pytest.raises(ValueError, match="Invalid JSON in request body"):
+        validators.deserialize_request(b"not valid json {")
 
 
 def test_validate_input_size_delete_string_too_long():
     # type: () -> None
-    """Test validate_input_size raises for oversized string field with delete fields."""
+    """Test validate_structure raises for oversized string field with delete fields."""
     data = {
         "iscc_id": "x" * 3000,  # Exceeds MAX_STRING_LENGTH
     }
     allowed_fields = {"iscc_id", "nonce", "timestamp", "signature"}
     with pytest.raises(ValueError, match="Field 'iscc_id' exceeds maximum string length"):
-        validators.validate_input_size(data, allowed_fields)
+        validators.validate_structure(data, allowed_fields)
 
 
 def test_not_found_error_to_error_response():
