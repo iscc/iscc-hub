@@ -137,8 +137,8 @@ def print_summary():
 
     event_count = Event.objects.count()
     declaration_count = IsccDeclaration.objects.count()
-    active_count = IsccDeclaration.objects.filter(deleted=False).count()
-    deleted_count = IsccDeclaration.objects.filter(deleted=True).count()
+    active_count = IsccDeclaration.objects.filter(redacted=False).count()
+    deleted_count = Event.objects.filter(event_type=Event.EventType.DELETED).count()
 
     print(f"  - Events: {event_count}")
     print(f"  - Declarations: {declaration_count}")
