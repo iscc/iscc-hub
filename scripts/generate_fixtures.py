@@ -37,9 +37,10 @@ django.setup()
 
 from django.core.management import call_command  # noqa: E402
 
+from iscc_hub.iscc_id import IsccID  # noqa: E402
 from iscc_hub.models import Event, IsccDeclaration  # noqa: E402
-from iscc_hub.sequencer import sequence_iscc_note  # noqa: E402
-from iscc_hub.validators import validate_iscc_note  # noqa: E402
+from iscc_hub.sequencer import sequence_iscc_delete, sequence_iscc_note  # noqa: E402
+from iscc_hub.validators import validate_iscc_note, validate_iscc_note_delete  # noqa: E402
 
 ####################################################################################################
 # Monkey patch Django's JSON encoder to support datetime with microseconds'                        #
@@ -155,6 +156,21 @@ def create_timestamp(base_time, offset_seconds=0):
     return timestamp.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
+def create_delete_note(iscc_id, timestamp, nonce=None, keypair=None):
+    # type: (str, str, str|None, icr.KeyPair|None) -> dict
+    """Create a signed IsccNoteDelete for deletion."""
+    nonce = nonce or icr.create_nonce(1)  # Use hub_id=1
+    keypair = keypair or icr.key_generate()
+
+    delete_note = {
+        "iscc_id": iscc_id,
+        "nonce": nonce,
+        "timestamp": timestamp,
+    }
+
+    return icr.sign_json(delete_note, keypair)
+
+
 def process_iscc_note(iscc_note):
     # type: (dict) -> tuple[int, bytes]
     """
@@ -175,6 +191,50 @@ def process_iscc_note(iscc_note):
 
     # Sequence the validated note (now includes IsccDeclaration creation atomically)
     seq, iscc_id = sequence_iscc_note(validated_note)
+
+    return seq, iscc_id
+
+
+def process_iscc_delete(iscc_delete_note):
+    # type: (dict) -> tuple[int, bytes]
+    """
+    Validate and sequence an ISCC deletion.
+
+    :param iscc_delete_note: The signed IsccNoteDelete to process
+    :return: Tuple of (sequence_number, iscc_id_bytes)
+    """
+    # Validate the delete note first (like the API does)
+    # Convert to JSON bytes as expected by the validator
+    iscc_delete_bytes = json.dumps(iscc_delete_note).encode("utf-8")
+    validated_delete = validate_iscc_note_delete(
+        iscc_delete_bytes,
+        verify_signature=True,
+        verify_hub_id=1,  # Using hub_id=1 from environment
+        verify_timestamp=True,
+    )
+
+    # Get the ISCC-ID from the delete request
+    iscc_id_str = validated_delete["iscc_id"]
+
+    # Find the original declaration with matching ISCC-ID to get the datahash
+    original_event = Event.objects.filter(
+        iscc_id=bytes(IsccID(iscc_id_str)),
+        event_type=1,  # CREATED event
+    ).first()
+
+    if not original_event:
+        raise ValueError(f"Original declaration not found for ISCC-ID: {iscc_id_str}")
+
+    original_datahash = original_event.datahash
+
+    # Sequence the delete (now includes IsccDeclaration deletion atomically)
+    # Convert datahash to bytes if it's a hex string, otherwise use as-is
+    if isinstance(original_datahash, str):
+        datahash_bytes = bytes.fromhex(original_datahash)
+    else:
+        datahash_bytes = original_datahash
+
+    seq, iscc_id = sequence_iscc_delete(validated_delete, datahash_bytes)
 
     return seq, iscc_id
 
@@ -238,6 +298,16 @@ def generate_fixtures():
     )
     seq5, iscc_id5 = process_iscc_note(note5)
     print("  - Created fifth declaration")
+
+    # 6. Delete the fourth declaration (created by keypair1)
+    iscc_id4_str = str(IsccID(iscc_id4))
+    delete_note = create_delete_note(
+        iscc_id=iscc_id4_str,
+        timestamp=create_timestamp(base_time, 300),  # 5 minutes later
+        keypair=keypair1,  # Same actor who created it
+    )
+    seq_delete, _ = process_iscc_delete(delete_note)
+    print("  - Deleted fourth declaration")
 
     # Print summary
     print(f"\nCreated {Event.objects.count()} events")
