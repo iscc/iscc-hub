@@ -68,34 +68,15 @@ jobs:
         run: |
           SOURCE_IMAGE="test-image:latest"
           
-          # Get tags and labels from metadata action
+          # Get tags from metadata action
           TAGS="${{ steps.meta.outputs.tags }}"
-          LABELS="${{ steps.meta.outputs.labels }}"
-          
-          # Convert labels to buildx format (--annotation)
-          ANNOTATIONS=""
-          if [[ -n "$LABELS" ]]; then
-            while IFS= read -r label; do
-              if [[ -n "$label" ]]; then
-                ANNOTATIONS="$ANNOTATIONS --annotation $label"
-              fi
-            done <<< "$LABELS"
-          fi
           
           # Split tags by newline and process each one
           echo "$TAGS" | while IFS= read -r tag; do
             if [[ -n "$tag" ]]; then
-              echo "Tagging and pushing with metadata: $tag"
-              # First tag the image locally
+              echo "Tagging and pushing: $tag"
               docker tag "$SOURCE_IMAGE" "$tag"
-              # Push the image
               docker push "$tag"
-              
-              # Use buildx imagetools to add metadata annotations
-              if [[ -n "$ANNOTATIONS" ]]; then
-                echo "Adding metadata annotations to: $tag"
-                docker buildx imagetools create $ANNOTATIONS --tag "$tag" "$tag"
-              fi
             fi
           done
 
