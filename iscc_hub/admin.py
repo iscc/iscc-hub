@@ -9,6 +9,7 @@ from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin
+from unfold.paginator import InfinitePaginator
 
 from iscc_hub.models import Event, IsccDeclaration
 
@@ -58,6 +59,12 @@ class IsccDeclarationAdmin(ModelAdmin):
 
     list_per_page = 50
     date_hierarchy = "updated_at"
+
+    # Performance optimizations for large datasets
+    paginator = InfinitePaginator  # Avoid expensive COUNT queries
+    show_full_result_count = False  # Don't show total count
+    list_select_related = []  # No FKs in list_display, but prepared for future use
+    list_filter_submit = True  # Require explicit filter submission to reduce queries
 
     def iscc_id_display(self, obj):
         # type: (IsccDeclaration) -> str
@@ -187,6 +194,11 @@ class EventAdmin(ModelAdmin):
 
     list_per_page = 100
     date_hierarchy = "event_time"
+
+    # Performance optimizations for large datasets
+    paginator = InfinitePaginator  # Avoid expensive COUNT queries on append-only log
+    show_full_result_count = False  # Don't show total count
+    list_select_related = []  # No FKs in list_display
 
     def has_add_permission(self, request):
         # type: (HttpRequest) -> bool

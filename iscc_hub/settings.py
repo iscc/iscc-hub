@@ -190,4 +190,10 @@ UNFOLD = {
     "STYLES": [
         lambda request: static("css/admin_custom.css"),
     ],
+    # Performance optimizations for large datasets
+    "SIDEBAR": {
+        "show_search": False,  # Disable sidebar search to reduce initial load
+        "show_all_applications": False,  # Don't show all apps dropdown
+    },
+    "SHOW_HISTORY": False,  # Disable history links for better performance
 }
