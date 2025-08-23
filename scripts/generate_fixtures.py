@@ -158,7 +158,7 @@ def create_timestamp(base_time, offset_seconds=0):
 def process_iscc_note(iscc_note):
     # type: (dict) -> tuple[int, bytes]
     """
-    Validate and sequence an ISCC note, then create the IsccDeclaration.
+    Validate and sequence an ISCC note.
 
     :param iscc_note: The signed ISCC note to process
     :return: Tuple of (sequence_number, iscc_id_bytes)
@@ -173,20 +173,8 @@ def process_iscc_note(iscc_note):
         verify_timestamp=True,
     )
 
-    # Sequence the validated note
+    # Sequence the validated note (now includes IsccDeclaration creation atomically)
     seq, iscc_id = sequence_iscc_note(validated_note)
-
-    # Create the IsccDeclaration (moved from sequencer to API layer)
-    IsccDeclaration.objects.create(
-        iscc_id=iscc_id,
-        event_seq=seq,
-        iscc_code=validated_note["iscc_code"],
-        datahash=validated_note["datahash"],
-        nonce=validated_note["nonce"],
-        actor=validated_note["signature"]["pubkey"],
-        gateway=validated_note.get("gateway", ""),
-        metahash=validated_note.get("metahash", ""),
-    )
 
     return seq, iscc_id
 

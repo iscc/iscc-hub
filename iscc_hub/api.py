@@ -53,20 +53,8 @@ async def declaration(request):
                 message, existing_iscc_id=str(IsccID(existing.iscc_id)), existing_actor=existing_actor
             )
 
-    # Sequencing
+    # Sequencing (now includes materialized view creation)
     seq, iscc_id = await asequence_iscc_note(valid_data)
-
-    # Create the declaration using Django's async ORM
-    await IsccDeclaration.objects.acreate(
-        iscc_id=iscc_id,
-        event_seq=seq,
-        iscc_code=valid_data["iscc_code"],
-        datahash=valid_data["datahash"],
-        nonce=valid_data["nonce"],
-        actor=valid_data["signature"]["pubkey"],
-        gateway=valid_data.get("gateway", ""),
-        metahash=valid_data.get("metahash", ""),
-    )
 
     # Create and return IsccReceipt
     declaration_data = {
@@ -117,11 +105,8 @@ async def delete_declaration(request, iscc_id: str):
     if original_pubkey != request_pubkey:
         raise UnauthorizedError("Not authorized to delete this declaration")
 
-    # Sequence the deletion event
+    # Sequence the deletion event (now includes materialized view deletion)
     await asequence_iscc_delete(valid_data, original_event.datahash)
-
-    # Delete the declaration from the materialized view
-    await IsccDeclaration.objects.filter(iscc_id=bytes(IsccID(iscc_id))).adelete()
 
     # Return 204 No Content with empty body
     return 204, None

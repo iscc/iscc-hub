@@ -103,6 +103,28 @@ def sequence_iscc_note(iscc_note):
                 (new_seq, 1, iscc_id_bytes, nonce_bytes, datahash_bytes, pubkey_bytes, iscc_note_json, event_time_str),
             )
 
+            # Insert into materialized view within the same transaction
+            cursor.execute(
+                """
+                INSERT INTO iscc_declaration (
+                    iscc_id, event_seq, iscc_code, datahash, nonce, actor, gateway, metahash, updated_at, redacted
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+                (
+                    iscc_id_bytes,
+                    new_seq,
+                    iscc_note["iscc_code"],
+                    iscc_note["datahash"],
+                    iscc_note["nonce"],
+                    iscc_note["signature"]["pubkey"],
+                    iscc_note.get("gateway", ""),
+                    iscc_note.get("metahash", ""),
+                    event_time_str,
+                    False,
+                ),
+            )
+
             cursor.execute("COMMIT")
             return new_seq, iscc_id_bytes
 
@@ -187,6 +209,9 @@ def sequence_iscc_delete(iscc_note_delete, original_datahash):
                     event_time_str,
                 ),
             )
+
+            # Delete from materialized view within the same transaction
+            cursor.execute("DELETE FROM iscc_declaration WHERE iscc_id = %s", (iscc_id_bytes,))
 
             cursor.execute("COMMIT")
             return new_seq, iscc_id_bytes
