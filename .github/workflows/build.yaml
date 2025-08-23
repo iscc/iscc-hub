@@ -20,17 +20,14 @@ jobs:
   docker-build-publish:
     needs: test
     runs-on: ubuntu-latest
-    
+
     permissions:
       contents: read
       packages: write
-      
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -38,17 +35,6 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install uv for test generation
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: "latest"
-
-      - name: Set up Python 3.12
-        run: uv python install 3.12
-
-      - name: Install dependencies for test generation
-        run: uv sync --all-extras --dev
 
       - name: Extract metadata
         id: meta
@@ -65,82 +51,46 @@ jobs:
             type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
           labels: |
-            org.opencontainers.image.title=ISCC Hub
-            org.opencontainers.image.description=Django-based ISCC Discovery Protocol Hub
+            org.opencontainers.image.title=ISCC-HUB
+            org.opencontainers.image.description=ISCC Discovery Protocol - HUB
             org.opencontainers.image.vendor=ISCC Foundation
             org.opencontainers.image.licenses=Apache-2.0
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          target: production
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
-
-      - name: Generate valid test declaration
+      - name: Build Docker image
         run: |
-          # Create a Python script to generate a valid declaration with current timestamp
-          cat > generate_test_declaration.py << 'EOF'
-          #!/usr/bin/env python3
-          import json
-          import sys
-          from datetime import datetime, timezone
-          from pathlib import Path
-          
-          # Add project root to path
-          sys.path.insert(0, str(Path(__file__).parent))
-          
-          # Import test utilities
-          from tests.conftest import create_iscc_from_text
-          import iscc_crypto as icr
-          
-          # Generate current timestamp in correct format
-          current_time = datetime.now(timezone.utc)
-          timestamp = current_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-          
-          # Generate ISCC data
-          iscc_data = create_iscc_from_text("CI Test Content")
-          
-          # Generate test keypair
-          keypair = icr.key_generate(controller="did:web:test.example")
-          
-          # Generate nonce with hub ID 999 (test hub ID from container env)
-          nonce = f"3e7{'f' * 29}"  # 3e7 = 999 in hex, padded to 32 chars
-          
-          # Create minimal note
-          note = {
-              "iscc_code": iscc_data["iscc"], 
-              "datahash": iscc_data["datahash"],
-              "nonce": nonce,
-              "timestamp": timestamp,
-          }
-          
-          # Sign the note
-          signed_note = icr.sign_json(note, keypair)
-          
-          # Write to file
-          with open("test-declaration.json", "w") as f:
-              json.dump(signed_note, f, indent=2)
-          
-          print(f"Generated test declaration with timestamp: {timestamp}")
-          EOF
-          
-          # Run with uv to access project dependencies
-          uv run python generate_test_declaration.py
+          # Get all tags from metadata
+          TAGS="${{ steps.meta.outputs.tags }}"
+
+          # Build the image with the first tag
+          FIRST_TAG=$(echo "$TAGS" | head -n1)
+          echo "Building image: $FIRST_TAG"
+          docker build -t "$FIRST_TAG" --target production .
+
+          # Tag with all other tags from metadata
+          echo "$TAGS" | tail -n +2 | while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then
+              echo "Tagging as: $tag"
+              docker tag "$FIRST_TAG" "$tag"
+            fi
+          done
+
+      - name: Push Docker images
+        run: |
+          # Push all tags
+          TAGS="${{ steps.meta.outputs.tags }}"
+          echo "$TAGS" | while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then
+              echo "Pushing: $tag"
+              docker push "$tag"
+            fi
+          done
 
       - name: Test container startup and health
         run: |
           # Get the first tag from the metadata output to test
           FIRST_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
           echo "Testing image: $FIRST_TAG"
-          
+
           echo "Starting test container..."
           docker run -d --name test-hub \
             -e DJANGO_DEBUG=false \
@@ -177,29 +127,12 @@ jobs:
         run: |
           echo "Testing health endpoint..."
           curl -f http://localhost:8000/health
-          
+
           echo "Testing DID document endpoint..."
           curl -f http://localhost:8000/.well-known/did.json
-          
+
           echo "Testing OpenAPI schema..."
           curl -f http://localhost:8000/openapi.yaml >/dev/null
-          
-          echo "Testing declaration endpoint..."
-          response=$(curl -s -w "HTTP_STATUS:%{http_code}" -X POST http://localhost:8000/declaration \
-            -H "Content-Type: application/json" \
-            -d @test-declaration.json)
-          
-          http_status=$(echo "$response" | grep -o "HTTP_STATUS:[0-9]*" | cut -d: -f2)
-          body=$(echo "$response" | sed 's/HTTP_STATUS:[0-9]*$//')
-          
-          if [ "$http_status" -eq 201 ]; then
-            echo "✓ Declaration accepted successfully"
-            echo "Response: $body"
-          else
-            echo "✗ Declaration failed with status $http_status"
-            echo "Response: $body"
-            # Don't fail the build - this tests that the container is working
-          fi
 
       - name: Cleanup test container
         if: always()
@@ -212,7 +145,7 @@ jobs:
           echo "## 🚀 Docker Image Published Successfully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Published Tags:**" >> $GITHUB_STEP_SUMMARY
-          
+
           # Get tags from metadata action
           TAGS="${{ steps.meta.outputs.tags }}"
           echo "$TAGS" | while IFS= read -r tag; do
@@ -220,7 +153,7 @@ jobs:
               echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
             fi
           done
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Deployment Commands:**" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
