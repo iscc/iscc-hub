@@ -17,11 +17,18 @@ async def test_health_check_success(api_client):
     assert "status" in data
     assert "version" in data
     assert "description" in data
+    assert "build" in data
 
     # Check response values
     assert data["status"] == "pass"
     assert data["version"] == "0.1.0"
     assert data["description"] == "ISCC-HUB service is healthy"
+
+    # Check build metadata structure
+    assert isinstance(data["build"], dict)
+    assert "commit" in data["build"]
+    assert "tag" in data["build"]
+    assert "timestamp" in data["build"]
 
 
 @pytest.mark.asyncio
@@ -36,9 +43,15 @@ async def test_health_check_response_schema(api_client):
     assert isinstance(data.get("status"), str)
     assert isinstance(data.get("version"), str)
     assert isinstance(data.get("description"), str)
+    assert isinstance(data.get("build"), dict)
 
     # Verify status is one of the allowed enum values
     assert data["status"] in ["pass", "fail", "warn"]
+
+    # Verify build metadata fields are present
+    assert "commit" in data["build"]
+    assert "tag" in data["build"]
+    assert "timestamp" in data["build"]
 
 
 @pytest.mark.asyncio

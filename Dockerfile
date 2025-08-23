@@ -54,6 +54,16 @@ ENTRYPOINT ["/entrypoint.sh"]
 # Production stage
 FROM base AS production
 
+# Build-time arguments for version metadata
+ARG BUILD_COMMIT="unknown"
+ARG BUILD_TAG="unknown"
+ARG BUILD_TIMESTAMP="unknown"
+
+# Set build metadata as environment variables
+ENV BUILD_COMMIT=${BUILD_COMMIT} \
+    BUILD_TAG=${BUILD_TAG} \
+    BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
+
 # Install only runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \

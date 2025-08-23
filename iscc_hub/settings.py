@@ -32,6 +32,11 @@ ISCC_HUB_ID = env.int("ISCC_HUB_ID", default=0 if DEV else env.NOTSET)
 
 ####################################################################################################
 
+# Build metadata from Docker image
+BUILD_COMMIT = env("BUILD_COMMIT", default="unknown")
+BUILD_TAG = env("BUILD_TAG", default="unknown")
+BUILD_TIMESTAMP = env("BUILD_TIMESTAMP", default="unknown")
+
 # Database file name - defaults based on DEBUG setting
 # Development: iscc-hub-dev.db
 # Production: iscc-hub-{ID}.db where ID is the hub ID

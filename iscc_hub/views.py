@@ -30,6 +30,25 @@ async def health(request):
     version = getattr(settings, "VERSION", iscc_hub.__version__)
     description = "ISCC-HUB service is healthy"
 
-    context = {"status": status, "version": version, "description": description}
+    # Include build metadata
+    build_commit = getattr(settings, "BUILD_COMMIT", "unknown")
+    build_tag = getattr(settings, "BUILD_TAG", "unknown")
+    build_timestamp = getattr(settings, "BUILD_TIMESTAMP", "unknown")
+
+    # Shorten commit hash for display
+    if build_commit != "unknown" and len(build_commit) >= 8:
+        build_commit_short = build_commit[:8]
+    else:
+        build_commit_short = build_commit
+
+    context = {
+        "status": status,
+        "version": version,
+        "description": description,
+        "build_commit": build_commit,
+        "build_commit_short": build_commit_short,
+        "build_tag": build_tag,
+        "build_timestamp": build_timestamp,
+    }
 
     return render(request, "iscc_hub/health.html", context)

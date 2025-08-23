@@ -40,6 +40,12 @@ async def test_health_view_returns_html():
         assert context["version"] == "0.1.0"
         assert context["description"] == "ISCC-HUB service is healthy"
 
+        # Check build metadata with default values
+        assert context["build_commit"] == "unknown"
+        assert context["build_commit_short"] == "unknown"
+        assert context["build_tag"] == "unknown"
+        assert context["build_timestamp"] == "unknown"
+
         # Check the response
         assert response == mock_response
 
@@ -61,6 +67,34 @@ async def test_health_view_with_custom_version():
             # Check the context has custom version
             context = mock_render.call_args[0][2]
             assert context["version"] == "2.0.0"
+
+
+@pytest.mark.asyncio
+async def test_health_view_with_build_metadata():
+    # type: () -> None
+    """Test that health view correctly formats build metadata."""
+    factory = RequestFactory()
+    request = factory.get("/health/")
+
+    with patch("iscc_hub.views.render") as mock_render:
+        # Patch settings with build metadata
+        with patch(
+            "iscc_hub.views.settings",
+            BUILD_COMMIT="a1b2c3d4e5f6789012345678901234567890abcd",
+            BUILD_TAG="v1.2.3",
+            BUILD_TIMESTAMP="2024-01-15T12:00:00Z",
+        ):
+            mock_response = MagicMock()
+            mock_render.return_value = mock_response
+
+            await views.health(request)
+
+            # Check the context has build metadata
+            context = mock_render.call_args[0][2]
+            assert context["build_commit"] == "a1b2c3d4e5f6789012345678901234567890abcd"
+            assert context["build_commit_short"] == "a1b2c3d4"  # First 8 chars
+            assert context["build_tag"] == "v1.2.3"
+            assert context["build_timestamp"] == "2024-01-15T12:00:00Z"
 
 
 @pytest.mark.asyncio

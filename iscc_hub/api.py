@@ -127,7 +127,19 @@ async def health(request):
     version = getattr(settings, "VERSION", iscc_hub.__version__)
     description = "ISCC-HUB service is healthy"
 
-    return {"status": status, "version": version, "description": description}
+    # Include build metadata
+    build_info = {
+        "commit": getattr(settings, "BUILD_COMMIT", "unknown"),
+        "tag": getattr(settings, "BUILD_TAG", "unknown"),
+        "timestamp": getattr(settings, "BUILD_TIMESTAMP", "unknown"),
+    }
+
+    return {
+        "status": status,
+        "version": version,
+        "description": description,
+        "build": build_info,
+    }
 
 
 @api.get("/.well-known/did.json")

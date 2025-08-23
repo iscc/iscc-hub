@@ -60,10 +60,21 @@ jobs:
           # Get all tags from metadata
           TAGS="${{ steps.meta.outputs.tags }}"
 
-          # Build the image with the first tag
+          # Get build metadata
+          BUILD_COMMIT="${{ github.sha }}"
+          BUILD_TAG="${{ steps.meta.outputs.version }}"
+          BUILD_TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+          # Build the image with the first tag and build arguments
           FIRST_TAG=$(echo "$TAGS" | head -n1)
           echo "Building image: $FIRST_TAG"
-          docker build -t "$FIRST_TAG" --target production .
+          echo "Build metadata: commit=$BUILD_COMMIT, tag=$BUILD_TAG, timestamp=$BUILD_TIMESTAMP"
+          
+          docker build -t "$FIRST_TAG" \
+            --build-arg BUILD_COMMIT="$BUILD_COMMIT" \
+            --build-arg BUILD_TAG="$BUILD_TAG" \
+            --build-arg BUILD_TIMESTAMP="$BUILD_TIMESTAMP" \
+            --target production .
 
           # Tag with all other tags from metadata
           echo "$TAGS" | tail -n +2 | while IFS= read -r tag; do

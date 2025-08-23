@@ -35,6 +35,23 @@
                         <span class="text-gray-600 text-sm font-medium">API Endpoint</span>
                         <span class="font-mono text-gray-800"><code class="bg-gray-100 px-2 py-1 rounded font-mono text-sm">GET /health</code></span>
                     </div>
+                    
+                    {% if build_tag != "unknown" or build_commit_short != "unknown" %}
+                    <div class="flex flex-col gap-1 pt-4 border-t border-gray-200">
+                        <span class="text-gray-600 text-sm font-medium">Build Information</span>
+                        <div class="space-y-1">
+                            {% if build_tag != "unknown" %}
+                            <div class="font-mono text-gray-800 text-sm">Tag: {{ build_tag }}</div>
+                            {% endif %}
+                            {% if build_commit_short != "unknown" %}
+                            <div class="font-mono text-gray-800 text-sm">Commit: {{ build_commit_short }}</div>
+                            {% endif %}
+                            {% if build_timestamp != "unknown" %}
+                            <div class="font-mono text-gray-800 text-sm">Built: {{ build_timestamp }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
