@@ -70,14 +70,14 @@ jobs:
             org.opencontainers.image.vendor=ISCC Foundation
             org.opencontainers.image.licenses=Apache-2.0
 
-      - name: Build Docker image for testing
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           target: production
           platforms: linux/amd64
-          load: true
-          tags: test-image:latest
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -137,6 +137,10 @@ jobs:
 
       - name: Test container startup and health
         run: |
+          # Get the first tag from the metadata output to test
+          FIRST_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          echo "Testing image: $FIRST_TAG"
+          
           echo "Starting test container..."
           docker run -d --name test-hub \
             -e DJANGO_DEBUG=false \
@@ -146,7 +150,7 @@ jobs:
             -e ISCC_HUB_DOMAIN=localhost \
             -e ISCC_HUB_REALM=0 \
             -p 8000:8000 \
-            test-image:latest
+            "$FIRST_TAG"
 
           echo "Waiting for container to be ready..."
           # Check container logs periodically and fail fast if container exits
@@ -202,20 +206,6 @@ jobs:
         run: |
           docker stop test-hub || true
           docker rm test-hub || true
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          target: production
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
 
       - name: Generate deployment summary
         run: |
