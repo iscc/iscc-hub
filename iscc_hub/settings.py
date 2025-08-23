@@ -47,6 +47,8 @@ ISCC_HUB_DB_NAME = env("ISCC_HUB_DB_NAME", default=default_db_name)
 # Realm-1 (SUBTYPE="0001") for operational network
 ISCC_HUB_REALM = env.int("ISCC_HUB_REALM", default=0 if DEV else env.NOTSET)
 
+ISCC_HUB_SYNC_MODE = env.str("ISCC_HUB_SYNC_MODE", default="FULL")
+
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=(ISCC_HUB_DOMAIN,))
 
 # CSRF settings for reverse proxy deployments
@@ -109,17 +111,29 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": DATA_DIR / ISCC_HUB_DB_NAME,
+        "CONN_MAX_AGE": 600,
         "OPTIONS": {
             "transaction_mode": "IMMEDIATE",  # Required for gapless sequences !!!
-            "init_command": ("PRAGMA journal_mode=WAL;PRAGMA synchronous=FULL;PRAGMA busy_timeout=5000;"),
+            "init_command": (
+                "PRAGMA journal_mode=WAL;"
+                f"PRAGMA synchronous={ISCC_HUB_SYNC_MODE};"
+                "PRAGMA busy_timeout=5000;"
+                "PRAGMA cache_size=10000;"
+            ),
         },
         "TEST": {
             "NAME": DATA_DIR / "test_db.sqlite3",  # Use persisted file, not in-memory
+            "CONN_MAX_AGE": 600,
             "SERIALIZE": True,  # Serialize database state for proper transaction testing
             # Explicitly set OPTIONS for test database to match production settings
             "OPTIONS": {
                 "transaction_mode": "IMMEDIATE",  # Required for gapless sequences !!!
-                "init_command": ("PRAGMA journal_mode=WAL;PRAGMA synchronous=FULL;PRAGMA busy_timeout=5000;"),
+                "init_command": (
+                    "PRAGMA journal_mode=WAL;"
+                    f"PRAGMA synchronous={ISCC_HUB_SYNC_MODE};"
+                    "PRAGMA busy_timeout=5000;"
+                    "PRAGMA cache_size=10000;"
+                ),
             },
         },
     }

@@ -122,8 +122,9 @@ async def send_declaration(session, payload, semaphore):
         except TimeoutError:
             elapsed = time.perf_counter() - start_time
             return None, elapsed, payload
-        except Exception:
+        except Exception as e:
             elapsed = time.perf_counter() - start_time
+            print(f"Request exception: {e}")
             return None, elapsed, payload
 
 
@@ -172,7 +173,12 @@ async def benchmark_declarations(payloads, max_concurrent=100):
                         # Now we can safely access response properties
                         try:
                             status_code = response.status_code
-                            all_results.append((True, status_code, elapsed, ""))
+                            if status_code == 400:
+                                # Log details of 400 errors for debugging
+                                error_body = response.text
+                                all_results.append((True, status_code, elapsed, error_body))
+                            else:
+                                all_results.append((True, status_code, elapsed, ""))
                         except Exception as e:
                             all_results.append((False, 0, elapsed, str(e)))
 
@@ -229,10 +235,17 @@ async def run_benchmark(num_declarations=2000, batch_size=500, max_concurrent=10
     response_times = [elapsed for success, _, elapsed, _ in results if success]
     status_codes = {}
     errors = {}
+    error_400_details = {}
 
-    for success, status_code, _elapsed, error in results:
+    failed_timings = []
+    for success, status_code, elapsed, error in results:
         if success:
             status_codes[status_code] = status_codes.get(status_code, 0) + 1
+            if status_code == 400 and error:
+                # Parse and categorize 400 errors
+                error_msg = error[:200] if len(error) > 200 else error
+                error_400_details[error_msg] = error_400_details.get(error_msg, 0) + 1
+                failed_timings.append(elapsed)
         else:
             error_type = error.split(":")[0] if error else "Unknown"
             errors[error_type] = errors.get(error_type, 0) + 1
@@ -272,6 +285,17 @@ async def run_benchmark(num_declarations=2000, batch_size=500, max_concurrent=10
         print("\nError Breakdown:")
         for error_type, count in sorted(errors.items(), key=lambda x: x[1], reverse=True):
             print(f"  {error_type}: {count}")
+
+    if error_400_details:
+        print("\n400 Error Details:")
+        for error_msg, count in sorted(error_400_details.items(), key=lambda x: x[1], reverse=True)[:5]:
+            print(f"  [{count}x] {error_msg}")
+
+        if failed_timings:
+            print("\n400 Error Response Times:")
+            print(f"  Average: {sum(failed_timings) / len(failed_timings):.3f}s")
+            print(f"  Min: {min(failed_timings):.3f}s")
+            print(f"  Max: {max(failed_timings):.3f}s")
 
     # Performance rating
     if successful > 0:
