@@ -32,6 +32,9 @@ jobs:
         with:
           name: iscc-hub-image
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Load Docker image
         run: |
           docker load < iscc-hub-image.tar.gz
@@ -64,21 +67,41 @@ jobs:
             org.opencontainers.image.vendor=ISCC Foundation
             org.opencontainers.image.licenses=Apache-2.0
 
-      - name: Tag and push images
+      - name: Tag and push images with metadata
         run: |
           SOURCE_IMAGE="test-image:latest"
           
-          # Get tags from metadata action
+          # Get tags and labels from metadata action
           TAGS="${{ steps.meta.outputs.tags }}"
+          LABELS="${{ steps.meta.outputs.labels }}"
           
-          # Split tags by newline and process each one
+          # Convert labels to buildx annotation format
+          ANNOTATIONS=""
+          if [[ -n "$LABELS" ]]; then
+            while IFS= read -r label; do
+              if [[ -n "$label" ]]; then
+                key=$(echo "$label" | cut -d'=' -f1)
+                value=$(echo "$label" | cut -d'=' -f2-)
+                ANNOTATIONS="$ANNOTATIONS --annotation index:$key=$value"
+              fi
+            done <<< "$LABELS"
+          fi
+          
+          # First push the source image with a temporary tag
+          TEMP_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:temp-${{ github.sha }}"
+          docker tag "$SOURCE_IMAGE" "$TEMP_TAG"
+          docker push "$TEMP_TAG"
+          
+          # Then create final tags with metadata using buildx imagetools
           echo "$TAGS" | while IFS= read -r tag; do
             if [[ -n "$tag" ]]; then
-              echo "Tagging and pushing: $tag"
-              docker tag "$SOURCE_IMAGE" "$tag"
-              docker push "$tag"
+              echo "Creating tag with metadata: $tag"
+              docker buildx imagetools create $ANNOTATIONS --tag "$tag" "$TEMP_TAG"
             fi
           done
+          
+          # Clean up temporary tag
+          docker buildx imagetools create --tag "$TEMP_TAG-delete" "$TEMP_TAG"
 
       - name: Generate deployment summary
         run: |
