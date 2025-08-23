@@ -75,14 +75,14 @@ jobs:
           TAGS="${{ steps.meta.outputs.tags }}"
           LABELS="${{ steps.meta.outputs.labels }}"
           
-          # Convert labels to buildx annotation format
-          ANNOTATIONS=""
+          # Convert labels to buildx annotation format with proper quoting
+          ANNOTATION_ARGS=()
           if [[ -n "$LABELS" ]]; then
             while IFS= read -r label; do
               if [[ -n "$label" ]]; then
                 key=$(echo "$label" | cut -d'=' -f1)
                 value=$(echo "$label" | cut -d'=' -f2-)
-                ANNOTATIONS="$ANNOTATIONS --annotation index:$key=$value"
+                ANNOTATION_ARGS+=("--annotation" "index:$key=$value")
               fi
             done <<< "$LABELS"
           fi
@@ -96,7 +96,7 @@ jobs:
           echo "$TAGS" | while IFS= read -r tag; do
             if [[ -n "$tag" ]]; then
               echo "Creating tag with metadata: $tag"
-              docker buildx imagetools create $ANNOTATIONS --tag "$tag" "$TEMP_TAG"
+              docker buildx imagetools create "${ANNOTATION_ARGS[@]}" --tag "$tag" "$TEMP_TAG"
             fi
           done
           
