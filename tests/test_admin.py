@@ -43,7 +43,6 @@ def iscc_declaration():
         gateway="https://example.com",
         metahash="test_metahash",
         event_seq=1,
-        deleted=False,
         redacted=False,
     )
 
@@ -77,7 +76,6 @@ class TestIsccDeclarationAdmin:
             "actor_short",
             "gateway_domain",
             "creation_time",
-            "is_deleted",
             "redacted",
         ]
         assert admin_obj.list_display == expected
@@ -173,24 +171,6 @@ class TestIsccDeclarationAdmin:
         # Should fallback to the original gateway value
         assert result == "https://example.com"
 
-    def test_is_deleted_true(self, iscc_declaration):
-        # type: (IsccDeclaration) -> None
-        """Test deleted status display."""
-        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
-        iscc_declaration.deleted = True
-        result = admin_obj.is_deleted(iscc_declaration)
-        assert "✗ Deleted" in result
-        assert "color: red" in result
-
-    def test_is_deleted_false(self, iscc_declaration):
-        # type: (IsccDeclaration) -> None
-        """Test active status display."""
-        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
-        iscc_declaration.deleted = False
-        result = admin_obj.is_deleted(iscc_declaration)
-        assert "✓ Active" in result
-        assert "color: green" in result
-
     def test_creation_time(self, iscc_declaration):
         # type: (IsccDeclaration) -> None
         """Test creation time extraction from ISCC-ID."""
@@ -211,38 +191,8 @@ class TestIsccDeclarationAdmin:
         admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
         actions = admin_obj.get_actions(admin_request)
         assert "delete_selected" not in actions
-        assert "soft_delete" in actions
-        assert "restore" in actions
         assert "redact" in actions
         assert "unredact" in actions
-
-    @pytest.mark.django_db
-    def test_soft_delete_action(self, admin_request):
-        # type: (HttpRequest) -> None
-        """Test soft delete action."""
-        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
-        queryset = Mock()
-        queryset.update = Mock(return_value=3)
-        admin_obj.message_user = Mock()
-
-        admin_obj.soft_delete(admin_request, queryset)
-
-        queryset.update.assert_called_once_with(deleted=True)
-        admin_obj.message_user.assert_called_once_with(admin_request, "3 declaration(s) marked as deleted.")
-
-    @pytest.mark.django_db
-    def test_restore_action(self, admin_request):
-        # type: (HttpRequest) -> None
-        """Test restore action."""
-        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
-        queryset = Mock()
-        queryset.update = Mock(return_value=2)
-        admin_obj.message_user = Mock()
-
-        admin_obj.restore(admin_request, queryset)
-
-        queryset.update.assert_called_once_with(deleted=False)
-        admin_obj.message_user.assert_called_once_with(admin_request, "2 declaration(s) restored.")
 
     @pytest.mark.django_db
     def test_redact_action(self, admin_request):

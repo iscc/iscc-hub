@@ -222,7 +222,6 @@ def create_test_declaration(seq=1, **overrides):
         "datahash": "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
         "nonce": f"{seq:032x}",  # Generate unique nonce based on seq
         "actor": "7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
-        "deleted": False,
     }
     defaults.update(overrides)
     return IsccDeclaration.objects.create(**defaults)

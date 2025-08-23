@@ -62,17 +62,6 @@ class TestStateValidation:
         assert exc_info.value.code == "DUPLICATE_DECLARATION"
         assert "already declared" in exc_info.value.message
 
-    def test_check_duplicate_declaration_passes_for_deleted_declaration(self):
-        """Test that checking against a deleted declaration passes."""
-        # Create a deleted declaration
-        create_test_declaration(seq=1, deleted=True)
-
-        # Should not raise for deleted declaration
-        check_duplicate_declaration(
-            "ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY",
-            "7VWFd39mGRe6B9KwFa5qPQkqbTYXBgTRgGPvs3QHrEV5",
-        )
-
     def test_check_duplicate_datahash_passes_for_new_combination(self):
         """Test that checking a new datahash/actor combination passes."""
         check_duplicate_datahash(

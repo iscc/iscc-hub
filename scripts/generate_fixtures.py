@@ -164,8 +164,10 @@ def process_iscc_note(iscc_note):
     :return: Tuple of (sequence_number, iscc_id_bytes)
     """
     # Validate the note first (like the API does)
+    # Convert to JSON bytes as expected by the validator
+    iscc_note_bytes = json.dumps(iscc_note).encode("utf-8")
     validated_note = validate_iscc_note(
-        iscc_note,
+        iscc_note_bytes,
         verify_signature=True,
         verify_hub_id=1,  # Using hub_id=1 from environment
         verify_timestamp=True,

@@ -371,7 +371,6 @@ def test_iscc_declaration_creation():
 
     assert declaration.iscc_id == "ISCC:MEAJU3PC4ICWCTYI"
     assert declaration.event_seq == 1
-    assert declaration.deleted is False
     assert declaration.redacted is False
     assert declaration.gateway == ""
     assert declaration.metahash == ""
@@ -413,21 +412,20 @@ def test_iscc_declaration_str_representation():
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="000abcd1234567890abcdef123456789",
         actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
-        deleted=False,
     )
     assert str(active_declaration) == f"{generate_test_iscc_id(seq=60)} (active)"
 
-    # Test deleted declaration
-    deleted_declaration = IsccDeclaration.objects.create(
+    # Test redacted declaration
+    redacted_declaration = IsccDeclaration.objects.create(
         iscc_id=generate_test_iscc_id(seq=61),
         event_seq=2,
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="001abcd1234567890abcdef123456789",
         actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
-        deleted=True,
+        redacted=True,
     )
-    assert str(deleted_declaration) == f"{generate_test_iscc_id(seq=61)} (deleted)"
+    assert str(redacted_declaration) == f"{generate_test_iscc_id(seq=61)} (redacted)"
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
@@ -483,38 +481,6 @@ def test_iscc_declaration_unique_constraints():
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
-def test_iscc_declaration_soft_delete():
-    # type: () -> None
-    """
-    Test soft delete functionality.
-    """
-    # Create declaration
-    declaration = IsccDeclaration.objects.create(
-        iscc_id=generate_test_iscc_id(seq=80),
-        event_seq=1,
-        iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
-        datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
-        nonce="000abcd1234567890abcdef123456789",
-        actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
-    )
-
-    # Initially not deleted
-    assert declaration.deleted is False
-
-    # Soft delete
-    declaration.deleted = True
-    declaration.save()
-
-    # Verify soft delete
-    declaration = IsccDeclaration.objects.get(iscc_id=generate_test_iscc_id(seq=80))
-    assert declaration.deleted is True
-
-    # Verify filtering active declarations
-    active_declarations = IsccDeclaration.objects.filter(deleted=False)
-    assert generate_test_iscc_id(seq=80) not in [d.iscc_id for d in active_declarations]
-
-
-@pytest.mark.django_db(transaction=True, reset_sequences=True)
 def test_iscc_declaration_redacted_field():
     # type: () -> None
     """
@@ -552,53 +518,6 @@ def test_iscc_declaration_redacted_field():
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
-def test_iscc_declaration_redacted_and_deleted_combination():
-    # type: () -> None
-    """
-    Test that redacted and deleted fields work independently.
-    """
-    # Create declaration
-    declaration = IsccDeclaration.objects.create(
-        iscc_id=generate_test_iscc_id(seq=82),
-        event_seq=1,
-        iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
-        datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
-        nonce="000abcd1234567890abcdef123456789",
-        actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
-    )
-
-    # Both fields start as False
-    assert declaration.deleted is False
-    assert declaration.redacted is False
-
-    # Set only redacted
-    declaration.redacted = True
-    declaration.save()
-    declaration.refresh_from_db()
-    assert declaration.deleted is False
-    assert declaration.redacted is True
-
-    # Set both deleted and redacted
-    declaration.deleted = True
-    declaration.save()
-    declaration.refresh_from_db()
-    assert declaration.deleted is True
-    assert declaration.redacted is True
-
-    # Query declarations with different combinations
-    all_active = IsccDeclaration.objects.filter(deleted=False, redacted=False)
-    deleted_only = IsccDeclaration.objects.filter(deleted=True, redacted=False)
-    redacted_only = IsccDeclaration.objects.filter(deleted=False, redacted=True)
-    both = IsccDeclaration.objects.filter(deleted=True, redacted=True)
-
-    # Our declaration should only appear in the 'both' query
-    assert generate_test_iscc_id(seq=82) not in [d.iscc_id for d in all_active]
-    assert generate_test_iscc_id(seq=82) not in [d.iscc_id for d in deleted_only]
-    assert generate_test_iscc_id(seq=82) not in [d.iscc_id for d in redacted_only]
-    assert generate_test_iscc_id(seq=82) in [d.iscc_id for d in both]
-
-
-@pytest.mark.django_db(transaction=True, reset_sequences=True)
 def test_iscc_declaration_indexes():
     # type: () -> None
     """
@@ -613,7 +532,6 @@ def test_iscc_declaration_indexes():
             datahash=f"1e20{'a' * 64}" if i % 2 == 0 else f"1e20{'b' * 64}",
             nonce=f"{i:03d}abcd1234567890abcdef123456789",
             actor=f"actor{i % 3}",  # Three different actors
-            deleted=(i == 4),  # Last one is deleted
         )
 
     # Test indexed queries
@@ -632,10 +550,6 @@ def test_iscc_declaration_indexes():
     # Query by actor and iscc_code
     results = IsccDeclaration.objects.filter(actor="actor0", iscc_code="ISCC:CODE0")
     assert results.count() == 1
-
-    # Query active declarations
-    results = IsccDeclaration.objects.filter(deleted=False)
-    assert results.count() == 4
 
     # Query by event_seq
     results = IsccDeclaration.objects.filter(event_seq=3)
@@ -712,9 +626,7 @@ def test_iscc_declaration_model_meta():
     assert ["actor", "-iscc_id"] in index_fields
     assert ["actor", "iscc_code"] in index_fields
     assert ["actor", "datahash"] in index_fields
-    assert ["deleted", "-iscc_id"] in index_fields
     assert ["redacted", "-iscc_id"] in index_fields
-    assert ["event_seq", "deleted"] in index_fields
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)

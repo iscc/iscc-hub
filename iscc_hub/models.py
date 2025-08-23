@@ -125,16 +125,11 @@ class IsccDeclaration(models.Model):
         auto_now=True, db_index=True, help_text="When this declaration was last modified"
     )
 
-    # Soft delete flag
-    deleted = models.BooleanField(
-        default=False, db_index=True, help_text="Soft delete flag - true if declaration has been deleted"
-    )
-
     # Redaction flag for malicious content
     redacted = models.BooleanField(
         default=False,
         db_index=True,
-        help_text="Admin redaction flag - disables resolution of malicious declarations",
+        help_text="Admin redaction flag - disables resolution of malicious declarations on this HUB",
     )
 
     class Meta:
@@ -149,15 +144,12 @@ class IsccDeclaration(models.Model):
             models.Index(fields=["actor", "-iscc_id"]),
             models.Index(fields=["actor", "iscc_code"]),
             models.Index(fields=["actor", "datahash"]),
-            # Active declarations
-            models.Index(fields=["deleted", "-iscc_id"]),
+            # Admin redaction
             models.Index(fields=["redacted", "-iscc_id"]),
-            # Event reconstruction
-            models.Index(fields=["event_seq", "deleted"]),
         ]
 
     def __str__(self):
         # type: () -> str
         """String representation."""
-        status = "deleted" if self.deleted else "active"
+        status = "redacted" if self.redacted else "active"
         return f"{self.iscc_id} ({status})"

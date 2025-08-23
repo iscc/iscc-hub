@@ -23,14 +23,12 @@ class IsccDeclarationAdmin(ModelAdmin):
         "actor_short",
         "gateway_domain",
         "creation_time",
-        "is_deleted",
         "redacted",
     ]
 
     list_editable = ["redacted"]
 
     list_filter = [
-        "deleted",
         "redacted",
         "updated_at",
     ]
@@ -55,7 +53,7 @@ class IsccDeclarationAdmin(ModelAdmin):
         ("Actor Information", {"fields": ("actor", "gateway")}),
         ("Metadata", {"fields": ("metahash", "event_seq")}),
         ("Timestamps", {"fields": ("creation_time", "updated_at"), "classes": ("collapse",)}),
-        ("Status", {"fields": ("deleted", "redacted")}),
+        ("Status", {"fields": ("redacted",)}),
     )
 
     list_per_page = 50
@@ -106,16 +104,6 @@ class IsccDeclarationAdmin(ModelAdmin):
     gateway_domain.short_description = "Gateway"
     gateway_domain.admin_order_field = "gateway"
 
-    def is_deleted(self, obj):
-        # type: (IsccDeclaration) -> str
-        """Display deletion status with color coding."""
-        if obj.deleted:
-            return format_html('<span style="color: red;">✗ {}</span>', "Deleted")
-        return format_html('<span style="color: green;">✓ {}</span>', "Active")
-
-    is_deleted.short_description = "Status"
-    is_deleted.admin_order_field = "deleted"
-
     def creation_time(self, obj):
         # type: (IsccDeclaration) -> str
         """Extract creation timestamp from ISCC-ID."""
@@ -137,20 +125,6 @@ class IsccDeclarationAdmin(ModelAdmin):
             del actions["delete_selected"]
         return actions
 
-    @admin.action(description="Soft delete selected declarations")
-    def soft_delete(self, request, queryset):
-        # type: (HttpRequest, QuerySet[IsccDeclaration]) -> None
-        """Soft delete selected declarations."""
-        updated = queryset.update(deleted=True)
-        self.message_user(request, f"{updated} declaration(s) marked as deleted.")
-
-    @admin.action(description="Restore selected declarations")
-    def restore(self, request, queryset):
-        # type: (HttpRequest, QuerySet[IsccDeclaration]) -> None
-        """Restore soft-deleted declarations."""
-        updated = queryset.update(deleted=False)
-        self.message_user(request, f"{updated} declaration(s) restored.")
-
     @admin.action(description="Redact selected declarations")
     def redact(self, request, queryset):
         # type: (HttpRequest, QuerySet[IsccDeclaration]) -> None
@@ -165,7 +139,7 @@ class IsccDeclarationAdmin(ModelAdmin):
         updated = queryset.update(redacted=False)
         self.message_user(request, f"{updated} declaration(s) unredacted.")
 
-    actions = ["soft_delete", "restore", "redact", "unredact"]
+    actions = ["redact", "unredact"]
 
     def has_add_permission(self, request):
         # type: (HttpRequest) -> bool

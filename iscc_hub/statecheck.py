@@ -45,7 +45,7 @@ def check_duplicate_declaration(iscc_code, actor):
     :param actor: The actor's public key
     :raises StateValidationError: If duplicate declaration exists
     """
-    if IsccDeclaration.objects.filter(iscc_code=iscc_code, actor=actor, deleted=False).exists():
+    if IsccDeclaration.objects.filter(iscc_code=iscc_code, actor=actor).exists():
         raise StateValidationError(
             code="DUPLICATE_DECLARATION", message=f"ISCC-CODE already declared by this actor: {iscc_code}"
         )
@@ -60,7 +60,7 @@ def check_duplicate_datahash(datahash, actor):
     :param actor: The actor's public key
     :raises StateValidationError: If duplicate datahash exists
     """
-    if IsccDeclaration.objects.filter(datahash=datahash, actor=actor, deleted=False).exists():
+    if IsccDeclaration.objects.filter(datahash=datahash, actor=actor).exists():
         raise StateValidationError(
             code="DUPLICATE_DATAHASH", message=f"Datahash already declared by this actor: {datahash}"
         )
