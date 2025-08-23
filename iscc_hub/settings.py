@@ -49,6 +49,9 @@ ISCC_HUB_REALM = env.int("ISCC_HUB_REALM", default=0 if DEV else env.NOTSET)
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=(ISCC_HUB_DOMAIN,))
 
+# CSRF settings for reverse proxy deployments
+CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[f"https://{ISCC_HUB_DOMAIN}"])
+
 # Disable automatic trailing slash appending for clean URLs
 APPEND_SLASH = False
 
