@@ -77,12 +77,14 @@ def sequence_iscc_note(iscc_note):
             new_seq = last_seq + 1
 
             current_time_us = time.time_ns() // 1000
-            if current_time_us < last_timestamp_us:
-                raise SequencerError("Timetravel not allowed :)")
-            elif current_time_us == last_timestamp_us:
-                new_timestamp_us = last_timestamp_us + 1
-            else:
+
+            if current_time_us > last_timestamp_us:
                 new_timestamp_us = current_time_us
+            else:
+                time_diff = last_timestamp_us - current_time_us
+                if time_diff > 100_000:  # 0.1 second in microseconds
+                    raise SequencerError("Timetravel not allowed :)")
+                new_timestamp_us = last_timestamp_us + 1
 
             seconds = new_timestamp_us // 1_000_000
             microseconds = new_timestamp_us % 1_000_000

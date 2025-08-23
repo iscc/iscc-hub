@@ -82,6 +82,12 @@ def test_transaction_atomicity(full_iscc_note):
 @pytest.mark.django_db(transaction=True)
 def test_performance_benchmark():
     """Performance benchmark for sequencing operations."""
+    from iscc_hub.models import Event, IsccDeclaration
+
+    # Clean database before benchmark to avoid timestamp conflicts
+    Event.objects.all().delete()
+    IsccDeclaration.objects.all().delete()
+
     num_operations = 100
     start_time = time.perf_counter()
 
@@ -120,6 +126,10 @@ def test_performance_benchmark():
 
     # Basic performance assertion (adjust based on hardware)
     assert throughput > 50  # At least 50 ops/sec
+
+    # Clean up after test to avoid affecting other tests
+    Event.objects.all().delete()
+    IsccDeclaration.objects.all().delete()
 
 
 @pytest.mark.django_db(transaction=True)
