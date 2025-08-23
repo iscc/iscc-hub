@@ -1,0 +1,104 @@
+name: Deploy to Sandbox
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:  # Allow manual triggering
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: iscc/iscc-hub
+
+jobs:
+  # Call the test workflow first
+  test:
+    uses: ./.github/workflows/test.yaml
+
+  # Build and publish after tests pass
+  build:
+    needs: test
+    uses: ./.github/workflows/build.yaml
+
+  # Deploy to sandbox after build completes
+  deploy-sandbox:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: sandbox
+
+    steps:
+      - name: Deploy to Digital Ocean Sandbox
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: sb0.iscc.id
+          username: root
+          key: ${{ secrets.SANDBOX_SSH_KEY }}
+          script: |
+            echo "Pulling latest Docker image..."
+            docker pull ghcr.io/iscc/iscc-hub:dev
+            
+            echo "Stopping current deployment..."
+            cd /opt/iscc-hub
+            docker compose down || true
+            
+            echo "Starting updated deployment..."
+            docker compose up -d
+            
+            echo "Waiting for service to be healthy..."
+            for i in {1..30}; do
+              if docker exec iscc-hub-sb0 curl -s -H "Accept: application/json" http://localhost:8000/health >/dev/null 2>&1; then
+                echo "Service is healthy!"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "Service failed to become healthy"
+                docker logs iscc-hub-sb0 --tail 50
+                exit 1
+              fi
+              echo "Waiting... ($i/30)"
+              sleep 2
+            done
+            
+            echo "Deployment successful!"
+
+      - name: Verify Deployment
+        run: |
+          echo "Testing deployed service..."
+          sleep 5  # Give it a moment to fully stabilize
+          
+          # Test health endpoint
+          echo "Testing health endpoint..."
+          if curl -k -f https://sb0.iscc.id/health?format=json; then
+            echo "✅ Health check passed"
+          else
+            echo "❌ Health check failed"
+            exit 1
+          fi
+          
+          # Test DID document
+          echo ""
+          echo "Testing DID document..."
+          if curl -k -f https://sb0.iscc.id/.well-known/did.json | jq .id; then
+            echo "✅ DID document accessible"
+          else
+            echo "❌ DID document check failed"
+            exit 1
+          fi
+
+      - name: Generate deployment summary
+        run: |
+          echo "## 🚀 Sandbox Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** Sandbox (sb0.iscc.id)" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`ghcr.io/iscc/iscc-hub:dev\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Time:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Endpoints" >> $GITHUB_STEP_SUMMARY
+          echo "- Health: https://sb0.iscc.id/health?format=json" >> $GITHUB_STEP_SUMMARY
+          echo "- DID Document: https://sb0.iscc.id/.well-known/did.json" >> $GITHUB_STEP_SUMMARY
+          echo "- OpenAPI: https://sb0.iscc.id/openapi.yaml" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- Hub ID: 0" >> $GITHUB_STEP_SUMMARY
+          echo "- Realm: 0" >> $GITHUB_STEP_SUMMARY
+          echo "- Domain: sb0.iscc.id" >> $GITHUB_STEP_SUMMARY
