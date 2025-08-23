@@ -1,14 +1,11 @@
-name: Build Docker Images
+name: Build and Publish Docker Images
 
 on:
   push:
+    branches:
+      - develop  # Build and publish on develop branch
     tags:
-      - 'v*'  # Only trigger directly on version tags
-  workflow_call:  # Allow this workflow to be called by other workflows
-    outputs:
-      image-artifact:
-        description: "Name of the uploaded image artifact"
-        value: ${{ jobs.docker-build.outputs.artifact-name }}
+      - 'v*'  # Build and publish on version tags
 
 env:
   REGISTRY: ghcr.io
@@ -19,19 +16,28 @@ jobs:
   test:
     uses: ./.github/workflows/test.yaml
 
-  # Build only after tests pass
-  docker-build:
+  # Build and publish after tests pass
+  docker-build-publish:
     needs: test
     runs-on: ubuntu-latest
-    outputs:
-      artifact-name: iscc-hub-image
     
+    permissions:
+      contents: read
+      packages: write
+      
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install uv for test generation
         uses: astral-sh/setup-uv@v3
@@ -56,10 +62,15 @@ jobs:
             # For version tags
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+          labels: |
+            org.opencontainers.image.title=ISCC Hub
+            org.opencontainers.image.description=Django-based ISCC Discovery Protocol Hub
+            org.opencontainers.image.vendor=ISCC Foundation
+            org.opencontainers.image.licenses=Apache-2.0
 
-      - name: Build Docker image
+      - name: Build Docker image for testing
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -192,16 +203,45 @@ jobs:
           docker stop test-hub || true
           docker rm test-hub || true
 
-      - name: Export image for publishing
-        if: success()
-        run: |
-          docker save test-image:latest | gzip > iscc-hub-image.tar.gz
-
-      - name: Upload image artifact
-        if: success()
-        uses: actions/upload-artifact@v4
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
         with:
-          name: iscc-hub-image
-          path: iscc-hub-image.tar.gz
-          retention-days: 1
-          compression-level: 0  # Already compressed
+          context: .
+          target: production
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      - name: Generate deployment summary
+        run: |
+          echo "## 🚀 Docker Image Published Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Published Tags:**" >> $GITHUB_STEP_SUMMARY
+          
+          # Get tags from metadata action
+          TAGS="${{ steps.meta.outputs.tags }}"
+          echo "$TAGS" | while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then
+              echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Commands:**" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "# Pull and run the image:" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "docker run -d \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -e DJANGO_SECRET_KEY=\$SECRET_KEY \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -e ISCC_HUB_SECKEY=\$HUB_SECKEY \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -e ISCC_HUB_ID=\$HUB_ID \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -e ISCC_HUB_DOMAIN=\$DOMAIN \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -p 8000:8000 \\" >> $GITHUB_STEP_SUMMARY
+          echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
