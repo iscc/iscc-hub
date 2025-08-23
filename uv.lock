@@ -3,6 +3,15 @@ revision = 3
 requires-python = ">=3.12"
 
 [[package]]
+name = "aiomultiprocess"
+version = "0.9.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/02/d4/1e69e17dda5df91734b70d03dbbf9f222ddb438e1f3bf4ea8fa135ce46de/aiomultiprocess-0.9.1.tar.gz", hash = "sha256:f0231dbe0291e15325d7896ebeae0002d95a4f2675426ca05eb35f24c60e495b", size = 24514, upload-time = "2024-04-23T08:26:04.223Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ad/14/c48c2f5c96960f5649a72b96a0a31d45384b37d89a63f7ccea76bf4fceba/aiomultiprocess-0.9.1-py3-none-any.whl", hash = "sha256:3a7b3bb3c38dbfb4d9d1194ece5934b6d32cf0280e8edbe64a7d215bba1322c6", size = 17517, upload-time = "2024-04-23T08:26:01.649Z" },
+]
+
+[[package]]
 name = "annotated-types"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -726,6 +735,7 @@ dependencies = [
     { name = "gunicorn" },
     { name = "iscc-core" },
     { name = "iscc-crypto" },
+    { name = "niquests" },
     { name = "python-dateutil" },
     { name = "servestatic" },
     { name = "uritemplate" },
@@ -734,6 +744,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "aiomultiprocess" },
     { name = "datamodel-code-generator" },
     { name = "django-types" },
     { name = "httpx" },
@@ -760,6 +771,7 @@ requires-dist = [
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "iscc-core", specifier = ">=1.2.1" },
     { name = "iscc-crypto", specifier = ">=0.4.0" },
+    { name = "niquests", specifier = ">=3.15.2" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "servestatic", specifier = ">=3.1.0" },
     { name = "uritemplate", specifier = ">=4.2.0" },
@@ -768,6 +780,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "aiomultiprocess", specifier = ">=0.9.1" },
     { name = "datamodel-code-generator", specifier = ">=0.32.0" },
     { name = "django-types", specifier = ">=0.22.0" },
     { name = "httpx", specifier = ">=0.28.1" },
