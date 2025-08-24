@@ -8,9 +8,8 @@ import iscc_crypto as icr
 import pytest
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
-async def test_delete_declaration_success(api_client, example_keypair, example_iscc_data, current_timestamp):
+def test_delete_declaration_success(api_client, example_keypair, example_iscc_data, current_timestamp):
     # type: (object, icr.KeyPair, dict, str) -> None
     """
     Test successful deletion of a declaration.
@@ -29,7 +28,7 @@ async def test_delete_declaration_success(api_client, example_keypair, example_i
     signed_declaration = icr.sign_json(declaration_note, example_keypair)
 
     # POST the declaration (API expects bytes)
-    response = await api_client.post(
+    response = api_client.post(
         "/declaration",
         data=json.dumps(signed_declaration).encode("utf-8"),
         headers={"Content-Type": "application/json"},
@@ -50,7 +49,7 @@ async def test_delete_declaration_success(api_client, example_keypair, example_i
     signed_deletion = icr.sign_json(deletion_note, example_keypair)
 
     # DELETE the declaration (API expects bytes)
-    response = await api_client.delete(
+    response = api_client.delete(
         f"/declaration/{iscc_id}",
         data=json.dumps(signed_deletion).encode("utf-8"),
         headers={"Content-Type": "application/json"},
@@ -70,7 +69,7 @@ async def test_delete_declaration_success(api_client, example_keypair, example_i
     signed_deletion2 = icr.sign_json(deletion_note2, example_keypair)
 
     # Second deletion should fail with 404 (already deleted)
-    response = await api_client.delete(
+    response = api_client.delete(
         f"/declaration/{iscc_id}",
         data=json.dumps(signed_deletion2).encode("utf-8"),
         headers={"Content-Type": "application/json"},
@@ -83,9 +82,8 @@ async def test_delete_declaration_success(api_client, example_keypair, example_i
     assert "already deleted" in error_message.lower()
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
-async def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, example_iscc_data, current_timestamp):
+def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, example_iscc_data, current_timestamp):
     # type: (object, icr.KeyPair, dict, str) -> None
     """
     Test deletion with ISCC-ID mismatch between URL and body.
@@ -103,7 +101,7 @@ async def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, 
 
     signed_declaration1 = icr.sign_json(declaration_note1, example_keypair)
 
-    response = await api_client.post(
+    response = api_client.post(
         "/declaration",
         data=json.dumps(signed_declaration1).encode("utf-8"),
         headers={"Content-Type": "application/json"},
@@ -125,7 +123,7 @@ async def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, 
 
     signed_declaration2 = icr.sign_json(declaration_note2, example_keypair)
 
-    response = await api_client.post(
+    response = api_client.post(
         "/declaration",
         data=json.dumps(signed_declaration2).encode("utf-8"),
         headers={"Content-Type": "application/json"},
@@ -147,7 +145,7 @@ async def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, 
     signed_deletion = icr.sign_json(deletion_note, example_keypair)
 
     # URL has iscc_id1 but body has iscc_id2
-    response = await api_client.delete(
+    response = api_client.delete(
         f"/declaration/{iscc_id1}",
         data=json.dumps(signed_deletion).encode("utf-8"),
         headers={"Content-Type": "application/json"},
@@ -159,9 +157,8 @@ async def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, 
     assert "mismatch" in error_message.lower()
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
-async def test_delete_declaration_not_found(api_client, example_keypair, current_timestamp):
+def test_delete_declaration_not_found(api_client, example_keypair, current_timestamp):
     # type: (object, icr.KeyPair, str) -> None
     """
     Test deletion of non-existent declaration.
@@ -180,7 +177,7 @@ async def test_delete_declaration_not_found(api_client, example_keypair, current
 
     signed_deletion = icr.sign_json(deletion_note, example_keypair)
 
-    response = await api_client.delete(
+    response = api_client.delete(
         f"/declaration/{fake_iscc_id}",
         data=json.dumps(signed_deletion).encode("utf-8"),
         headers={"Content-Type": "application/json"},
@@ -192,9 +189,8 @@ async def test_delete_declaration_not_found(api_client, example_keypair, current
     assert "not found" in error_message.lower()
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
-async def test_delete_declaration_unauthorized(api_client, example_keypair, example_iscc_data, current_timestamp):
+def test_delete_declaration_unauthorized(api_client, example_keypair, example_iscc_data, current_timestamp):
     # type: (object, icr.KeyPair, dict, str) -> None
     """
     Test deletion by different controller (unauthorized).
@@ -209,7 +205,7 @@ async def test_delete_declaration_unauthorized(api_client, example_keypair, exam
 
     signed_declaration = icr.sign_json(declaration_note, example_keypair)
 
-    response = await api_client.post(
+    response = api_client.post(
         "/declaration",
         data=json.dumps(signed_declaration).encode("utf-8"),
         headers={"Content-Type": "application/json"},
@@ -229,7 +225,7 @@ async def test_delete_declaration_unauthorized(api_client, example_keypair, exam
 
     signed_deletion = icr.sign_json(deletion_note, different_keypair)
 
-    response = await api_client.delete(
+    response = api_client.delete(
         f"/declaration/{iscc_id}",
         data=json.dumps(signed_deletion).encode("utf-8"),
         headers={"Content-Type": "application/json"},

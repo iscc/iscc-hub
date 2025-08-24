@@ -5,10 +5,9 @@ Tests for health endpoint.
 import pytest
 
 
-@pytest.mark.asyncio
-async def test_health_check_success(api_client):
+def test_health_check_success(api_client):
     """Test that health check returns a successful response."""
-    response = await api_client.get("/health")
+    response = api_client.get("/health")
 
     assert response.status_code == 200
     data = response.json()
@@ -31,10 +30,9 @@ async def test_health_check_success(api_client):
     assert "timestamp" in data["build"]
 
 
-@pytest.mark.asyncio
-async def test_health_check_response_schema(api_client):
+def test_health_check_response_schema(api_client):
     """Test that health check response conforms to schema."""
-    response = await api_client.get("/health")
+    response = api_client.get("/health")
 
     assert response.status_code == 200
     data = response.json()
@@ -54,11 +52,10 @@ async def test_health_check_response_schema(api_client):
     assert "timestamp" in data["build"]
 
 
-@pytest.mark.asyncio
-async def test_health_check_content_negotiation_json(api_client):
+def test_health_check_content_negotiation_json(api_client):
     """Test that health check returns JSON for API clients."""
     # Test explicit JSON request
-    response = await api_client.get("/health", headers={"Accept": "application/json"})
+    response = api_client.get("/health", headers={"Accept": "application/json"})
 
     assert response.status_code == 200
 
@@ -68,12 +65,11 @@ async def test_health_check_content_negotiation_json(api_client):
     assert data["description"] == "ISCC-HUB service is healthy"
 
 
-@pytest.mark.asyncio
-async def test_health_check_content_negotiation_html(api_client):
+def test_health_check_content_negotiation_html(api_client):
     """Test that health check returns HTML for browsers when Accept header specifies HTML."""
     # Test browser request with HTML Accept header
     # With the content negotiation middleware, this should route to the HTML view
-    response = await api_client.get(
+    response = api_client.get(
         "/health",
         headers={"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"},
     )
@@ -96,11 +92,10 @@ async def test_health_check_content_negotiation_html(api_client):
         assert "html" in content.lower() or "<!doctype" in content.lower()
 
 
-@pytest.mark.asyncio
-async def test_health_check_default_returns_json(api_client):
+def test_health_check_default_returns_json(api_client):
     """Test that health check returns JSON by default (no Accept header)."""
     # Test default request (no Accept header)
-    response = await api_client.get("/health")
+    response = api_client.get("/health")
 
     assert response.status_code == 200
     # Default should return JSON

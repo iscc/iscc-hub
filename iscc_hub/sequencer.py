@@ -14,24 +14,11 @@ from datetime import datetime
 
 import base58
 import jcs
-from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.db import connection
 
 from iscc_hub.exceptions import NonceError, SequencerError
 from iscc_hub.iscc_id import IsccID
-
-
-@sync_to_async
-def asequence_iscc_note(iscc_note):  # pragma: no cover
-    """Async wrapper for sequence_iscc_note."""
-    return sequence_iscc_note(iscc_note)
-
-
-@sync_to_async
-def asequence_iscc_delete(iscc_note_delete, original_datahash):  # pragma: no cover
-    """Async wrapper for sequence_iscc_delete."""
-    return sequence_iscc_delete(iscc_note_delete, original_datahash)
 
 
 def sequence_iscc_note(iscc_note):

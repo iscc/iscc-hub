@@ -8,10 +8,10 @@ import iscc_hub
 from iscc_hub.exceptions import BaseApiException, DuplicateDeclarationError, NotFoundError, UnauthorizedError
 from iscc_hub.iscc_id import IsccID
 from iscc_hub.models import Event, IsccDeclaration
-from iscc_hub.receipt import abuild_iscc_receipt
+from iscc_hub.receipt import build_iscc_receipt
 from iscc_hub.schema import ErrorResponse, IsccReceipt
-from iscc_hub.sequencer import asequence_iscc_delete, asequence_iscc_note
-from iscc_hub.validators import avalidate_iscc_note, avalidate_iscc_note_delete
+from iscc_hub.sequencer import sequence_iscc_delete, sequence_iscc_note
+from iscc_hub.validators import validate_iscc_note, validate_iscc_note_delete
 
 api = NinjaAPI(
     title="ISCC Notary API",
@@ -38,14 +38,14 @@ def handle_api_exception(request, exc):
 
 
 @api.post("/declaration", response={201: IsccReceipt, codes_4xx: ErrorResponse})
-async def declaration(request):
+def declaration(request):
     # Validate and parse request body (includes size check and JSON parsing)
-    valid_data = await avalidate_iscc_note(request.body, True, settings.ISCC_HUB_ID, True)
+    valid_data = validate_iscc_note(request.body, True, settings.ISCC_HUB_ID, True)
 
     # Check for duplicate declarations (only if force header not present)
     force_declaration = request.headers.get("X-Force-Declaration", "").lower() in ("true", "1")
     if not force_declaration:
-        existing = await Event.objects.filter(datahash=valid_data["datahash"]).afirst()
+        existing = Event.objects.filter(datahash=valid_data["datahash"]).first()
         if existing:
             message = f"Duplicate declaration for datahash: {valid_data['datahash']}"
             existing_actor = existing.iscc_note.get("signature", {}).get("pubkey", "")
@@ -54,7 +54,7 @@ async def declaration(request):
             )
 
     # Sequencing (now includes materialized view creation)
-    seq, iscc_id = await asequence_iscc_note(valid_data)
+    seq, iscc_id = sequence_iscc_note(valid_data)
 
     # Create and return IsccReceipt
     declaration_data = {
@@ -62,12 +62,12 @@ async def declaration(request):
         "seq": seq,
         "iscc_id_str": str(IsccID(iscc_id)),
     }
-    receipt = await abuild_iscc_receipt(declaration_data)
+    receipt = build_iscc_receipt(declaration_data)
     return api.create_response(request, receipt, status=201)
 
 
 @api.delete("/declaration/{iscc_id}", response={204: None, codes_4xx: ErrorResponse})
-async def delete_declaration(request, iscc_id: str):
+def delete_declaration(request, iscc_id: str):
     # type: (HttpRequest, str) -> object
     """
     Delete a previously timestamped ISCC declaration.
@@ -80,20 +80,20 @@ async def delete_declaration(request, iscc_id: str):
     :return: 204 No Content on success, or error response
     """
     # Validate and parse request body
-    valid_data = await avalidate_iscc_note_delete(request.body, True, settings.ISCC_HUB_ID, True)
+    valid_data = validate_iscc_note_delete(request.body, True, settings.ISCC_HUB_ID, True)
 
     # Check that the ISCC-ID from the URL matches the one in the body
     if valid_data["iscc_id"] != iscc_id:
         raise NotFoundError(f"ISCC-ID mismatch: URL {iscc_id} != body {valid_data['iscc_id']}")
 
     # Find the original declaration with matching ISCC-ID
-    original_event = await Event.objects.filter(iscc_id=bytes(IsccID(iscc_id)), event_type=1).select_related().afirst()
+    original_event = Event.objects.filter(iscc_id=bytes(IsccID(iscc_id)), event_type=1).select_related().first()
 
     if not original_event:
         raise NotFoundError(f"Declaration not found: {iscc_id}")
 
     # Check if already deleted (look for a deletion event)
-    deletion_event = await Event.objects.filter(iscc_id=bytes(IsccID(iscc_id)), event_type=3).afirst()
+    deletion_event = Event.objects.filter(iscc_id=bytes(IsccID(iscc_id)), event_type=3).first()
 
     if deletion_event:
         raise NotFoundError(f"Declaration already deleted: {iscc_id}")
@@ -106,14 +106,14 @@ async def delete_declaration(request, iscc_id: str):
         raise UnauthorizedError("Not authorized to delete this declaration")
 
     # Sequence the deletion event (now includes materialized view deletion)
-    await asequence_iscc_delete(valid_data, original_event.datahash)
+    sequence_iscc_delete(valid_data, original_event.datahash)
 
     # Return 204 No Content with empty body
     return 204, None
 
 
 @api.get("/health")
-async def health(request):
+def health(request):
     # type: (HttpRequest) -> dict
     """
     Health check endpoint to verify service status.

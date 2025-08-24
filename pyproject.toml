@@ -15,7 +15,6 @@ dependencies = [
     "python-dateutil>=2.9.0.post0",
     "servestatic>=3.1.0",
     "uritemplate>=4.2.0",
-    "uvicorn[standard]>=0.35.0",
 ]
 
 [tool.uv]
@@ -135,7 +134,7 @@ test-all = {cmd = "uv run pytest", help = "Run all python tests including slow o
 # Development tasks
 init = { cmd = "uv run python scripts/db_management.py init", help = "Initialize dev database (skips if exists)" }
 reset = { cmd = "uv run python scripts/db_management.py reset", help = "Reset dev database with migrations, demo user, and fixtures" }
-serve = { cmd = "uv run uvicorn iscc_hub.asgi:application --host localhost --port 8000 --reload --use-colors", help = "Serve with uvicorn for development" }
+dev = { cmd = "uv run python manage.py runserver", help = "Start Django development server" }
 fixtures-load = { cmd = "uv run python manage.py loaddata test_data", help = "Load fixture data for testing" }
 fixtures-generate = { cmd = "uv run python scripts/generate_fixtures.py", help = "Generate realistic fixture data from valid IsccNotes" }
 declare = { cmd = "uv run python scripts/declare.py", help = "Create and declare a random ISCC note (--hub-url to specify hub, defaults to localhost:8000)" }

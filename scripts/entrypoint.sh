@@ -21,13 +21,13 @@ if [ "$ENVIRONMENT" = "development" ]; then
 else
     # Production: ensure migrations exist and apply them
     echo "📦 Ensuring database migrations exist..."
-    
+
     # Check if migrations directory exists and has migration files
     if [ ! -d "iscc_hub/migrations" ] || [ -z "$(find iscc_hub/migrations -name '0001_*.py' 2>/dev/null)" ]; then
         echo "  Creating initial migrations..."
         python manage.py makemigrations iscc_hub --no-input
     fi
-    
+
     echo "  Applying database migrations..."
     python manage.py migrate --no-input
 fi
@@ -39,12 +39,14 @@ echo "========================================="
 # If no command provided, use default based on environment
 if [ $# -eq 0 ]; then
     if [ "$ENVIRONMENT" = "development" ]; then
-        # Development: Use uvicorn with reload
-        exec uvicorn iscc_hub.asgi:application \
-            --host 0.0.0.0 \
-            --port ${PORT:-8000} \
+        # Development: Use gunicorn with reload
+        exec gunicorn iscc_hub.wsgi:application \
+            --bind 0.0.0.0:${PORT:-8000} \
+            --workers 1 \
             --reload \
-            --use-colors
+            --access-logfile - \
+            --error-logfile - \
+            --log-level info
     else
         # Production: Use gunicorn with sync workers (WSGI)
         exec gunicorn iscc_hub.wsgi:application \

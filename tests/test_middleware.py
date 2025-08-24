@@ -1,7 +1,6 @@
 """Tests for content negotiation middleware."""
 
-import asyncio
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 import pytest
 from django.http import HttpResponse
@@ -142,18 +141,17 @@ def test_middleware_format_param_overrides_accept(request_factory):
     get_response.assert_called_once_with(request)
 
 
-@pytest.mark.asyncio
-async def test_middleware_async_format_json(request_factory):
+def test_middleware_sync_format_json(request_factory):
     # type: (RequestFactory) -> None
-    """Test async middleware routes to API when format=json."""
+    """Test sync middleware routes to API when format=json."""
 
-    # Create async get_response
-    async def async_get_response(request):
+    # Create sync get_response
+    def sync_get_response(request):
         # type: (object) -> HttpResponse
-        """Mock async response handler."""
+        """Mock sync response handler."""
         return HttpResponse("OK")
 
-    get_response = AsyncMock(side_effect=async_get_response)
+    get_response = Mock(side_effect=sync_get_response)
 
     # Get middleware instance
     middleware = ContentNegotiationMiddleware(get_response)
@@ -162,7 +160,7 @@ async def test_middleware_async_format_json(request_factory):
     request = request_factory.get("/?format=json")
 
     # Process request
-    response = await middleware(request)
+    response = middleware(request)
 
     # Check that urlconf was set correctly
     assert request.urlconf == "iscc_hub.urls_api"
@@ -170,42 +168,40 @@ async def test_middleware_async_format_json(request_factory):
     get_response.assert_called_once_with(request)
 
 
-@pytest.mark.asyncio
-async def test_middleware_async_accept_json(request_factory):
+def test_middleware_sync_accept_json(request_factory):
     # type: (RequestFactory) -> None
-    """Test async middleware routes to API with JSON Accept header."""
+    """Test sync middleware routes to API with JSON Accept header."""
 
-    async def async_get_response(request):
+    def sync_get_response(request):
         # type: (object) -> HttpResponse
-        """Mock async response handler."""
+        """Mock sync response handler."""
         return HttpResponse("OK")
 
-    get_response = AsyncMock(side_effect=async_get_response)
+    get_response = Mock(side_effect=sync_get_response)
     middleware = ContentNegotiationMiddleware(get_response)
 
     request = request_factory.get("/", HTTP_ACCEPT="application/json")
-    response = await middleware(request)
+    response = middleware(request)
 
     assert request.urlconf == "iscc_hub.urls_api"
     assert "Accept" in response.get("Vary", "")
     get_response.assert_called_once_with(request)
 
 
-@pytest.mark.asyncio
-async def test_middleware_async_default_html(request_factory):
+def test_middleware_sync_default_html(request_factory):
     # type: (RequestFactory) -> None
-    """Test async middleware defaults to views."""
+    """Test sync middleware defaults to views."""
 
-    async def async_get_response(request):
+    def sync_get_response(request):
         # type: (object) -> HttpResponse
-        """Mock async response handler."""
+        """Mock sync response handler."""
         return HttpResponse("OK")
 
-    get_response = AsyncMock(side_effect=async_get_response)
+    get_response = Mock(side_effect=sync_get_response)
     middleware = ContentNegotiationMiddleware(get_response)
 
     request = request_factory.get("/", HTTP_ACCEPT="text/html")
-    response = await middleware(request)
+    response = middleware(request)
 
     assert request.urlconf == "iscc_hub.urls_views"
     assert "Accept" in response.get("Vary", "")

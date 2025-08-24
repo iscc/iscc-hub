@@ -8,8 +8,7 @@ from django.test import RequestFactory
 from iscc_hub import views
 
 
-@pytest.mark.asyncio
-async def test_health_view_returns_html():
+def test_health_view_returns_html():
     # type: () -> None
     """Test that health view returns HTML with correct context."""
     # Create a request
@@ -22,7 +21,7 @@ async def test_health_view_returns_html():
         mock_render.return_value = mock_response
 
         # Call the view
-        response = await views.health(request)
+        response = views.health(request)
 
         # Verify render was called with correct arguments
         mock_render.assert_called_once()
@@ -50,8 +49,7 @@ async def test_health_view_returns_html():
         assert response == mock_response
 
 
-@pytest.mark.asyncio
-async def test_health_view_with_custom_version():
+def test_health_view_with_custom_version():
     # type: () -> None
     """Test that health view uses custom VERSION from settings if available."""
     factory = RequestFactory()
@@ -62,15 +60,14 @@ async def test_health_view_with_custom_version():
             mock_response = MagicMock()
             mock_render.return_value = mock_response
 
-            await views.health(request)
+            views.health(request)
 
             # Check the context has custom version
             context = mock_render.call_args[0][2]
             assert context["version"] == "2.0.0"
 
 
-@pytest.mark.asyncio
-async def test_health_view_with_build_metadata():
+def test_health_view_with_build_metadata():
     # type: () -> None
     """Test that health view correctly formats build metadata."""
     factory = RequestFactory()
@@ -87,7 +84,7 @@ async def test_health_view_with_build_metadata():
             mock_response = MagicMock()
             mock_render.return_value = mock_response
 
-            await views.health(request)
+            views.health(request)
 
             # Check the context has build metadata
             context = mock_render.call_args[0][2]
@@ -97,8 +94,7 @@ async def test_health_view_with_build_metadata():
             assert context["build_timestamp"] == "2024-01-15T12:00:00Z"
 
 
-@pytest.mark.asyncio
-async def test_homepage_view_returns_html():
+def test_homepage_view_returns_html():
     # type: () -> None
     """Test that homepage view returns HTML with correct template."""
     # Create a request
@@ -111,7 +107,7 @@ async def test_homepage_view_returns_html():
         mock_render.return_value = mock_response
 
         # Call the view
-        response = await views.homepage(request)
+        response = views.homepage(request)
 
         # Verify render was called with correct arguments
         mock_render.assert_called_once_with(request, "iscc_hub/homepage.html")

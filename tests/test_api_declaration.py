@@ -29,9 +29,8 @@ def clear_database():
         pass
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=False)
-async def test_declaration_success_minimal(
+def test_declaration_success_minimal(
     live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
 ):
     """Test successful declaration with minimal IsccNote returns IsccReceipt."""
@@ -48,9 +47,9 @@ async def test_declaration_success_minimal(
     # Sign the note
     signed_note = icr.sign_json(minimal_note, example_keypair)
 
-    # Use httpx async client with live server
-    async with httpx.AsyncClient() as client:
-        response = await client.post(f"{live_server.url}/declaration", json=signed_note)
+    # Use httpx client with live server
+    with httpx.Client() as client:
+        response = client.post(f"{live_server.url}/declaration", json=signed_note)
 
         if response.status_code != 201:
             print(f"Response status: {response.status_code}")
@@ -77,12 +76,11 @@ async def test_declaration_success_minimal(
         assert "iscc_note" in declaration
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=False)
-async def test_declaration_invalid_json(live_server):
+def test_declaration_invalid_json(live_server):
     """Test invalid JSON returns 400 error."""
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
+    with httpx.Client() as client:
+        response = client.post(
             f"{live_server.url}/declaration",
             content=b"invalid json",
             headers={"Content-Type": "application/json"},
@@ -100,9 +98,8 @@ async def test_declaration_invalid_json(live_server):
         assert error["code"] == "invalid_format"  # ValidationError uses specific codes
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=False)
-async def test_declaration_duplicate_rejected(
+def test_declaration_duplicate_rejected(
     live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
 ):
     """Test duplicate declaration is rejected with 409 Conflict."""
@@ -117,9 +114,9 @@ async def test_declaration_duplicate_rejected(
     }
     signed_first = icr.sign_json(first_note, example_keypair)
 
-    async with httpx.AsyncClient() as client:
+    with httpx.Client() as client:
         # First declaration should succeed
-        response = await client.post(f"{live_server.url}/declaration", json=signed_first)
+        response = client.post(f"{live_server.url}/declaration", json=signed_first)
         assert response.status_code == 201
 
         # Create second declaration with same datahash but different nonce
@@ -133,7 +130,7 @@ async def test_declaration_duplicate_rejected(
         signed_second = icr.sign_json(second_note, example_keypair)
 
         # Second declaration should be rejected with 409
-        response = await client.post(f"{live_server.url}/declaration", json=signed_second)
+        response = client.post(f"{live_server.url}/declaration", json=signed_second)
         assert response.status_code == 409
 
         data = response.json()
@@ -146,9 +143,8 @@ async def test_declaration_duplicate_rejected(
         assert example_iscc_data["datahash"] in error["message"]
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=False)
-async def test_declaration_duplicate_forced(
+def test_declaration_duplicate_forced(
     live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
 ):
     """Test duplicate declaration succeeds with force header."""
@@ -163,9 +159,9 @@ async def test_declaration_duplicate_forced(
     }
     signed_first = icr.sign_json(first_note, example_keypair)
 
-    async with httpx.AsyncClient() as client:
+    with httpx.Client() as client:
         # First declaration should succeed
-        response = await client.post(f"{live_server.url}/declaration", json=signed_first)
+        response = client.post(f"{live_server.url}/declaration", json=signed_first)
         assert response.status_code == 201
 
         # Create second declaration with same datahash but different nonce
@@ -180,7 +176,7 @@ async def test_declaration_duplicate_forced(
 
         # Second declaration should succeed with force header
         headers = {"X-Force-Declaration": "true"}
-        response = await client.post(f"{live_server.url}/declaration", json=signed_second, headers=headers)
+        response = client.post(f"{live_server.url}/declaration", json=signed_second, headers=headers)
         assert response.status_code == 201
 
         # Should return valid receipt
@@ -189,9 +185,8 @@ async def test_declaration_duplicate_forced(
         assert "declaration" in data["credentialSubject"]
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=False)
-async def test_declaration_duplicate_force_variations(
+def test_declaration_duplicate_force_variations(
     live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
 ):
     """Test various force header values work correctly."""
@@ -206,9 +201,9 @@ async def test_declaration_duplicate_force_variations(
     }
     signed_first = icr.sign_json(first_note, example_keypair)
 
-    async with httpx.AsyncClient() as client:
+    with httpx.Client() as client:
         # First declaration
-        response = await client.post(f"{live_server.url}/declaration", json=signed_first)
+        response = client.post(f"{live_server.url}/declaration", json=signed_first)
         assert response.status_code == 201
 
         # Test force="1" works
@@ -222,7 +217,7 @@ async def test_declaration_duplicate_force_variations(
         signed_second = icr.sign_json(second_note, example_keypair)
 
         headers = {"X-Force-Declaration": "1"}
-        response = await client.post(f"{live_server.url}/declaration", json=signed_second, headers=headers)
+        response = client.post(f"{live_server.url}/declaration", json=signed_second, headers=headers)
         assert response.status_code == 201
 
         # Test force="TRUE" (case insensitive) works
@@ -236,7 +231,7 @@ async def test_declaration_duplicate_force_variations(
         signed_third = icr.sign_json(third_note, example_keypair)
 
         headers = {"X-Force-Declaration": "TRUE"}
-        response = await client.post(f"{live_server.url}/declaration", json=signed_third, headers=headers)
+        response = client.post(f"{live_server.url}/declaration", json=signed_third, headers=headers)
         assert response.status_code == 201
 
         # Test force="false" is rejected
@@ -250,13 +245,12 @@ async def test_declaration_duplicate_force_variations(
         signed_fourth = icr.sign_json(fourth_note, example_keypair)
 
         headers = {"X-Force-Declaration": "false"}
-        response = await client.post(f"{live_server.url}/declaration", json=signed_fourth, headers=headers)
+        response = client.post(f"{live_server.url}/declaration", json=signed_fourth, headers=headers)
         assert response.status_code == 409
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=False)
-async def test_declaration_nonce_reuse_error(
+def test_declaration_nonce_reuse_error(
     live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
 ):
     """Test nonce reuse returns 400 error."""
@@ -273,13 +267,13 @@ async def test_declaration_nonce_reuse_error(
     # Sign the note
     signed_note = icr.sign_json(minimal_note, example_keypair)
 
-    async with httpx.AsyncClient() as client:
+    with httpx.Client() as client:
         # First declaration should succeed
-        response1 = await client.post(f"{live_server.url}/declaration", json=signed_note)
+        response1 = client.post(f"{live_server.url}/declaration", json=signed_note)
         assert response1.status_code == 201
 
         # Second declaration with same nonce should fail (use force header to bypass duplicate check)
-        response2 = await client.post(
+        response2 = client.post(
             f"{live_server.url}/declaration", json=signed_note, headers={"X-Force-Declaration": "true"}
         )
 
@@ -296,9 +290,8 @@ async def test_declaration_nonce_reuse_error(
         assert error["field"] == "nonce"
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=False)
-async def test_declaration_validation_error(live_server):
+def test_declaration_validation_error(live_server):
     """Test validation error returns 422."""
     # Send IsccNote with missing required field
     invalid_note = {
@@ -307,8 +300,8 @@ async def test_declaration_validation_error(live_server):
         # Missing nonce, timestamp, signature
     }
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(f"{live_server.url}/declaration", json=invalid_note)
+    with httpx.Client() as client:
+        response = client.post(f"{live_server.url}/declaration", json=invalid_note)
 
         assert response.status_code == 422
         data = response.json()
@@ -321,9 +314,8 @@ async def test_declaration_validation_error(live_server):
         assert "field" in error
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=False)
-async def test_declaration_signature_error(live_server, current_timestamp, example_nonce, example_iscc_data):
+def test_declaration_signature_error(live_server, current_timestamp, example_nonce, example_iscc_data):
     """Test invalid signature returns 401."""
     # Create an IsccNote with an invalid signature
     invalid_note = {
@@ -338,8 +330,8 @@ async def test_declaration_signature_error(live_server, current_timestamp, examp
         },
     }
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(f"{live_server.url}/declaration", json=invalid_note)
+    with httpx.Client() as client:
+        response = client.post(f"{live_server.url}/declaration", json=invalid_note)
 
         assert response.status_code == 401
         data = response.json()
@@ -353,13 +345,12 @@ async def test_declaration_signature_error(live_server, current_timestamp, examp
         assert error["code"] == "invalid_signature"
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=False)
-async def test_health_endpoint(live_server):
+def test_health_endpoint(live_server):
     """Test health endpoint returns correct status."""
-    async with httpx.AsyncClient() as client:
+    with httpx.Client() as client:
         # Use Accept header for JSON API
-        response = await client.get(
+        response = client.get(
             f"{live_server.url}/health",
             headers={"Accept": "application/json"},
         )
@@ -375,13 +366,12 @@ async def test_health_endpoint(live_server):
         assert data["description"] == "ISCC-HUB service is healthy"
 
 
-@pytest.mark.asyncio
 @pytest.mark.django_db(transaction=False)
-async def test_did_document_endpoint(live_server):
+def test_did_document_endpoint(live_server):
     """Test DID document endpoint returns correct document."""
-    async with httpx.AsyncClient() as client:
+    with httpx.Client() as client:
         # Use Accept header for JSON API
-        response = await client.get(
+        response = client.get(
             f"{live_server.url}/.well-known/did.json",
             headers={"Accept": "application/json"},
         )

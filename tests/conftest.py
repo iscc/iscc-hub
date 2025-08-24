@@ -57,13 +57,13 @@ def django_db_use_migrations():
 
 @pytest.fixture
 def api_client(db):
-    """Provide Django Ninja TestAsyncClient for API testing."""
-    from ninja.testing import TestAsyncClient
+    """Provide Django Ninja TestClient for API testing."""
+    from ninja.testing import TestClient
 
     from iscc_hub.api import api
 
     # Ensure database is available and properly initialized
-    return TestAsyncClient(api)
+    return TestClient(api)
 
 
 def create_iscc_from_text(text="Hello World!"):

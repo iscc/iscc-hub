@@ -7,7 +7,7 @@ import pytest
 from django.conf import settings
 
 from iscc_hub.iscc_id import IsccID
-from iscc_hub.receipt import abuild_iscc_receipt, build_iscc_receipt, derive_subject_did
+from iscc_hub.receipt import build_iscc_receipt, derive_subject_did
 
 
 @pytest.mark.django_db
@@ -214,11 +214,9 @@ def test_build_iscc_receipt_iscc_id_formatting(minimal_iscc_note):
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.asyncio
-async def test_abuild_iscc_receipt(minimal_iscc_note):
+def test_build_iscc_receipt(minimal_iscc_note):
     # type: (dict) -> None
-    """Test async wrapper for building an IsccReceipt."""
-    from asgiref.sync import sync_to_async
+    """Test building an IsccReceipt."""
 
     # Create declaration data dict
     iscc_id = IsccID.from_timestamp(1700000000000000, 1)
@@ -228,13 +226,13 @@ async def test_abuild_iscc_receipt(minimal_iscc_note):
         "iscc_id_str": str(iscc_id),
     }
 
-    # Build the receipt using async wrapper
-    receipt = await abuild_iscc_receipt(declaration_data)
+    # Build the receipt
+    receipt = build_iscc_receipt(declaration_data)
 
-    # Build sync version for comparison
-    sync_receipt = await sync_to_async(build_iscc_receipt)(declaration_data)
+    # Build another copy for comparison
+    sync_receipt = build_iscc_receipt(declaration_data)
 
-    # Verify it's the same as the sync version
+    # Verify it's the same as the other copy
     assert receipt == sync_receipt
 
     # Verify basic structure

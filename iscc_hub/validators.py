@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 import iscc_core as ic
 import iscc_crypto as icr
 import uritemplate
-from asgiref.sync import sync_to_async
 from dateutil.parser import isoparse
 
 from iscc_hub.exceptions import (
@@ -61,12 +60,6 @@ def deserialize_request(data, max_size=8192):
         return json.loads(data)
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         raise ValidationError("Invalid JSON in request body", code="invalid_format") from e
-
-
-@sync_to_async
-def avalidate_iscc_note(*args, **kwargs):  # pragma: no cover
-    """Async wrapper for validate_iscc_note."""
-    return validate_iscc_note(*args, **kwargs)
 
 
 def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_timestamp=True):
@@ -131,12 +124,6 @@ def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_t
         verify_signature_cryptographically(data_dict)
 
     return data_dict
-
-
-@sync_to_async
-def avalidate_iscc_note_delete(*args, **kwargs):  # pragma: no cover
-    """Async wrapper for validate_iscc_note_delete."""
-    return validate_iscc_note_delete(*args, **kwargs)
 
 
 def validate_iscc_note_delete(data, verify_signature=True, verify_hub_id=None, verify_timestamp=True):
