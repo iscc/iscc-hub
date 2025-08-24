@@ -615,18 +615,8 @@ def test_iscc_declaration_model_meta():
     pk_field = IsccDeclaration._meta.pk
     assert pk_field.name == "iscc_id"
 
-    # Test indexes exist (checking they're defined, not their actual behavior)
-    index_fields = []
-    for index in IsccDeclaration._meta.indexes:
-        index_fields.append(index.fields)
-
-    # Verify expected indexes are present
-    assert ["iscc_code", "-iscc_id"] in index_fields
-    assert ["datahash", "-iscc_id"] in index_fields
-    assert ["actor", "-iscc_id"] in index_fields
-    assert ["actor", "iscc_code"] in index_fields
-    assert ["actor", "datahash"] in index_fields
-    assert ["redacted", "-iscc_id"] in index_fields
+    # Test that indexes have been removed (for now)
+    assert len(IsccDeclaration._meta.indexes) == 0
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)

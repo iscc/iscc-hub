@@ -18,7 +18,7 @@ services:
       # Development environment
       ENVIRONMENT: development
       PORT: 8000
-      
+
       # Django settings
       DJANGO_DEBUG: "true"
       DJANGO_SECRET_KEY: "dev-secret-key-change-in-production"
@@ -26,8 +26,8 @@ services:
       # ISCC Hub configuration
       # ISCC_HUB_DB_NAME is now optional - defaults to iscc-hub-dev.db in development
       ISCC_HUB_DOMAIN: "localhost"
-      ISCC_HUB_SECKEY: "0xb0c4e114e9840237e62f9b88d52fe9e8e3b50db3e3faeef5a7bddbe1cc80e640"
-      ISCC_HUB_ID: "42"
+      ISCC_HUB_SECKEY: "z3u2RDonZ81AFKiw8QCPKcsyg8Yy2MmYQNxfBn51SS2QmMiw"
+      ISCC_HUB_ID: "0"
 
       # Python settings
       PYTHONUNBUFFERED: "1"

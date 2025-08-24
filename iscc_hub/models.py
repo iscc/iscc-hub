@@ -61,10 +61,6 @@ class Event(models.Model):
 
     class Meta:
         db_table = "iscc_event"
-        indexes = [
-            models.Index(fields=["iscc_id", "seq"]),
-            models.Index(fields=["event_time"]),
-        ]
         verbose_name = "Event"
         verbose_name_plural = "Events"
 
@@ -136,17 +132,6 @@ class IsccDeclaration(models.Model):
         db_table = "iscc_declaration"
         verbose_name = "Declaration"
         verbose_name_plural = "Declarations"
-        indexes = [
-            # Discovery queries (use iscc_id for chronological ordering)
-            models.Index(fields=["iscc_code", "-iscc_id"]),
-            models.Index(fields=["datahash", "-iscc_id"]),
-            # Actor queries
-            models.Index(fields=["actor", "-iscc_id"]),
-            models.Index(fields=["actor", "iscc_code"]),
-            models.Index(fields=["actor", "datahash"]),
-            # Admin redaction
-            models.Index(fields=["redacted", "-iscc_id"]),
-        ]
 
     def __str__(self):
         # type: () -> str
