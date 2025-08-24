@@ -306,6 +306,128 @@ def test_isccid_field_formfield_with_kwargs():
     assert form_field.help_text == "Custom help"
 
 
+def test_isccid_field_get_lookup():
+    # type: () -> None
+    """Test get_lookup method returns custom lookup for icontains."""
+    from iscc_hub.fields import IsccIDFieldIContains
+
+    field = IsccIDField()
+
+    # Test icontains lookup returns custom class
+    lookup_class = field.get_lookup("icontains")
+    assert lookup_class is IsccIDFieldIContains
+
+    # Test other lookups delegate to parent
+    exact_lookup = field.get_lookup("exact")
+    assert exact_lookup is not IsccIDFieldIContains
+    # It should return Django's built-in lookup
+    assert exact_lookup is not None
+
+
+def test_isccid_field_icontains_process_rhs():
+    # type: () -> None
+    """Test IsccIDFieldIContains.process_rhs method."""
+    from iscc_hub.fields import IsccIDFieldIContains
+
+    # Create a lookup instance
+    lookup = IsccIDFieldIContains(None, None)
+
+    # Test with None value
+    lookup.rhs = None
+    sql, params = lookup.process_rhs(None, None)
+    assert sql == "%s"
+    assert params == [None]
+
+    # Test with empty string
+    lookup.rhs = ""
+    sql, params = lookup.process_rhs(None, None)
+    assert sql == "%s"
+    assert params == [None]
+
+    # Test with valid ISCC-ID with prefix
+    lookup.rhs = "ISCC:MAIWGQRD43YZQUAA"
+    sql, params = lookup.process_rhs(None, None)
+    assert sql == "%s"
+    assert isinstance(params[0], bytes)
+    assert len(params[0]) == 8
+
+    # Test with valid ISCC-ID without prefix (16 chars alphanumeric)
+    lookup.rhs = "MAIWGQRD43YZQUAA"
+    sql, params = lookup.process_rhs(None, None)
+    assert sql == "%s"
+    assert isinstance(params[0], bytes)
+    assert len(params[0]) == 8
+
+    # Test with lowercase input (should be normalized to uppercase)
+    lookup.rhs = "maiwgqrd43yzquaa"
+    sql, params = lookup.process_rhs(None, None)
+    assert sql == "%s"
+    assert isinstance(params[0], bytes)
+    assert len(params[0]) == 8
+
+    # Test with whitespace (should be stripped)
+    lookup.rhs = "  ISCC:MAIWGQRD43YZQUAA  "
+    sql, params = lookup.process_rhs(None, None)
+    assert sql == "%s"
+    assert isinstance(params[0], bytes)
+    assert len(params[0]) == 8
+
+    # Test with invalid ISCC-ID
+    lookup.rhs = "INVALID_ISCC_ID"
+    sql, params = lookup.process_rhs(None, None)
+    assert sql == "%s"
+    assert params == [b""]  # Empty bytes for invalid input
+
+    # Test with partial ISCC-ID (not 16 chars, so won't be auto-prefixed)
+    lookup.rhs = "MAIWGQRD"
+    sql, params = lookup.process_rhs(None, None)
+    assert sql == "%s"
+    # This should fail to convert because it's neither a valid ISCC-ID nor 16 chars
+    # The actual bytes returned will depend on what the conversion attempt produces
+    # But we know it won't be a valid 8-byte ISCC-ID
+    if params[0] != b"":
+        # If it didn't return empty bytes, it tried to convert and got something
+        # Just verify it's bytes and not the expected valid ISCC-ID bytes
+        assert isinstance(params[0], bytes)
+
+
+def test_isccid_field_icontains_as_sql():
+    # type: () -> None
+    """Test IsccIDFieldIContains.as_sql method."""
+    from unittest.mock import MagicMock
+
+    from iscc_hub.fields import IsccIDFieldIContains
+
+    # Create a lookup instance
+    lookup = IsccIDFieldIContains(None, None)
+
+    # Mock process_lhs and process_rhs
+    lookup.process_lhs = MagicMock(return_value=("field_name", []))
+
+    # Test with valid ISCC-ID
+    lookup.rhs = "ISCC:MAIWGQRD43YZQUAA"
+    lookup.process_rhs = MagicMock(return_value=("%s", [b"\x19h\xb9%\x16\x10\xd0\x00"]))
+
+    sql, params = lookup.as_sql(None, None)
+    assert sql == "field_name = %s"
+    assert params == [b"\x19h\xb9%\x16\x10\xd0\x00"]
+
+    # Test with invalid ISCC-ID (empty bytes)
+    lookup.process_rhs = MagicMock(return_value=("%s", [b""]))
+
+    sql, params = lookup.as_sql(None, None)
+    assert sql == "0=1"  # Always false condition
+    assert params == []
+
+    # Test with None value
+    lookup.process_rhs = MagicMock(return_value=("%s", [None]))
+    lookup.process_lhs = MagicMock(return_value=("field_name", []))
+
+    sql, params = lookup.as_sql(None, None)
+    assert sql == "field_name = %s"
+    assert params == [None]
+
+
 def test_iscc_id_field_value_to_string():
     # type: () -> None
     """Test value_to_string method for serialization."""

@@ -3,6 +3,7 @@ import binascii
 import base58
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.lookups import IContains
 from django.forms import CharField
 
 from iscc_hub.iscc_id import IsccID
@@ -35,6 +36,50 @@ class SequenceField(models.AutoField):
         return ""
 
 
+class IsccIDFieldIContains(IContains):
+    """Custom icontains lookup for IsccIDField that handles ISCC-ID string matching."""
+
+    def process_rhs(self, compiler, connection):
+        # type: (object, object) -> tuple[str, list]
+        """Process the right-hand side of the lookup to convert ISCC-ID string to bytes."""
+        value = self.rhs
+
+        # Handle empty or None values
+        if value is None or value == "":
+            return "%s", [None]
+
+        # Normalize the search term
+        search_str = str(value).upper().strip()
+
+        # Handle searches with or without ISCC: prefix
+        if not search_str.startswith("ISCC:"):
+            # If it looks like an ISCC-ID without prefix, add it
+            if len(search_str) == 16 and search_str.isalnum():
+                search_str = f"ISCC:{search_str}"
+
+        # Try to convert to valid ISCC-ID and then to bytes
+        try:
+            iscc_obj = IsccID(search_str)
+            return "%s", [bytes(iscc_obj)]
+        except Exception:
+            # If not a valid ISCC-ID, return a value that won't match anything
+            return "%s", [b""]  # Empty bytes won't match any valid ISCC-ID
+
+    def as_sql(self, compiler, connection):
+        # type: (object, object) -> tuple[str, list]
+        """Generate SQL for exact binary match (since we normalize to exact ISCC-ID)."""
+        lhs, lhs_params = self.process_lhs(compiler, connection)  # type: ignore[arg-type]
+        rhs, rhs_params = self.process_rhs(compiler, connection)  # type: ignore[arg-type]
+
+        # If we have empty bytes (invalid ISCC-ID), return no matches
+        if rhs_params and rhs_params[0] == b"":
+            return "0=1", []  # Always false condition
+
+        # Use exact match for binary comparison
+        params = lhs_params + rhs_params
+        return f"{lhs} = {rhs}", params
+
+
 class IsccIDField(models.BinaryField):
     """Store ISCC-IDs as 8-byte binary data with string representation in Python."""
 
@@ -49,6 +94,13 @@ class IsccIDField(models.BinaryField):
         kwargs.setdefault("null", False)
         kwargs.setdefault("blank", False)
         super().__init__(*args, **kwargs)
+
+    def get_lookup(self, lookup_name):
+        # type: (str) -> type[IsccIDFieldIContains] | object
+        """Return custom lookup for icontains, delegate others to parent."""
+        if lookup_name == "icontains":
+            return IsccIDFieldIContains
+        return super().get_lookup(lookup_name)
 
     def to_python(self, value):
         # type: (object) -> str | None
