@@ -46,12 +46,10 @@ if [ $# -eq 0 ]; then
             --reload \
             --use-colors
     else
-        # Production: Use gunicorn with uvicorn workers
-        exec gunicorn iscc_hub.asgi:application \
-            -k uvicorn.workers.UvicornWorker \
+        # Production: Use gunicorn with sync workers (WSGI)
+        exec gunicorn iscc_hub.wsgi:application \
             --bind 0.0.0.0:${PORT:-8000} \
             --workers ${WORKERS:-4} \
-            --worker-connections ${WORKER_CONNECTIONS:-1000} \
             --max-requests ${MAX_REQUESTS:-1000} \
             --max-requests-jitter ${MAX_REQUESTS_JITTER:-50} \
             --timeout ${TIMEOUT:-30} \
