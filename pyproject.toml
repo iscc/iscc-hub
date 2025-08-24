@@ -139,6 +139,7 @@ serve = { cmd = "uv run uvicorn iscc_hub.asgi:application --host localhost --por
 fixtures-load = { cmd = "uv run python manage.py loaddata test_data", help = "Load fixture data for testing" }
 fixtures-generate = { cmd = "uv run python scripts/generate_fixtures.py", help = "Generate realistic fixture data from valid IsccNotes" }
 declare = { cmd = "uv run python scripts/declare.py", help = "Create and declare a random ISCC note (--hub-url to specify hub, defaults to localhost:8000)" }
+benchmark = { cmd = "uv run python scripts/benchmark.py", help = "Run benchmark tests against ISCC hub (target_url to specify hub, defaults to localhost:8000)" }
 
 all = [
     "build-schema",

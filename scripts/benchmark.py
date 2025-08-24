@@ -8,6 +8,7 @@ Tests concurrent declaration performance against https://sb0.iscc.id using:
 - Comprehensive performance reporting
 """
 
+import argparse
 import asyncio
 import json
 import os
@@ -103,15 +104,16 @@ def generate_payloads_batch(batch_info):
     return [generate_random_iscc_note(start_idx + i) for i in range(count)]
 
 
-async def send_declaration(session, payload, semaphore):
-    # type: (niquests.AsyncSession, dict[str, Any], asyncio.Semaphore) -> tuple[niquests.Response, float, dict[str, Any]]
+async def send_declaration(session, payload, semaphore, target_url):
+    # type: (niquests.AsyncSession, dict[str, Any], asyncio.Semaphore, str) -> tuple[niquests.Response, float, dict[str, Any]]
     """Send a single declaration and return the lazy response and timing info."""
     async with semaphore:
         start_time = time.perf_counter()
         try:
             # Send the request - returns a lazy response when multiplexed=True
+            declaration_url = f"{target_url.rstrip('/')}/declaration"
             response = await session.post(
-                "https://sb0.iscc.id/declaration",
+                declaration_url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
                 timeout=30,  # 30 second timeout per request
@@ -128,8 +130,8 @@ async def send_declaration(session, payload, semaphore):
             return None, elapsed, payload
 
 
-async def benchmark_declarations(payloads, max_concurrent=100):
-    # type: (list[dict[str, Any]], int) -> tuple[list[tuple[bool, int, float, str]], float]
+async def benchmark_declarations(payloads, target_url, max_concurrent=100):
+    # type: (list[dict[str, Any]], str, int) -> tuple[list[tuple[bool, int, float, str]], float]
     """Send all declarations concurrently using niquests with HTTP/2."""
     print(f"Sending {len(payloads)} declarations with {max_concurrent} max concurrent requests...")
 
@@ -150,7 +152,7 @@ async def benchmark_declarations(payloads, max_concurrent=100):
         # Use niquests AsyncSession with multiplexing enabled for maximum performance
         async with niquests.AsyncSession(multiplexed=True) as session:
             # Create all tasks for this batch
-            tasks = [send_declaration(session, payload, semaphore) for payload in batch]
+            tasks = [send_declaration(session, payload, semaphore, target_url) for payload in batch]
 
             # Execute all tasks concurrently - returns lazy responses
             lazy_results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -186,13 +188,13 @@ async def benchmark_declarations(payloads, max_concurrent=100):
     return all_results, total_time
 
 
-async def run_benchmark(num_declarations=2000, batch_size=500, max_concurrent=100):
-    # type: (int, int, int) -> None
+async def run_benchmark(target_url, num_declarations=2000, batch_size=500, max_concurrent=100):
+    # type: (str, int, int, int) -> None
     """Run the complete benchmark."""
     print(f"\n{'=' * 80}")
-    print("ISCC Hub Sandbox Benchmark")
+    print("ISCC Hub Benchmark")
     print(f"{'=' * 80}")
-    print("Target: https://sb0.iscc.id")
+    print(f"Target: {target_url}")
     print(f"Declarations: {num_declarations}")
     print(f"Batch size: {batch_size}")
     print(f"Max concurrent: {max_concurrent}")
@@ -220,7 +222,7 @@ async def run_benchmark(num_declarations=2000, batch_size=500, max_concurrent=10
 
     # Step 2: Send all declarations concurrently
     print("\nStep 2: Sending declarations...")
-    results, request_time = await benchmark_declarations(all_payloads, max_concurrent)
+    results, request_time = await benchmark_declarations(all_payloads, target_url, max_concurrent)
 
     # Step 3: Analyze results
     print("\nStep 3: Results Analysis")
@@ -314,6 +316,17 @@ async def run_benchmark(num_declarations=2000, batch_size=500, max_concurrent=10
 async def main():
     # type: () -> None
     """Main benchmark runner with different test configurations."""
+    parser = argparse.ArgumentParser(description="Benchmark an ISCC hub for performance testing")
+    parser.add_argument(
+        "target_url",
+        nargs="?",
+        default="http://localhost:8000",
+        help="Hub URL to benchmark (default: http://localhost:8000)",
+    )
+
+    args = parser.parse_args()
+    target_url = args.target_url
+
     configurations = [
         (500, 100, 50),  # Warm-up: 500 declarations, 50 concurrent
         (2000, 500, 80),  # Standard: 2000 declarations, 80 concurrent
@@ -327,7 +340,7 @@ async def main():
             print(f"{'=' * 80}")
             await asyncio.sleep(10)
 
-        await run_benchmark(num_declarations, batch_size, max_concurrent)
+        await run_benchmark(target_url, num_declarations, batch_size, max_concurrent)
 
 
 if __name__ == "__main__":
