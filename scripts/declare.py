@@ -1,7 +1,8 @@
 """
-Demo script to create and declare a random ISCC note on the sandbox node.
+Demo script to create and declare a random ISCC note on an ISCC hub.
 """
 
+import argparse
 import json
 import random
 import string
@@ -56,10 +57,12 @@ def generate_random_iscc_note():
     return signed_note
 
 
-def declare_on_sandbox(iscc_note):
-    # type: (dict) -> dict | None
-    """Declare an ISCC note on the sandbox node."""
-    url = "https://sb0.iscc.id/declaration"
+def declare_on_hub(iscc_note, hub_url):
+    # type: (dict, str) -> dict | None
+    """Declare an ISCC note on the specified hub."""
+    if not hub_url.endswith("/"):
+        hub_url += "/"
+    url = f"{hub_url}declaration"
 
     try:
         response = requests.post(
@@ -74,21 +77,32 @@ def declare_on_sandbox(iscc_note):
             return None
 
     except requests.exceptions.RequestException as e:
-        print(f"Error declaring on sandbox: {e}")
+        print(f"Error declaring on hub: {e}")
         return None
 
 
 def main():
     # type: () -> None
     """Main function to create and declare a random ISCC note."""
+    parser = argparse.ArgumentParser(description="Create and declare a random ISCC note on an ISCC hub")
+    parser.add_argument(
+        "hub_url",
+        nargs="?",
+        default="http://localhost:8000",
+        help="Hub URL to declare the ISCC note on (default: http://localhost:8000)",
+    )
+
+    args = parser.parse_args()
+    hub_url = args.hub_url
+
     print("Generating random ISCC note...")
     note = generate_random_iscc_note()
 
     print("\nGenerated ISCC Note:")
     print(json.dumps(note, indent=2))
 
-    print("\nDeclaring on sandbox node (https://sb0.iscc.id)...")
-    receipt = declare_on_sandbox(note)
+    print(f"\nDeclaring on hub ({hub_url})...")
+    receipt = declare_on_hub(note, hub_url)
 
     if receipt:
         print("\n✅ Declaration successful!")
@@ -99,7 +113,8 @@ def main():
         if "credentialSubject" in receipt and "declaration" in receipt["credentialSubject"]:
             iscc_id = receipt["credentialSubject"]["declaration"].get("iscc_id")
             if iscc_id:
-                print(f"\n🔗 View declaration: https://sb0.iscc.id/declaration/{iscc_id}")
+                base_url = hub_url.rstrip("/")
+                print(f"\n🔗 View declaration: {base_url}/declaration/{iscc_id}")
     else:
         print("\n❌ Declaration failed")
 

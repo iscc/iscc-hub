@@ -138,6 +138,7 @@ reset = { cmd = "uv run python scripts/db_management.py reset", help = "Reset de
 serve = { cmd = "uv run uvicorn iscc_hub.asgi:application --host localhost --port 8000 --reload --use-colors", help = "Serve with uvicorn for development" }
 fixtures-load = { cmd = "uv run python manage.py loaddata test_data", help = "Load fixture data for testing" }
 fixtures-generate = { cmd = "uv run python scripts/generate_fixtures.py", help = "Generate realistic fixture data from valid IsccNotes" }
+declare = { cmd = "uv run python scripts/declare.py", help = "Create and declare a random ISCC note (--hub-url to specify hub, defaults to localhost:8000)" }
 
 all = [
     "build-schema",
