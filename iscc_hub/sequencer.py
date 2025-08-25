@@ -47,7 +47,6 @@ def sequence_iscc_note(iscc_note):
     nonce_bytes = unhexlify(iscc_note["nonce"])
     datahash_bytes = unhexlify(iscc_note["datahash"])
     pubkey_bytes = base58.b58decode(iscc_note["signature"]["pubkey"][1:])[2:]
-    iscc_note_json = jcs.canonicalize(iscc_note)
 
     with connection.cursor() as cursor:
         try:
@@ -115,7 +114,7 @@ def sequence_iscc_note(iscc_note):
                     nonce_bytes,
                     datahash_bytes,
                     pubkey_bytes,
-                    iscc_note_json,
+                    canonical_bytes,  # Store the full IsccEvent structure, not just the note
                     event_hash_bytes,
                     event_time_str,
                 ),
@@ -185,7 +184,6 @@ def sequence_iscc_delete(iscc_note_delete, original_datahash):
     # Prepare data before acquiring transaction lock
     nonce_bytes = unhexlify(iscc_note_delete["nonce"])
     pubkey_bytes = base58.b58decode(iscc_note_delete["signature"]["pubkey"][1:])[2:]
-    iscc_note_json = jcs.canonicalize(iscc_note_delete)
 
     # Use IsccID class to properly decode the ISCC-ID string
     iscc_id_obj = IsccID(iscc_note_delete["iscc_id"])
@@ -237,7 +235,7 @@ def sequence_iscc_delete(iscc_note_delete, original_datahash):
                     nonce_bytes,
                     original_datahash,
                     pubkey_bytes,
-                    iscc_note_json,
+                    canonical_bytes,  # Store the full IsccEvent structure, not just the note
                     event_hash_bytes,
                     event_time_str,
                 ),

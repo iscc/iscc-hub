@@ -51,7 +51,7 @@ def declaration(request):
         if existing:
             message = f"Duplicate declaration for datahash: {valid_data['datahash']}"
             existing_data = json.loads(existing.event_data.decode("utf-8"))
-            existing_actor = existing_data.get("signature", {}).get("pubkey", "")
+            existing_actor = existing_data.get("note", {}).get("signature", {}).get("pubkey", "")
             raise DuplicateDeclarationError(
                 message, existing_iscc_id=str(IsccID(existing.iscc_id)), existing_actor=existing_actor
             )
@@ -103,7 +103,7 @@ def delete_declaration(request, iscc_id: str):
 
     # Verify that the requester is the same controller who created the declaration
     original_data = json.loads(original_event.event_data.decode("utf-8"))
-    original_pubkey = original_data.get("signature", {}).get("pubkey", "")
+    original_pubkey = original_data.get("note", {}).get("signature", {}).get("pubkey", "")
     request_pubkey = valid_data["signature"]["pubkey"]
 
     if original_pubkey != request_pubkey:
