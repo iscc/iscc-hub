@@ -84,15 +84,22 @@ def apply_migrations():
 
 def create_superuser():
     # type: () -> None
-    """Create demo superuser account if it doesn't exist."""
-    print("  ✓ Creating demo superuser...")
-    User = get_user_model()
+    """Create admin superuser account if it doesn't exist."""
+    # Skip superuser creation if ISCC_HUB_ADMIN_PWD is not set
+    admin_password = os.environ.get("ISCC_HUB_ADMIN_PWD")
+    if not admin_password:
+        print("  ℹ️  Skipping superuser creation (ISCC_HUB_ADMIN_PWD not set)")
+        return
 
-    if not User.objects.filter(username="demo").exists():
-        User.objects.create_superuser(username="demo", email="demo@example.com", password="demo")
-        print("    Created superuser: demo/demo")
+    print("  ✓ Creating admin superuser...")
+    User = get_user_model()
+    username = "admin"
+
+    if not User.objects.filter(username=username).exists():
+        User.objects.create_superuser(username=username, email="admin@example.com", password=admin_password)
+        print(f"    Created superuser: {username}/{admin_password}")
     else:
-        print("    Superuser 'demo' already exists")
+        print(f"    Superuser '{username}' already exists")
 
 
 def load_fixtures():
@@ -148,7 +155,13 @@ def print_summary():
     print("\n🚀 You can now:")
     print("  - Run the dev server: uv run poe serve")
     print("  - Access admin at: http://localhost:8742/admin/")
-    print("  - Login with: demo/demo")
+
+    # Show current admin credentials if superuser exists
+    admin_password = os.environ.get("ISCC_HUB_ADMIN_PWD")
+    if admin_password:
+        print(f"  - Login with: admin/{admin_password}")
+    else:
+        print("  - No admin user (set ISCC_HUB_ADMIN_PWD to create one)")
 
 
 def init_database():

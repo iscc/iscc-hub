@@ -78,6 +78,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Copy application code
 COPY iscc_hub/ ./iscc_hub/
+COPY scripts/ ./scripts/
 COPY manage.py ./
 
 # Install the project

@@ -41,11 +41,11 @@ jobs:
             cd /opt/iscc-hub
             docker compose down || true
             
-            echo "Resetting sandbox database..."
-            rm -f data/iscc_hub.db*
-            
             echo "Starting updated deployment..."
             docker compose up -d
+            
+            echo "Resetting sandbox database..."
+            docker exec iscc-hub-sb0 uv run python scripts/db_management.py reset
             
             echo "Waiting for service to be healthy..."
             for i in {1..30}; do
