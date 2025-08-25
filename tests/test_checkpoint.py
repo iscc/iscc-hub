@@ -12,9 +12,10 @@ import blake3
 import iscc_crypto as icr
 import jcs
 import pytest
-from django.db import connection
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, connection
 
-from iscc_hub.models import Event, IsccDeclaration
+from iscc_hub.models import Checkpoint, Event, IsccDeclaration
 from iscc_hub.sequencer import sequence_iscc_note
 from tests.conftest import create_iscc_from_text, generate_test_iscc_id
 
@@ -407,3 +408,259 @@ def test_event_hash_consistency_across_event_types(example_timestamp, example_ke
 
     computed_hash = blake3.blake3(jcs.canonicalize(stored_event)).hexdigest()
     assert computed_hash == created_event.event_hash
+
+
+# === Checkpoint Model Tests ===
+
+
+@pytest.mark.django_db(transaction=True)
+def test_checkpoint_model_creation():
+    # type: () -> None
+    """
+    Test basic Checkpoint model creation with valid data.
+    """
+    # Create a checkpoint
+    # Genesis checkpoint uses Blake3 hash of empty bytes for prev
+    genesis_prev = "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    checkpoint = Checkpoint.objects.create(
+        start=1,
+        end=100,
+        merkle_root="a" * 64,
+        prev=genesis_prev,
+        hash="b" * 64,
+    )
+
+    assert checkpoint.id is not None
+    assert checkpoint.start == 1
+    assert checkpoint.end == 100
+    assert checkpoint.merkle_root == "a" * 64
+    assert checkpoint.prev == genesis_prev
+    assert checkpoint.hash == "b" * 64
+    assert checkpoint.created_at is not None
+    assert checkpoint.ots_status == "pending"
+    assert checkpoint.ots_proof is None
+
+
+@pytest.mark.django_db(transaction=True)
+def test_checkpoint_str_representation():
+    # type: () -> None
+    """
+    Test the string representation of a Checkpoint.
+    """
+    checkpoint = Checkpoint.objects.create(
+        start=50,
+        end=150,
+        merkle_root="c" * 64,
+        prev="d" * 64,
+        hash="e" * 64,
+    )
+
+    expected = f"Checkpoint #{checkpoint.id}: events 50-150"
+    assert str(checkpoint) == expected
+
+
+@pytest.mark.django_db(transaction=True)
+def test_checkpoint_event_count_property():
+    # type: () -> None
+    """
+    Test the event_count property calculates correctly.
+    """
+    # Single event
+    genesis_prev = "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    checkpoint1 = Checkpoint.objects.create(
+        start=5,
+        end=5,
+        merkle_root="3" * 64,
+        prev=genesis_prev,
+        hash="4" * 64,
+    )
+    assert checkpoint1.event_count == 1
+
+    # Multiple events
+    checkpoint2 = Checkpoint.objects.create(
+        start=10,
+        end=99,
+        merkle_root="5" * 64,
+        prev="4" * 64,
+        hash="6" * 64,
+    )
+    assert checkpoint2.event_count == 90
+
+
+@pytest.mark.django_db(transaction=True)
+def test_checkpoint_constraint_end_gte_start():
+    # type: () -> None
+    """
+    Test that the constraint end >= start is enforced.
+    """
+    with pytest.raises(IntegrityError) as excinfo:
+        genesis_prev = "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+        checkpoint = Checkpoint(
+            start=100,
+            end=50,  # Invalid: end < start
+            merkle_root="7" * 64,
+            prev=genesis_prev,
+            hash="8" * 64,
+        )
+        checkpoint.save()
+
+    # Constraint name should be in the error
+    assert "checkpoint_end_gte_start" in str(excinfo.value).lower() or "check" in str(excinfo.value).lower()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_checkpoint_unique_end_constraint():
+    # type: () -> None
+    """
+    Test that the end field must be unique.
+    """
+    # Create first checkpoint
+    genesis_prev = "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    Checkpoint.objects.create(
+        start=1,
+        end=100,
+        merkle_root="9" * 64,
+        prev=genesis_prev,
+        hash="a0" * 32,
+    )
+
+    # Try to create another with the same end
+    with pytest.raises(IntegrityError) as excinfo:
+        Checkpoint.objects.create(
+            start=50,
+            end=100,  # Same end as first checkpoint
+            merkle_root="b0" * 32,
+            prev="a0" * 32,
+            hash="c0" * 32,
+        )
+
+    assert "unique" in str(excinfo.value).lower() or "end" in str(excinfo.value).lower()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_checkpoint_unique_hash_constraint():
+    # type: () -> None
+    """
+    Test that the hash field must be unique.
+    """
+    # Create first checkpoint
+    genesis_prev = "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    Checkpoint.objects.create(
+        start=1,
+        end=50,
+        merkle_root="d0" * 32,
+        prev=genesis_prev,
+        hash="e0" * 32,
+    )
+
+    # Try to create another with the same hash
+    with pytest.raises(IntegrityError) as excinfo:
+        Checkpoint.objects.create(
+            start=51,
+            end=100,
+            merkle_root="f0" * 32,
+            prev="e0" * 32,
+            hash="e0" * 32,  # Same hash - should fail
+        )
+
+    assert "unique" in str(excinfo.value).lower() or "hash" in str(excinfo.value).lower()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_checkpoint_ots_status_choices():
+    # type: () -> None
+    """
+    Test OpenTimestamps status field values.
+    """
+    # Test all valid status choices
+    statuses = ["pending", "submitted", "confirmed"]
+
+    for i, status in enumerate(statuses):
+        genesis_prev = "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+        checkpoint = Checkpoint.objects.create(
+            start=i * 10 + 1,
+            end=i * 10 + 10,
+            merkle_root=f"{'a' * 63}{i}",
+            prev=genesis_prev if i == 0 else f"{'a' * 63}{i - 1}",
+            hash=f"{'b' * 63}{i}",
+            ots_status=status,
+        )
+        assert checkpoint.ots_status == status
+
+
+@pytest.mark.django_db(transaction=True)
+def test_checkpoint_chain_linking():
+    # type: () -> None
+    """
+    Test that checkpoints can be properly linked via prev field.
+    """
+    # Create genesis checkpoint
+    genesis_prev = "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    genesis = Checkpoint.objects.create(
+        start=1,
+        end=100,
+        merkle_root="a1" * 32,
+        prev=genesis_prev,
+        hash="b1" * 32,
+    )
+
+    # Create second checkpoint linked to genesis
+    second = Checkpoint.objects.create(
+        start=101,
+        end=200,
+        merkle_root="c1" * 32,
+        prev=genesis.hash,
+        hash="d1" * 32,
+    )
+
+    # Create third checkpoint linked to second
+    third = Checkpoint.objects.create(
+        start=201,
+        end=300,
+        merkle_root="e1" * 32,
+        prev=second.hash,
+        hash="f1" * 32,
+    )
+
+    # Verify chain
+    assert genesis.prev == genesis_prev
+    assert second.prev == genesis.hash
+    assert third.prev == second.hash
+
+    # Verify we can traverse the chain
+    checkpoints = list(Checkpoint.objects.order_by("start"))
+    assert len(checkpoints) == 3
+
+    for i in range(1, len(checkpoints)):
+        assert checkpoints[i].prev == checkpoints[i - 1].hash
+
+
+@pytest.mark.django_db(transaction=True)
+def test_checkpoint_with_ots_proof():
+    # type: () -> None
+    """
+    Test storing and retrieving OpenTimestamps proof data.
+    """
+    # Create checkpoint without proof
+    genesis_prev = "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    checkpoint = Checkpoint.objects.create(
+        start=1,
+        end=50,
+        merkle_root="a2" * 32,
+        prev=genesis_prev,
+        hash="b2" * 32,
+    )
+
+    assert checkpoint.ots_proof is None
+    assert checkpoint.ots_status == "pending"
+
+    # Add OTS proof (using hex string as HexField expects)
+    proof_hex = "004f70656e54696d657374616d7073000050726f6f66"
+    checkpoint.ots_proof = proof_hex
+    checkpoint.ots_status = "submitted"
+    checkpoint.save()
+
+    # Retrieve and verify
+    retrieved = Checkpoint.objects.get(id=checkpoint.id)
+    assert retrieved.ots_proof == proof_hex
+    assert retrieved.ots_status == "submitted"

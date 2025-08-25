@@ -1,0 +1,63 @@
+title: HubCheckpoint
+description: |
+  Cryptographic checkpoint of the ISCC Hub event log. Creates a verifiable snapshot
+  of event history using Merkle trees and hash chaining.
+type: object
+required:
+  - id
+  - start
+  - end
+  - merkle_root
+  - hash
+  - created_at
+  - ots_status
+properties:
+  id:
+    type: integer
+    description: Unique identifier for this checkpoint.
+    example: 42
+  start:
+    type: integer
+    description: Sequence number of the first event included in this checkpoint.
+    minimum: 1
+    example: 1001
+  end:
+    type: integer
+    description: Sequence number of the last event included in this checkpoint.
+    minimum: 1
+    example: 2000
+  merkle_root:
+    type: string
+    description: Blake3 hash of the Merkle tree root built from event hashes.
+    pattern: "^[a-f0-9]{64}$"
+    example: "a1b2c3d4e5f6789012345678901234567890123456789012345678901234567890"
+  prev:
+    type: string
+    description: Hash of the previous checkpoint. Blake3 hash of empty bytes for genesis checkpoint.
+    pattern: "^[a-f0-9]{64}$"
+    example: "9876543210987654321098765432109876543210987654321098765432109876"
+  hash:
+    type: string
+    description: This checkpoint's hash, computed as Blake3(merkle_root || prev).
+    pattern: "^[a-f0-9]{64}$"
+    example: "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+  created_at:
+    type: string
+    format: date-time
+    description: ISO 8601 timestamp when this checkpoint was created.
+    example: "2025-01-15T12:34:56.789123Z"
+  ots_proof:
+    type: string
+    nullable: true
+    description: Hex-encoded OpenTimestamps proof data for external timestamping.
+    pattern: "^[a-f0-9]*$"
+    example: "004f70656e54696d657374616d7073000050726f6f66"
+  ots_status:
+    type: string
+    description: Status of the OpenTimestamps submission.
+    enum:
+      - pending
+      - submitted
+      - confirmed
+    example: "confirmed"
+additionalProperties: false

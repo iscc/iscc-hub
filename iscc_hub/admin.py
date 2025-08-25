@@ -11,7 +11,7 @@ from django.utils.html import format_html
 from unfold.admin import ModelAdmin
 from unfold.paginator import InfinitePaginator
 
-from iscc_hub.models import Event, IsccDeclaration
+from iscc_hub.models import Checkpoint, Event, IsccDeclaration
 
 
 @admin.register(IsccDeclaration)
@@ -284,3 +284,60 @@ class EventAdmin(ModelAdmin):
 
     event_hash_short.short_description = "Event Hash"
     event_hash_short.admin_order_field = "event_hash"
+
+
+@admin.register(Checkpoint)
+class CheckpointAdmin(ModelAdmin):
+    """Admin interface for Checkpoint model."""
+
+    list_display = [
+        "id",
+        "event_range",
+        "event_count",
+        "merkle_root_short",
+        "ots_status",
+        "created_at",
+    ]
+
+    list_filter = [
+        "ots_status",
+        "created_at",
+    ]
+
+    search_fields = [
+        "merkle_root",
+        "hash",
+        "prev",
+    ]
+
+    readonly_fields = [
+        "id",
+        "start",
+        "end",
+        "merkle_root",
+        "prev",
+        "hash",
+        "created_at",
+        "event_count",
+    ]
+
+    def event_range(self, obj):
+        # type: (Checkpoint) -> str
+        """Display event sequence range."""
+        return f"{obj.start}-{obj.end}"
+
+    event_range.short_description = "Event Range"
+    event_range.admin_order_field = "start"
+
+    def merkle_root_short(self, obj):
+        # type: (Checkpoint) -> str
+        """Display truncated merkle root with tooltip."""
+        if obj.merkle_root:
+            root_str = str(obj.merkle_root)
+            if len(root_str) > 16:
+                return format_html('<span title="{}">{}...</span>', root_str, root_str[:16])
+            return root_str
+        return "—"
+
+    merkle_root_short.short_description = "Merkle Root"
+    merkle_root_short.admin_order_field = "merkle_root"

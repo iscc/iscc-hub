@@ -10,8 +10,8 @@ from django.contrib.admin.sites import site
 from django.http import HttpRequest
 from django.test import RequestFactory
 
-from iscc_hub.admin import EventAdmin, IsccDeclarationAdmin
-from iscc_hub.models import Event, IsccDeclaration
+from iscc_hub.admin import CheckpointAdmin, EventAdmin, IsccDeclarationAdmin
+from iscc_hub.models import Checkpoint, Event, IsccDeclaration
 
 
 @pytest.fixture
@@ -381,3 +381,47 @@ class TestEventAdmin:
         event.event_hash = None
         result = admin_obj.event_hash_short(event)
         assert result == "—"
+
+
+class TestCheckpointAdmin:
+    def test_event_range(self):
+        # type: () -> None
+        """Test event_range display."""
+        admin_obj = CheckpointAdmin(Checkpoint, site)
+        checkpoint = Checkpoint(start=1, end=100)
+        result = admin_obj.event_range(checkpoint)
+        assert result == "1-100"
+
+    def test_merkle_root_short_none(self):
+        # type: () -> None
+        """Test merkle_root_short when merkle_root is None."""
+        admin_obj = CheckpointAdmin(Checkpoint, site)
+        checkpoint = Checkpoint(merkle_root=None)
+        result = admin_obj.merkle_root_short(checkpoint)
+        assert result == "—"
+
+    def test_merkle_root_short_empty_string(self):
+        # type: () -> None
+        """Test merkle_root_short when merkle_root is empty string."""
+        admin_obj = CheckpointAdmin(Checkpoint, site)
+        checkpoint = Checkpoint(merkle_root="")
+        result = admin_obj.merkle_root_short(checkpoint)
+        assert result == "—"
+
+    def test_merkle_root_short_short_hash(self):
+        # type: () -> None
+        """Test merkle_root_short with hash <= 16 chars."""
+        admin_obj = CheckpointAdmin(Checkpoint, site)
+        checkpoint = Checkpoint(merkle_root="1234567890abcdef")
+        result = admin_obj.merkle_root_short(checkpoint)
+        assert result == "1234567890abcdef"
+
+    def test_merkle_root_short_long_hash(self):
+        # type: () -> None
+        """Test merkle_root_short with hash > 16 chars."""
+        admin_obj = CheckpointAdmin(Checkpoint, site)
+        long_hash = "a" * 64  # 64 hex chars like a real Blake3 hash
+        checkpoint = Checkpoint(merkle_root=long_hash)
+        result = admin_obj.merkle_root_short(checkpoint)
+        assert '<span title="' + long_hash + '">' in result
+        assert long_hash[:16] + "...</span>" in result

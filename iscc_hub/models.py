@@ -141,3 +141,65 @@ class IsccDeclaration(models.Model):
         """String representation."""
         status = "redacted" if self.redacted else "active"
         return f"{self.iscc_id} ({status})"
+
+
+class Checkpoint(models.Model):
+    """
+    Cryptographic checkpoint of the ISCC Hub event log.
+
+    Creates verifiable snapshots of event history using Merkle trees
+    and hash chaining for immutable audit trails.
+    """
+
+    # Auto-incrementing primary key
+    id = models.AutoField(primary_key=True, help_text="Unique checkpoint identifier")
+
+    # Event sequence range
+    start = models.BigIntegerField(db_index=True, help_text="Sequence number of the first event in this checkpoint")
+
+    end = models.BigIntegerField(
+        unique=True, db_index=True, help_text="Sequence number of the last event in this checkpoint"
+    )
+
+    # Cryptographic hashes
+    merkle_root = HexField(help_text="Blake3 hash of the Merkle tree root built from event hashes")
+
+    prev = HexField(help_text="Hash of the previous checkpoint (Blake3 of empty bytes for genesis)")
+
+    hash = HexField(unique=True, db_index=True, help_text="This checkpoint's hash: Blake3(merkle_root || prev)")
+
+    # Timestamp
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, help_text="When this checkpoint was created")
+
+    # OpenTimestamps fields
+    ots_proof = HexField(null=True, blank=True, help_text="OpenTimestamps proof data for external timestamping")
+
+    ots_status = models.CharField(
+        max_length=10,
+        choices=[
+            ("pending", "Pending"),
+            ("submitted", "Submitted"),
+            ("confirmed", "Confirmed"),
+        ],
+        default="pending",
+        help_text="Status of OpenTimestamps submission",
+    )
+
+    class Meta:
+        db_table = "iscc_checkpoint"
+        verbose_name = "Checkpoint"
+        verbose_name_plural = "Checkpoints"
+        constraints = [
+            models.CheckConstraint(check=models.Q(end__gte=models.F("start")), name="checkpoint_end_gte_start"),
+        ]
+
+    def __str__(self):
+        # type: () -> str
+        """String representation of the Checkpoint."""
+        return f"Checkpoint #{self.id}: events {self.start}-{self.end}"
+
+    @property
+    def event_count(self):
+        # type: () -> int
+        """Return the number of events in this checkpoint."""
+        return self.end - self.start + 1
