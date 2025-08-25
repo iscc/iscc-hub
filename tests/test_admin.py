@@ -58,6 +58,7 @@ def event():
         event_type=1,  # CREATED
         iscc_id="ISCC:KAA777777UJZXHQ2",
         event_data=json.dumps({"test": "data"}).encode("utf-8"),
+        event_hash="123456789abcdef0" * 4,  # 64 hex chars for BLAKE3 hash
     )
 
 
@@ -350,3 +351,33 @@ class TestEventAdmin:
 
         # Should fallback to string representation of binary data
         assert "b'\\xff\\xfe\\xfd'" in result
+
+    def test_event_hash_short_truncated(self, event):
+        # type: (Event) -> None
+        """Test event hash truncation for long hashes."""
+        admin_obj = EventAdmin(Event, site)
+        # event_hash is already set to 64 hex chars in fixture
+        result = admin_obj.event_hash_short(event)
+        # Hash should be truncated and have tooltip
+        assert '<span title="' in result
+        assert "...</span>" in result
+        # Should show first 16 chars of hex
+        assert event.event_hash[:16] in result
+
+    def test_event_hash_short_not_truncated(self, event):
+        # type: (Event) -> None
+        """Test event hash display for short hashes."""
+        admin_obj = EventAdmin(Event, site)
+        # Set a short hash (16 hex chars)
+        event.event_hash = "123456789abcdef0"
+        result = admin_obj.event_hash_short(event)
+        # Should not be truncated
+        assert result == "123456789abcdef0"
+
+    def test_event_hash_short_none(self, event):
+        # type: (Event) -> None
+        """Test event hash display when hash is None."""
+        admin_obj = EventAdmin(Event, site)
+        event.event_hash = None
+        result = admin_obj.event_hash_short(event)
+        assert result == "—"

@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "ISCC-HUB - ISCC Declarations & Discovery"
 requires-python = ">=3.12"
 dependencies = [
+    "blake3>=1.0.5",
     "django>=5.2.5",
     "django-environ>=0.12.0",
     "django-ninja>=1.4.3",

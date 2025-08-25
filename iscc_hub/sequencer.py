@@ -13,6 +13,7 @@ from binascii import unhexlify
 from datetime import datetime
 
 import base58
+import blake3
 import jcs
 from django.conf import settings
 from django.db import connection
@@ -51,15 +52,18 @@ def sequence_iscc_note(iscc_note):
     with connection.cursor() as cursor:
         try:
             cursor.execute("BEGIN IMMEDIATE")
-            cursor.execute("SELECT seq, iscc_id FROM iscc_event ORDER BY seq DESC LIMIT 1")
+            cursor.execute("SELECT seq, iscc_id, event_hash FROM iscc_event ORDER BY seq DESC LIMIT 1")
             row = cursor.fetchone()
             if row:
                 last_seq = row[0]
                 last_iscc_id_bytes = row[1]
+                last_event_hash = row[2]
                 last_timestamp_us = int.from_bytes(last_iscc_id_bytes, "big") >> 12
             else:
                 last_seq = 0
                 last_timestamp_us = 0
+                # Genesis event uses blake3(b"") as previous hash
+                last_event_hash = blake3.blake3(b"").digest()
 
             new_seq = last_seq + 1
 
@@ -82,12 +86,39 @@ def sequence_iscc_note(iscc_note):
             iscc_id_uint = (new_timestamp_us << 12) | settings.ISCC_HUB_ID
             iscc_id_bytes = iscc_id_uint.to_bytes(8, "big")
 
+            # Compute event hash: blake3(jcs.canonicalize(IsccEvent))
+            # Create IsccEvent structure with seq, iscc_id, prev, note
+            from iscc_hub.iscc_id import IsccID
+
+            iscc_id_str = str(IsccID(iscc_id_bytes))
+            iscc_event = {
+                "seq": new_seq,
+                "iscc_id": iscc_id_str,
+                "prev": last_event_hash.hex(),
+                "note": iscc_note,
+            }
+            canonical_bytes = jcs.canonicalize(iscc_event)
+            assert isinstance(canonical_bytes, bytes)  # jcs.canonicalize always returns bytes
+            event_hash_bytes = blake3.blake3(canonical_bytes).digest()
+
             cursor.execute(
                 """
-                INSERT INTO iscc_event (seq, event_type, iscc_id, nonce, datahash, pubkey, event_data, event_time)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO iscc_event (
+                    seq, event_type, iscc_id, nonce, datahash, pubkey, event_data, event_hash, event_time
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
-                (new_seq, 1, iscc_id_bytes, nonce_bytes, datahash_bytes, pubkey_bytes, iscc_note_json, event_time_str),
+                (
+                    new_seq,
+                    1,
+                    iscc_id_bytes,
+                    nonce_bytes,
+                    datahash_bytes,
+                    pubkey_bytes,
+                    iscc_note_json,
+                    event_hash_bytes,
+                    event_time_str,
+                ),
             )
 
             # Insert into materialized view within the same transaction
@@ -163,11 +194,12 @@ def sequence_iscc_delete(iscc_note_delete, original_datahash):
     with connection.cursor() as cursor:
         try:
             cursor.execute("BEGIN IMMEDIATE")
-            cursor.execute("SELECT seq, iscc_id FROM iscc_event ORDER BY seq DESC LIMIT 1")
+            cursor.execute("SELECT seq, iscc_id, event_hash FROM iscc_event ORDER BY seq DESC LIMIT 1")
             row = cursor.fetchone()
 
             if row:
                 last_seq = row[0]
+                last_event_hash = row[2]
             else:
                 raise SequencerError("No previous event found")
 
@@ -179,11 +211,24 @@ def sequence_iscc_delete(iscc_note_delete, original_datahash):
                 datetime.fromtimestamp(seconds).replace(microsecond=microseconds).strftime("%Y-%m-%d %H:%M:%S.%f")
             )
 
+            # Compute event hash for deletion event
+            iscc_event = {
+                "seq": new_seq,
+                "iscc_id": iscc_note_delete["iscc_id"],
+                "prev": last_event_hash.hex(),
+                "note": iscc_note_delete,
+            }
+            canonical_bytes = jcs.canonicalize(iscc_event)
+            assert isinstance(canonical_bytes, bytes)  # jcs.canonicalize always returns bytes
+            event_hash_bytes = blake3.blake3(canonical_bytes).digest()
+
             # Use the original ISCC-ID from the delete request (not generating a new one)
             cursor.execute(
                 """
-                INSERT INTO iscc_event (seq, event_type, iscc_id, nonce, datahash, pubkey, event_data, event_time)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO iscc_event (
+                    seq, event_type, iscc_id, nonce, datahash, pubkey, event_data, event_hash, event_time
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
                 (
                     new_seq,
@@ -193,6 +238,7 @@ def sequence_iscc_delete(iscc_note_delete, original_datahash):
                     original_datahash,
                     pubkey_bytes,
                     iscc_note_json,
+                    event_hash_bytes,
                     event_time_str,
                 ),
             )

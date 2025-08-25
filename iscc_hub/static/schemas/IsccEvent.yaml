@@ -1,0 +1,94 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "http://purl.org/iscc/schema/iscc-event.json"
+title: "IsccEvent"
+type: object
+description: |
+  Complete ISCC event record for hashing and storage.
+
+  This object represents the canonical event data that gets stored in the event log
+  and is used to compute the event hash. It combines the gapless sequence number,
+  the assigned ISCC-ID, and the original IsccNote declaration.
+
+  The event hash is computed as: `blake3(jcs.canonicalize(IsccEvent))`
+required:
+  - seq
+  - iscc_id
+  - prev
+  - note
+properties:
+  seq:
+    type: integer
+    minimum: 1
+    description: |
+      Gapless sequence number for the event
+
+      **Properties:**
+      - Monotonically increasing integer starting from 1
+      - No gaps allowed in the sequence
+      - Assigned atomically during event creation
+      - Used for ordering and integrity verification
+    examples:
+      - 1
+      - 42
+      - 1234567
+  iscc_id:
+    $ref: "./CommonProperties.yaml#/properties/iscc_id"
+  prev:
+    type: string
+    pattern: "^[0-9a-f]{64}$"
+    description: |
+      Blake3 hash of the previous event
+
+      **Properties:**
+      - 64 lowercase hex characters (256-bit hash)
+      - For genesis event (seq=1): `blake3(b"")` = "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+      - Creates an immutable chain of events
+      - Each event cryptographically locked to its predecessor
+    examples:
+      - "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+      - "5ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+  note:
+    oneOf:
+      - $ref: "./IsccNote.yaml"
+      - $ref: "./IsccNoteDelete.yaml"
+    description: |
+      The original ISCC declaration or deletion note
+
+      Contains the complete signed declaration data including:
+      - ISCC-CODE and content hashes
+      - Cryptographic signature
+      - Optional metadata and gateway information
+
+      For deletion events, contains the IsccNoteDelete object.
+additionalProperties: false
+examples:
+  - seq: 1
+    iscc_id: "ISCC:MAACCD3C6YZJ4IQM"
+    prev: "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    note:
+      iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
+      datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+      nonce: "000faa3f18c7b9407a48536a9b00c4cb"
+      timestamp: "2025-01-15T12:00:00.000Z"
+      signature:
+        version: "ISCC-SIG v1.0"
+        controller: "did:web:example.com"
+        pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+        proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
+  - seq: 42
+    iscc_id: "ISCC:MAACEF5G8YZJ7KLN"
+    prev: "5ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+    note:
+      iscc_code: "ISCC:KAC6NLDOZ7NA44D6TDOJVDILNW46VJAM2TM2DJ2JYLKPIMV4IBRHQ2Y"
+      datahash: "1e201234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+      metahash: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
+      nonce: "001234567890abcdef1234567890abcd"
+      timestamp: "2025-08-12T14:30:00.123Z"
+      gateway: "https://example.com/iscc_id/{iscc_id}/metadata"
+      units:
+        - "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ"
+        - "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY"
+      signature:
+        version: "ISCC-SIG v1.0"
+        pubkey: "z6MkfrQkTJTQzDNVbj7gPYGZvL89vVBEFfK4zePNKhRMPYBk"
+        proof: "z4xJfGKHyiUvq123ABC456DEF789GHI012JKL345MNO678PQR901STU234VWX567YZA890"

@@ -162,6 +162,7 @@ class EventAdmin(ModelAdmin):
         "seq",
         "event_type_display",
         "iscc_id_display",
+        "event_hash_short",
         "iscc_id_timestamp",
         "event_time",
     ]
@@ -176,19 +177,24 @@ class EventAdmin(ModelAdmin):
     search_fields = [
         "seq",
         "iscc_id",
+        "event_hash",
     ]
 
     readonly_fields = [
         "seq",
         "event_type",
         "iscc_id",
+        "event_hash",
         "iscc_id_timestamp",
         "event_time",
         "event_data_formatted",
     ]
 
     fieldsets = (
-        ("Event Information", {"fields": ("seq", "event_type", "iscc_id", "iscc_id_timestamp", "event_time")}),
+        (
+            "Event Information",
+            {"fields": ("seq", "event_type", "iscc_id", "event_hash", "iscc_id_timestamp", "event_time")},
+        ),
         ("Event Data", {"fields": ("event_data_formatted",), "classes": ("wide",)}),
     )
 
@@ -265,3 +271,16 @@ class EventAdmin(ModelAdmin):
             return str(obj.event_data)
 
     event_data_formatted.short_description = "Event Data"
+
+    def event_hash_short(self, obj):
+        # type: (Event) -> str
+        """Display truncated event hash with tooltip."""
+        if obj.event_hash:
+            hash_str = str(obj.event_hash)  # Ensure it's a string
+            if len(hash_str) > 16:
+                return format_html('<span title="{}">{}...</span>', hash_str, hash_str[:16])
+            return hash_str
+        return "—"
+
+    event_hash_short.short_description = "Event Hash"
+    event_hash_short.admin_order_field = "event_hash"

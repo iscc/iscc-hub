@@ -50,6 +50,9 @@ class Event(models.Model):
     # Event data stored as binary (canonicalized JSON)
     event_data = models.BinaryField(help_text="Event data stored as canonicalized JSON bytes")
 
+    # Blake3 hash of the complete IsccEvent (seq, iscc_id, prev, note)
+    event_hash = HexField(db_index=True, help_text="Blake3 hash of the canonicalized IsccEvent")
+
     # Event timestamp - when this specific event occurred
     # For CREATED events: same as ISCC-ID timestamp (initial declaration time)
     # For UPDATED/DELETED events: when the update/deletion happened

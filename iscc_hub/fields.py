@@ -220,9 +220,15 @@ class HexField(models.BinaryField):
         return super().get_prep_value(b)
 
     def from_db_value(self, value, expression, connection):
-        # type: (bytes | None, object, object) -> bytes | None
-        """Return bytes from database."""
-        return value
+        # type: (bytes | None | str, object, object) -> str | None
+        """Convert database bytes to hex string for display."""
+        if value is None:
+            return None
+        # If already a string (hex), return as is
+        if isinstance(value, str):
+            return value
+        # Convert bytes to hex string
+        return value.hex()
 
     def value_to_string(self, obj):
         # type: (object) -> str | None

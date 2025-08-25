@@ -536,7 +536,16 @@ def test_hex_field_from_db_value_bytes():
     field = HexField()
     bytes_value = b"\xde\xad\xbe\xef"
     result = field.from_db_value(bytes_value, None, None)
-    assert result == bytes_value  # Now returns bytes directly
+    assert result == "deadbeef"  # Now returns hex string
+
+
+def test_hex_field_from_db_value_string():
+    # type: () -> None
+    """Test from_db_value with string (already hex)."""
+    field = HexField()
+    hex_string = "deadbeef"
+    result = field.from_db_value(hex_string, None, None)
+    assert result == "deadbeef"  # Returns string as is
 
 
 def test_hex_field_value_to_string():
@@ -613,7 +622,7 @@ def test_hex_field_roundtrip():
 
         # Convert back from storage
         result = field.from_db_value(bytes_value, None, None)
-        assert result == expected_bytes  # Now returns bytes directly
+        assert result == hex_str  # Now returns hex string
 
 
 # Tests for PubkeyField
