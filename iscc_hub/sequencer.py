@@ -84,8 +84,8 @@ def sequence_iscc_note(iscc_note):
 
             cursor.execute(
                 """
-                INSERT INTO iscc_event (seq, event_type, iscc_id, nonce, datahash, pubkey, iscc_note, event_time)
-                VALUES (%s, %s, %s, %s, %s, %s, json(%s), %s)
+                INSERT INTO iscc_event (seq, event_type, iscc_id, nonce, datahash, pubkey, event_data, event_time)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
                 (new_seq, 1, iscc_id_bytes, nonce_bytes, datahash_bytes, pubkey_bytes, iscc_note_json, event_time_str),
             )
@@ -182,8 +182,8 @@ def sequence_iscc_delete(iscc_note_delete, original_datahash):
             # Use the original ISCC-ID from the delete request (not generating a new one)
             cursor.execute(
                 """
-                INSERT INTO iscc_event (seq, event_type, iscc_id, nonce, datahash, pubkey, iscc_note, event_time)
-                VALUES (%s, %s, %s, %s, %s, %s, json(%s), %s)
+                INSERT INTO iscc_event (seq, event_type, iscc_id, nonce, datahash, pubkey, event_data, event_time)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
                 (
                     new_seq,

@@ -3,215 +3,137 @@
   "model": "iscc_hub.event",
   "pk": 1,
   "fields": {
-    "iscc_id": "ISCC:MAIWHUCPO4VXWUAB",
-    "nonce": "001ad6fa4b419f38aa1589c47ebf3db6",
+    "iscc_id": "ISCC:MAIWHUV6O4BMQUAB",
+    "nonce": "001c253cac2677a2f5aa7f60bf0a72da",
     "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
-    "pubkey": "z6Mkvan98nCE5R1nhaERvXt13GqnaJ6Zy1f4J1JUKiWs6Jfv",
+    "pubkey": "z6MkoHME1ZptUL9w7TQyapUizXeChhLFeDfewqz3QtWnwCWj",
     "event_type": 1,
-    "iscc_note": {
-      "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
-      "gateway": "https://example.com/iscc_id/{iscc_id}/metadata",
-      "iscc_code": "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
-      "metahash": "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598",
-      "nonce": "001ad6fa4b419f38aa1589c47ebf3db6",
-      "signature": {
-        "proof": "z2CVmt2ctKZrJZPh3ux9AcGQwwpKVB1VNkzGGj1EUSiRdWcRg5RJFzr71mQ8SCMYX7SU2rg6oJcQBCFb84GxB66i9",
-        "pubkey": "z6Mkvan98nCE5R1nhaERvXt13GqnaJ6Zy1f4J1JUKiWs6Jfv",
-        "version": "ISCC-SIG v1.0"
-      },
-      "timestamp": "2025-08-23T09:25:00.900Z",
-      "units": [
-        "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ",
-        "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY",
-        "ISCC:GAD334BLFXWN7QWLCSBGJMLRZW73FFNV7ORVUKN23UWPKGQCWTIHQKY"
-      ]
-    },
-    "event_time": "2025-08-23T11:30:00.917941Z"
+    "event_data": "eyJkYXRhaGFzaCI6IjFlMjA1Y2E3ODE1YWRjYjQ4NGU5YTEzNmMxMWVmZTY5YzFkNTMwMTc2ZDU0OWI1ZDE4ZDAzOGViNTI4MGI0YjM0NzBjIiwiZ2F0ZXdheSI6Imh0dHBzOi8vZXhhbXBsZS5jb20vaXNjY19pZC97aXNjY19pZH0vbWV0YWRhdGEiLCJpc2NjX2NvZGUiOiJJU0NDOktBQ1dONzdGNzNOQTQ0RDZFVUczUzNRTkpJTDJCUFBRRk1XNlpYNkNaTk9LUEFLMjNTMklKMkkiLCJtZXRhaGFzaCI6IjFlMjAyMzM1Zjc0ZmMxOGUyZjRmOTlmMGVhNjI5MWRlNTgwM2U1NzlhMjIxOWUxYjRhMTgwMDRmYzk4OTBiOTRlNTk4Iiwibm9uY2UiOiIwMDFjMjUzY2FjMjY3N2EyZjVhYTdmNjBiZjBhNzJkYSIsInNpZ25hdHVyZSI6eyJwcm9vZiI6Ino5aFNYM2M2Z2Vram1CRjlMUVhub0QyR3VvVWVxa25lMUdQODJUQVR2bzhNTUhGSExlUzJ1UGdzZVc3enJidHRMWGZZNTg1M1F1SHlHWHpRMnB5b0NwVzMiLCJwdWJrZXkiOiJ6Nk1rb0hNRTFacHRVTDl3N1RReWFwVWl6WGVDaGhMRmVEZmV3cXozUXRXbndDV2oiLCJ2ZXJzaW9uIjoiSVNDQy1TSUcgdjEuMCJ9LCJ0aW1lc3RhbXAiOiIyMDI1LTA4LTI1VDA3OjUyOjE2LjAyN1oiLCJ1bml0cyI6WyJJU0NDOkFBRFdONzdGNzNOQTQ0RDZYM040VkVVQVBPVzVISktHSzVKS0xOR0xORlBPRVNYV1lEVkRWVVEiLCJJU0NDOkVBRFNLRE5aTllHVVVGNUFNRkVKTFo1UDY2Q1A1WUtDT0EzWDdGMzZSV0U0Q0lSQ0JUVVdYWVkiLCJJU0NDOkdBRDMzNEJMRlhXTjdRV0xDU0JHSk1MUlpXNzNGRk5WN09SVlVLTjIzVVdQS0dRQ1dUSUhRS1kiXX0=",
+    "event_time": "2025-08-25T09:57:16.040325Z"
   }
 },
 {
   "model": "iscc_hub.event",
   "pk": 2,
   "fields": {
-    "iscc_id": "ISCC:MAIWHUCPO4VXWYAB",
-    "nonce": "0018342b5551e2b119f772e0036813be",
+    "iscc_id": "ISCC:MAIWHUV6O4B4EMAB",
+    "nonce": "001ceb1513d2a0a77903b5fb63655871",
     "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
-    "pubkey": "z6Mknq5XS62sFVTmtay1jvv3kogJwV7ZeqcTZrKyr6bk7kbL",
+    "pubkey": "z6MksqBgija7NV6dhZ1PrsK8iT9Q9HzLekM8zxiQLcnZu6mr",
     "event_type": 1,
-    "iscc_note": {
-      "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
-      "iscc_code": "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
-      "nonce": "0018342b5551e2b119f772e0036813be",
-      "signature": {
-        "proof": "zuDnbSZDHdKAs3qSu1htFgvj7nP8TdQYRCTp5oS11QtkDStFmaLD3ZHgSDixHZvo1nTL9ainvCgfHEjc39oa3MmW",
-        "pubkey": "z6Mknq5XS62sFVTmtay1jvv3kogJwV7ZeqcTZrKyr6bk7kbL",
-        "version": "ISCC-SIG v1.0"
-      },
-      "timestamp": "2025-08-23T09:26:00.900Z"
-    },
-    "event_time": "2025-08-23T11:30:00.917942Z"
+    "event_data": "eyJkYXRhaGFzaCI6IjFlMjA1Y2E3ODE1YWRjYjQ4NGU5YTEzNmMxMWVmZTY5YzFkNTMwMTc2ZDU0OWI1ZDE4ZDAzOGViNTI4MGI0YjM0NzBjIiwiaXNjY19jb2RlIjoiSVNDQzpLQUNXTjc3RjczTkE0NEQ2RVVHM1MzUU5KSUwyQlBQUUZNVzZaWDZDWk5PS1BBSzIzUzJJSjJJIiwibm9uY2UiOiIwMDFjZWIxNTEzZDJhMGE3NzkwM2I1ZmI2MzY1NTg3MSIsInNpZ25hdHVyZSI6eyJwcm9vZiI6Ino1eWZKTWdWVnVqckJVRU1qUHZ1TnZQd0RQZDlTeXFzNzloS3BuYWJXRFI5Mkp2SzV6RzNSR0N6bWhmdXgxbjF4YWluTnR3VmlnOFlqeDNOWUhOVlZKVXF0IiwicHVia2V5IjoiejZNa3NxQmdpamE3TlY2ZGhaMVByc0s4aVQ5UTlIekxla004enhpUUxjblp1Nm1yIiwidmVyc2lvbiI6IklTQ0MtU0lHIHYxLjAifSwidGltZXN0YW1wIjoiMjAyNS0wOC0yNVQwNzo1MzoxNi4wMjdaIn0=",
+    "event_time": "2025-08-25T09:57:16.044323Z"
   }
 },
 {
   "model": "iscc_hub.event",
   "pk": 3,
   "fields": {
-    "iscc_id": "ISCC:MAIWHUCPO4XU3QAB",
-    "nonce": "00114a3b78aeb1f2a9e9fa0cae646372",
+    "iscc_id": "ISCC:MAIWHUV6O4CLYMAB",
+    "nonce": "001e2e5ae929f8900657e93aa49d2d06",
     "datahash": "1e206588bd7020f7dbb3c5621d021a0ef1823862fc31f270e1016fa0dc0ded97ec64",
-    "pubkey": "z6Mkq2zj6UBddidbemtNeDMYmrFLFvjG1pj8ySRKU5hBsMp6",
+    "pubkey": "z6MkqdCJorEGYcGbyCNsXx31CJiQgmFp4nQxnRotU19kuCbE",
     "event_type": 1,
-    "iscc_note": {
-      "datahash": "1e206588bd7020f7dbb3c5621d021a0ef1823862fc31f270e1016fa0dc0ded97ec64",
-      "iscc_code": "ISCC:KAC36KWRJXNA44D6IJ27ODRTEWP5WJ62JNAMS6M2TVSYRPLQED35XMY",
-      "nonce": "00114a3b78aeb1f2a9e9fa0cae646372",
-      "signature": {
-        "proof": "zh8puaLdzSNebYUZDM1xTJUXBmCGMzsXsPFXJ59dNwLSad1rEvoTz2b7fDHqFzeiyxmFWBz1q5A2D3NJZ99XTcrK",
-        "pubkey": "z6Mkq2zj6UBddidbemtNeDMYmrFLFvjG1pj8ySRKU5hBsMp6",
-        "version": "ISCC-SIG v1.0"
-      },
-      "timestamp": "2025-08-23T09:27:00.900Z",
-      "units": [
-        "ISCC:AAD36KWRJXNA44D6WSRUVJEAPOW5HK4K7ZO2LNGLNH4NULM7YDVDVUQ",
-        "ISCC:EADUE5PXBYZSLH63KNFOP6PKYOOWFN2WY3WJER4FNKYQPANUIWTLBRY",
-        "ISCC:GADSPWSLIDEXTGU53RTJ75UPORKBZZMQGSOAZCQ4AAQVCLBBHTTUSZY"
-      ]
-    },
-    "event_time": "2025-08-23T11:30:00.933596Z"
+    "event_data": "eyJkYXRhaGFzaCI6IjFlMjA2NTg4YmQ3MDIwZjdkYmIzYzU2MjFkMDIxYTBlZjE4MjM4NjJmYzMxZjI3MGUxMDE2ZmEwZGMwZGVkOTdlYzY0IiwiaXNjY19jb2RlIjoiSVNDQzpLQUMzNktXUkpYTkE0NEQ2SUoyN09EUlRFV1A1V0o2MkpOQU1TNk0yVFZTWVJQTFFFRDM1WE1ZIiwibm9uY2UiOiIwMDFlMmU1YWU5MjlmODkwMDY1N2U5M2FhNDlkMmQwNiIsInNpZ25hdHVyZSI6eyJwcm9vZiI6InoyTXh2OVdjYTFQY2tNZ0p2R1BhVG8yczlnV0pkY1ltaVkzeEpCdTRtRWRFWjVyM1p4b2ZiQkZaVFJpMnFtQXZwOThkVEFjS1R4cmljWmRhcVVhYXo2TlpjIiwicHVia2V5IjoiejZNa3FkQ0pvckVHWWNHYnlDTnNYeDMxQ0ppUWdtRnA0blF4blJvdFUxOWt1Q2JFIiwidmVyc2lvbiI6IklTQ0MtU0lHIHYxLjAifSwidGltZXN0YW1wIjoiMjAyNS0wOC0yNVQwNzo1NDoxNi4wMjdaIiwidW5pdHMiOlsiSVNDQzpBQUQzNktXUkpYTkE0NEQ2V1NSVVZKRUFQT1c1SEs0SzdaTzJMTkdMTkg0TlVMTTdZRFZEVlVRIiwiSVNDQzpFQURVRTVQWEJZWlNMSDYzS05GT1A2UEtZT09XRk4yV1kzV0pFUjRGTktZUVBBTlVJV1RMQlJZIiwiSVNDQzpHQURTUFdTTElERVhUR1U1M1JUSjc1VVBPUktCWlpNUUdTT0FaQ1E0QUFRVkNMQkJIVFRVU1pZIl19",
+    "event_time": "2025-08-25T09:57:16.048323Z"
   }
 },
 {
   "model": "iscc_hub.event",
   "pk": 4,
   "fields": {
-    "iscc_id": "ISCC:MAIWHUCPO4YGSQAB",
-    "nonce": "00177ac1a4e0ccef7cc21a26462b960d",
+    "iscc_id": "ISCC:MAIWHUV6O4CXPQAB",
+    "nonce": "0017f747f73e7dc3639681ef450382f4",
     "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
-    "pubkey": "z6Mkvan98nCE5R1nhaERvXt13GqnaJ6Zy1f4J1JUKiWs6Jfv",
+    "pubkey": "z6MkoHME1ZptUL9w7TQyapUizXeChhLFeDfewqz3QtWnwCWj",
     "event_type": 1,
-    "iscc_note": {
-      "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
-      "iscc_code": "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
-      "nonce": "00177ac1a4e0ccef7cc21a26462b960d",
-      "signature": {
-        "proof": "z5j9W4r21T7jqiMSMcSnSHJPjc3eyGtV4zHUkZJeDnxWqLQ9NnLPR6LgMfRe6LJYbLGssQSQbQSBNdTmbS2RuFy5L",
-        "pubkey": "z6Mkvan98nCE5R1nhaERvXt13GqnaJ6Zy1f4J1JUKiWs6Jfv",
-        "version": "ISCC-SIG v1.0"
-      },
-      "timestamp": "2025-08-23T09:28:00.900Z"
-    },
-    "event_time": "2025-08-23T11:30:00.938132Z"
+    "event_data": "eyJkYXRhaGFzaCI6IjFlMjA1Y2E3ODE1YWRjYjQ4NGU5YTEzNmMxMWVmZTY5YzFkNTMwMTc2ZDU0OWI1ZDE4ZDAzOGViNTI4MGI0YjM0NzBjIiwiaXNjY19jb2RlIjoiSVNDQzpLQUNXTjc3RjczTkE0NEQ2RVVHM1MzUU5KSUwyQlBQUUZNVzZaWDZDWk5PS1BBSzIzUzJJSjJJIiwibm9uY2UiOiIwMDE3Zjc0N2Y3M2U3ZGMzNjM5NjgxZWY0NTAzODJmNCIsInNpZ25hdHVyZSI6eyJwcm9vZiI6Ino2NFMzc0xKZUVXR0M4QVJzdGYxN0pNc256UnV3UGRLdnppVkNOREpuclZLVHNObUI3dWRXNHdSMnlMMll1cDM5U1N2dW5YajZhVjNGd2tTaEx6bXZDUHh5IiwicHVia2V5IjoiejZNa29ITUUxWnB0VUw5dzdUUXlhcFVpelhlQ2hoTEZlRGZld3F6M1F0V253Q1dqIiwidmVyc2lvbiI6IklTQ0MtU0lHIHYxLjAifSwidGltZXN0YW1wIjoiMjAyNS0wOC0yNVQwNzo1NToxNi4wMjdaIn0=",
+    "event_time": "2025-08-25T09:57:16.051324Z"
   }
 },
 {
   "model": "iscc_hub.event",
   "pk": 5,
   "fields": {
-    "iscc_id": "ISCC:MAIWHUCPO4YGSUAB",
-    "nonce": "001c5f9269e54fb6bee7567548628da6",
+    "iscc_id": "ISCC:MAIWHUV6O4DHDIAB",
+    "nonce": "001428e6e241431c58d37c915c6a568a",
     "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
-    "pubkey": "z6Mknq5XS62sFVTmtay1jvv3kogJwV7ZeqcTZrKyr6bk7kbL",
+    "pubkey": "z6MksqBgija7NV6dhZ1PrsK8iT9Q9HzLekM8zxiQLcnZu6mr",
     "event_type": 1,
-    "iscc_note": {
-      "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
-      "gateway": "https://example.com/iscc_id/{iscc_id}/metadata",
-      "iscc_code": "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
-      "metahash": "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598",
-      "nonce": "001c5f9269e54fb6bee7567548628da6",
-      "signature": {
-        "proof": "z24iKYJiDhomx3Ajm8SAmhQ3hivpQyx6HwwdPFHYoatd2JXWcfc2dw8nTtPTFp8zacAFF4sLSwBZyeBQvhLkDbaD4",
-        "pubkey": "z6Mknq5XS62sFVTmtay1jvv3kogJwV7ZeqcTZrKyr6bk7kbL",
-        "version": "ISCC-SIG v1.0"
-      },
-      "timestamp": "2025-08-23T09:29:00.900Z",
-      "units": [
-        "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ",
-        "ISCC:EADSKDNZNYGUUF5AMFEJLZ5P66CP5YKCOA3X7F36RWE4CIRCBTUWXYY",
-        "ISCC:GAD334BLFXWN7QWLCSBGJMLRZW73FFNV7ORVUKN23UWPKGQCWTIHQKY"
-      ]
-    },
-    "event_time": "2025-08-23T11:30:00.938133Z"
+    "event_data": "eyJkYXRhaGFzaCI6IjFlMjA1Y2E3ODE1YWRjYjQ4NGU5YTEzNmMxMWVmZTY5YzFkNTMwMTc2ZDU0OWI1ZDE4ZDAzOGViNTI4MGI0YjM0NzBjIiwiZ2F0ZXdheSI6Imh0dHBzOi8vZXhhbXBsZS5jb20vaXNjY19pZC97aXNjY19pZH0vbWV0YWRhdGEiLCJpc2NjX2NvZGUiOiJJU0NDOktBQ1dONzdGNzNOQTQ0RDZFVUczUzNRTkpJTDJCUFBRRk1XNlpYNkNaTk9LUEFLMjNTMklKMkkiLCJtZXRhaGFzaCI6IjFlMjAyMzM1Zjc0ZmMxOGUyZjRmOTlmMGVhNjI5MWRlNTgwM2U1NzlhMjIxOWUxYjRhMTgwMDRmYzk4OTBiOTRlNTk4Iiwibm9uY2UiOiIwMDE0MjhlNmUyNDE0MzFjNThkMzdjOTE1YzZhNTY4YSIsInNpZ25hdHVyZSI6eyJwcm9vZiI6Ino2M1ZScVk1NHM1bkV6bnUxdFVLbWNhWHkxTHlBMlpwMVJjeVY1THI0TXcyRWFDRnh6MmlrWXZyWjN3ZTh5M2puYkZnS1U3azMxQTM5NnBWQ2g4WkNhaEh3IiwicHVia2V5IjoiejZNa3NxQmdpamE3TlY2ZGhaMVByc0s4aVQ5UTlIekxla004enhpUUxjblp1Nm1yIiwidmVyc2lvbiI6IklTQ0MtU0lHIHYxLjAifSwidGltZXN0YW1wIjoiMjAyNS0wOC0yNVQwNzo1NjoxNi4wMjdaIiwidW5pdHMiOlsiSVNDQzpBQURXTjc3RjczTkE0NEQ2WDNONFZFVUFQT1c1SEpLR0s1SktMTkdMTkZQT0VTWFdZRFZEVlVRIiwiSVNDQzpFQURTS0ROWk5ZR1VVRjVBTUZFSkxaNVA2NkNQNVlLQ09BM1g3RjM2UldFNENJUkNCVFVXWFlZIiwiSVNDQzpHQUQzMzRCTEZYV043UVdMQ1NCR0pNTFJaVzczRkZOVjdPUlZVS04yM1VXUEtHUUNXVElIUUtZIl19",
+    "event_time": "2025-08-25T09:57:16.055322Z"
   }
 },
 {
   "model": "iscc_hub.event",
   "pk": 6,
   "fields": {
-    "iscc_id": "ISCC:MAIWHUCPO4YGSQAB",
-    "nonce": "0015283a7e89cb89a88f7931973ff816",
+    "iscc_id": "ISCC:MAIWHUV6O4CXPQAB",
+    "nonce": "0010fc48fadf3900aca2a9f303427f65",
     "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
-    "pubkey": "z6Mkvan98nCE5R1nhaERvXt13GqnaJ6Zy1f4J1JUKiWs6Jfv",
+    "pubkey": "z6MkoHME1ZptUL9w7TQyapUizXeChhLFeDfewqz3QtWnwCWj",
     "event_type": 3,
-    "iscc_note": {
-      "iscc_id": "ISCC:MAIWHUCPO4YGSQAB",
-      "nonce": "0015283a7e89cb89a88f7931973ff816",
-      "signature": {
-        "proof": "z3YW4eGj2YrmbGQsH7jeFfkpfahC5UasvJPfXYJv21rk3abQ85K1gdzE9d54Wbaw2PN7LmBRuLxHmRHLTQNpULth9",
-        "pubkey": "z6Mkvan98nCE5R1nhaERvXt13GqnaJ6Zy1f4J1JUKiWs6Jfv",
-        "version": "ISCC-SIG v1.0"
-      },
-      "timestamp": "2025-08-23T09:30:00.900Z"
-    },
-    "event_time": "2025-08-23T11:30:00.938132Z"
+    "event_data": "eyJpc2NjX2lkIjoiSVNDQzpNQUlXSFVWNk80Q1hQUUFCIiwibm9uY2UiOiIwMDEwZmM0OGZhZGYzOTAwYWNhMmE5ZjMwMzQyN2Y2NSIsInNpZ25hdHVyZSI6eyJwcm9vZiI6Ino0UlBnd1p3QnFLQ0ZTR2d1amFZaGl1UUtNd2k1ek5EclBOejJwcUd3UnBCRGJhR1BHRWM1V3poaEhvYmhyYlFuY0FSYW54MjRRbVp0UkYySjg2RzJrUnR2IiwicHVia2V5IjoiejZNa29ITUUxWnB0VUw5dzdUUXlhcFVpelhlQ2hoTEZlRGZld3F6M1F0V253Q1dqIiwidmVyc2lvbiI6IklTQ0MtU0lHIHYxLjAifSwidGltZXN0YW1wIjoiMjAyNS0wOC0yNVQwNzo1NzoxNi4wMjdaIn0=",
+    "event_time": "2025-08-25T09:57:16.059323Z"
   }
 },
 {
   "model": "iscc_hub.isccdeclaration",
-  "pk": "ISCC:MAIWHUCPO4VXWUAB",
+  "pk": "ISCC:MAIWHUV6O4BMQUAB",
   "fields": {
     "event_seq": 1,
     "iscc_code": "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
     "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
-    "nonce": "001ad6fa4b419f38aa1589c47ebf3db6",
-    "actor": "z6Mkvan98nCE5R1nhaERvXt13GqnaJ6Zy1f4J1JUKiWs6Jfv",
+    "nonce": "001c253cac2677a2f5aa7f60bf0a72da",
+    "actor": "z6MkoHME1ZptUL9w7TQyapUizXeChhLFeDfewqz3QtWnwCWj",
     "gateway": "https://example.com/iscc_id/{iscc_id}/metadata",
     "metahash": "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598",
-    "updated_at": "2025-08-23T11:30:00.917941Z",
+    "updated_at": "2025-08-25T09:57:16.040325Z",
     "redacted": false
   }
 },
 {
   "model": "iscc_hub.isccdeclaration",
-  "pk": "ISCC:MAIWHUCPO4VXWYAB",
+  "pk": "ISCC:MAIWHUV6O4B4EMAB",
   "fields": {
     "event_seq": 2,
     "iscc_code": "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
     "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
-    "nonce": "0018342b5551e2b119f772e0036813be",
-    "actor": "z6Mknq5XS62sFVTmtay1jvv3kogJwV7ZeqcTZrKyr6bk7kbL",
+    "nonce": "001ceb1513d2a0a77903b5fb63655871",
+    "actor": "z6MksqBgija7NV6dhZ1PrsK8iT9Q9HzLekM8zxiQLcnZu6mr",
     "gateway": "",
     "metahash": "",
-    "updated_at": "2025-08-23T11:30:00.917942Z",
+    "updated_at": "2025-08-25T09:57:16.044323Z",
     "redacted": false
   }
 },
 {
   "model": "iscc_hub.isccdeclaration",
-  "pk": "ISCC:MAIWHUCPO4XU3QAB",
+  "pk": "ISCC:MAIWHUV6O4CLYMAB",
   "fields": {
     "event_seq": 3,
     "iscc_code": "ISCC:KAC36KWRJXNA44D6IJ27ODRTEWP5WJ62JNAMS6M2TVSYRPLQED35XMY",
     "datahash": "1e206588bd7020f7dbb3c5621d021a0ef1823862fc31f270e1016fa0dc0ded97ec64",
-    "nonce": "00114a3b78aeb1f2a9e9fa0cae646372",
-    "actor": "z6Mkq2zj6UBddidbemtNeDMYmrFLFvjG1pj8ySRKU5hBsMp6",
+    "nonce": "001e2e5ae929f8900657e93aa49d2d06",
+    "actor": "z6MkqdCJorEGYcGbyCNsXx31CJiQgmFp4nQxnRotU19kuCbE",
     "gateway": "",
     "metahash": "",
-    "updated_at": "2025-08-23T11:30:00.933596Z",
+    "updated_at": "2025-08-25T09:57:16.048323Z",
     "redacted": false
   }
 },
 {
   "model": "iscc_hub.isccdeclaration",
-  "pk": "ISCC:MAIWHUCPO4YGSUAB",
+  "pk": "ISCC:MAIWHUV6O4DHDIAB",
   "fields": {
     "event_seq": 5,
     "iscc_code": "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
     "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
-    "nonce": "001c5f9269e54fb6bee7567548628da6",
-    "actor": "z6Mknq5XS62sFVTmtay1jvv3kogJwV7ZeqcTZrKyr6bk7kbL",
+    "nonce": "001428e6e241431c58d37c915c6a568a",
+    "actor": "z6MksqBgija7NV6dhZ1PrsK8iT9Q9HzLekM8zxiQLcnZu6mr",
     "gateway": "https://example.com/iscc_id/{iscc_id}/metadata",
     "metahash": "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598",
-    "updated_at": "2025-08-23T11:30:00.938133Z",
+    "updated_at": "2025-08-25T09:57:16.055322Z",
     "redacted": false
   }
 }

@@ -2,6 +2,8 @@
 Tests for Django models.
 """
 
+import json
+
 import iscc_crypto as icr
 import pytest
 
@@ -20,7 +22,7 @@ def test_event_model_creation(minimal_iscc_note):
 
     event = Event.objects.create(
         iscc_id="ISCC:MEAJU3PC4ICWCTYI",
-        iscc_note=minimal_iscc_note,
+        event_data=json.dumps(minimal_iscc_note).encode("utf-8"),
         pubkey=pubkey,
         nonce=minimal_iscc_note["nonce"],
         datahash=minimal_iscc_note["datahash"],
@@ -29,7 +31,7 @@ def test_event_model_creation(minimal_iscc_note):
     assert event.seq == 1
     assert event.iscc_id == "ISCC:MEAJU3PC4ICWCTYI"
     assert event.event_type == Event.EventType.CREATED
-    assert event.iscc_note == minimal_iscc_note
+    assert json.loads(event.event_data.decode("utf-8")) == minimal_iscc_note
     assert event.event_time is not None
 
 
@@ -60,7 +62,7 @@ def test_event_gapless_sequence(example_timestamp, example_keypair, example_iscc
             nonce=unique_nonce,
             datahash=example_iscc_data["datahash"],
             pubkey=pubkey,
-            iscc_note=signed_note,
+            event_data=json.dumps(signed_note).encode("utf-8"),
         )
 
     event1 = create_unique_event(1)
@@ -106,7 +108,7 @@ def test_event_types(example_timestamp, example_keypair, example_iscc_data):
             nonce=unique_nonce,
             datahash=example_iscc_data["datahash"],
             pubkey=pubkey,
-            iscc_note=signed_note,
+            event_data=json.dumps(signed_note).encode("utf-8"),
         )
 
     # Test CREATED (default)
@@ -154,7 +156,7 @@ def test_event_str_representation(example_timestamp, example_keypair, example_is
             nonce=unique_nonce,
             datahash=example_iscc_data["datahash"],
             pubkey=pubkey,
-            iscc_note=signed_note,
+            event_data=json.dumps(signed_note).encode("utf-8"),
         )
 
     # Test CREATED event
@@ -209,7 +211,7 @@ def test_event_non_unique_iscc_id(example_timestamp, example_keypair, example_is
             nonce=unique_nonce,
             datahash=example_iscc_data["datahash"],
             pubkey=pubkey,
-            iscc_note=signed_note,
+            event_data=json.dumps(signed_note).encode("utf-8"),
         )
 
     # Create multiple events with same ISCC-ID but different nonces
@@ -261,7 +263,7 @@ def test_event_indexes(example_timestamp, example_keypair, example_iscc_data):
             nonce=unique_nonce,
             datahash=example_iscc_data["datahash"],
             pubkey=pubkey,
-            iscc_note=signed_note,
+            event_data=json.dumps(signed_note).encode("utf-8"),
             event_type=(i % 3) + 1,  # Cycle through event types
         )
 
@@ -336,7 +338,7 @@ def test_event_with_full_iscc_note(full_iscc_note):
 
     event = Event.objects.create(
         iscc_id=generate_test_iscc_id(seq=50),
-        iscc_note=full_iscc_note,
+        event_data=json.dumps(full_iscc_note).encode("utf-8"),
         pubkey=pubkey,
         nonce=full_iscc_note["nonce"],
         datahash=full_iscc_note["datahash"],
@@ -345,10 +347,13 @@ def test_event_with_full_iscc_note(full_iscc_note):
     assert event.seq == 1
     assert event.iscc_id == generate_test_iscc_id(seq=50)
     assert event.event_type == Event.EventType.CREATED
-    assert event.iscc_note == full_iscc_note
-    assert "units" in event.iscc_note
-    assert "metahash" in event.iscc_note
-    assert "gateway" in event.iscc_note
+
+    # Deserialize and check the data
+    event_data = json.loads(event.event_data.decode("utf-8"))
+    assert event_data == full_iscc_note
+    assert "units" in event_data
+    assert "metahash" in event_data
+    assert "gateway" in event_data
 
 
 # IsccDeclaration Model Tests

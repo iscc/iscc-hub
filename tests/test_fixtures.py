@@ -31,7 +31,7 @@ def test_load_fixtures_command():
         assert event.seq is not None
         assert event.iscc_id is not None
         assert event.event_type in [1, 2, 3]
-        assert event.iscc_note is not None
+        assert event.event_data is not None
 
     # Check that IsccDeclaration records have valid data
     for declaration in declarations:

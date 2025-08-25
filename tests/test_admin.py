@@ -51,11 +51,13 @@ def iscc_declaration():
 def event():
     # type: () -> Event
     """Sample Event fixture."""
+    import json
+
     return Event(
         seq=1,
         event_type=1,  # CREATED
         iscc_id="ISCC:KAA777777UJZXHQ2",
-        iscc_note={"test": "data"},
+        event_data=json.dumps({"test": "data"}).encode("utf-8"),
     )
 
 
@@ -325,35 +327,26 @@ class TestEventAdmin:
         result = admin_obj.iscc_id_timestamp(event)
         assert result == "—"
 
-    def test_iscc_note_formatted_valid_json(self, event):
+    def test_event_data_formatted_valid_json(self, event):
         # type: (Event) -> None
         """Test JSON formatting for valid data."""
         admin_obj = EventAdmin(Event, site)
-        event.iscc_note = {"key": "value", "nested": {"data": 123}}
-        result = admin_obj.iscc_note_formatted(event)
+        test_data = {"key": "value", "nested": {"data": 123}}
+        event.event_data = json.dumps(test_data).encode("utf-8")
+        result = admin_obj.event_data_formatted(event)
         assert "<pre" in result
         assert "background: #f5f5f5" in result
         # HTML-escaped quotes in the output
         assert "&quot;key&quot;: &quot;value&quot;" in result
 
-    def test_iscc_note_formatted_invalid_json(self, event):
+    def test_event_data_formatted_invalid_json(self, event):
         # type: (Event) -> None
         """Test JSON formatting fallback for invalid data."""
         admin_obj = EventAdmin(Event, site)
-        # Create a mock object that will raise TypeError when serialized
-        mock_obj = Mock()
-        mock_obj.__str__ = Mock(return_value="fallback_string")
-        event.iscc_note = mock_obj
+        # Set invalid binary data that cannot be decoded as UTF-8 JSON
+        event.event_data = b"\xff\xfe\xfd"  # Invalid UTF-8 bytes
 
-        # Mock json.dumps to raise TypeError
-        import iscc_hub.admin
+        result = admin_obj.event_data_formatted(event)
 
-        original_dumps = iscc_hub.admin.json.dumps
-        iscc_hub.admin.json.dumps = Mock(side_effect=TypeError("Cannot serialize"))
-
-        result = admin_obj.iscc_note_formatted(event)
-
-        # Restore original dumps
-        iscc_hub.admin.json.dumps = original_dumps
-
-        assert result == "fallback_string"
+        # Should fallback to string representation of binary data
+        assert "b'\\xff\\xfe\\xfd'" in result

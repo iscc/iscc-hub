@@ -184,12 +184,12 @@ class EventAdmin(ModelAdmin):
         "iscc_id",
         "iscc_id_timestamp",
         "event_time",
-        "iscc_note_formatted",
+        "event_data_formatted",
     ]
 
     fieldsets = (
         ("Event Information", {"fields": ("seq", "event_type", "iscc_id", "iscc_id_timestamp", "event_time")}),
-        ("Event Data", {"fields": ("iscc_note_formatted",), "classes": ("wide",)}),
+        ("Event Data", {"fields": ("event_data_formatted",), "classes": ("wide",)}),
     )
 
     list_per_page = 100
@@ -250,16 +250,18 @@ class EventAdmin(ModelAdmin):
     iscc_id_timestamp.short_description = "Declaration Time (ISCC-ID)"
     iscc_id_timestamp.admin_order_field = "iscc_id"
 
-    def iscc_note_formatted(self, obj):
+    def event_data_formatted(self, obj):
         # type: (Event) -> str
-        """Display formatted JSON for IsccNote."""
+        """Display formatted JSON for event data."""
         try:
-            formatted = json.dumps(obj.iscc_note, indent=2)
+            # Deserialize binary data to JSON
+            data = json.loads(obj.event_data.decode("utf-8"))
+            formatted = json.dumps(data, indent=2)
             return format_html(
                 '<pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">{}</pre>',
                 formatted,
             )
-        except (TypeError, ValueError):
-            return str(obj.iscc_note)
+        except (TypeError, ValueError, UnicodeDecodeError):
+            return str(obj.event_data)
 
-    iscc_note_formatted.short_description = "ISCC Note Data"
+    event_data_formatted.short_description = "Event Data"

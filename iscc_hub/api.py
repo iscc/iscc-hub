@@ -1,3 +1,5 @@
+import json
+
 import iscc_crypto as icr
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
@@ -48,7 +50,8 @@ def declaration(request):
         existing = Event.objects.filter(datahash=valid_data["datahash"]).first()
         if existing:
             message = f"Duplicate declaration for datahash: {valid_data['datahash']}"
-            existing_actor = existing.iscc_note.get("signature", {}).get("pubkey", "")
+            existing_data = json.loads(existing.event_data.decode("utf-8"))
+            existing_actor = existing_data.get("signature", {}).get("pubkey", "")
             raise DuplicateDeclarationError(
                 message, existing_iscc_id=str(IsccID(existing.iscc_id)), existing_actor=existing_actor
             )
@@ -99,7 +102,8 @@ def delete_declaration(request, iscc_id: str):
         raise NotFoundError(f"Declaration already deleted: {iscc_id}")
 
     # Verify that the requester is the same controller who created the declaration
-    original_pubkey = original_event.iscc_note.get("signature", {}).get("pubkey", "")
+    original_data = json.loads(original_event.event_data.decode("utf-8"))
+    original_pubkey = original_data.get("signature", {}).get("pubkey", "")
     request_pubkey = valid_data["signature"]["pubkey"]
 
     if original_pubkey != request_pubkey:

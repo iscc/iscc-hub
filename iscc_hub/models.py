@@ -47,8 +47,8 @@ class Event(models.Model):
         help_text="Type of event (1=CREATED, 2=UPDATED, 3=DELETED)",
     )
 
-    # The IsccNote stored as JSON
-    iscc_note = models.JSONField(help_text="The logged IsccNote as JSON")
+    # Event data stored as binary (canonicalized JSON)
+    event_data = models.BinaryField(help_text="Event data stored as canonicalized JSON bytes")
 
     # Event timestamp - when this specific event occurred
     # For CREATED events: same as ISCC-ID timestamp (initial declaration time)
