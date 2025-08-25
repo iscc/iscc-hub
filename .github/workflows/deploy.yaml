@@ -41,6 +41,9 @@ jobs:
             cd /opt/iscc-hub
             docker compose down || true
             
+            echo "Resetting sandbox database..."
+            rm -f data/iscc_hub.db*
+            
             echo "Starting updated deployment..."
             docker compose up -d
             
