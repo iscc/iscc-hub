@@ -3,11 +3,9 @@ Checkpoint creation for ISCC Hub event log integrity.
 """
 
 import base64
-import math
 from typing import Optional
 
 import blake3
-from django.db import transaction
 from tsp_client.signer import TSPSigner
 
 from iscc_hub.models import Checkpoint, Event
@@ -72,7 +70,6 @@ def create_rfc3161_timestamp(checkpoint_hash):
     return base64.b64encode(token_bytes).decode("ascii")
 
 
-@transaction.atomic
 def create_checkpoint():
     # type: () -> Checkpoint
     """
@@ -116,11 +113,17 @@ def create_checkpoint():
     # Calculate checkpoint hash
     checkpoint_hash = get_checkpoint_hash(merkle_root, prev_hash)
 
-    # Get RFC3161 timestamp - required for valid checkpoint
-    timestamp_token = create_rfc3161_timestamp(checkpoint_hash)
-    timestamp_type = "RFC3161"
+    # Try to acquire RFC3161 timestamp - required for valid checkpoint
+    # This is done before database insertion to ensure we have a valid timestamp
+    try:
+        timestamp_token = create_rfc3161_timestamp(checkpoint_hash)
+        timestamp_type = "RFC3161"
+    except Exception:
+        # Re-raise to prevent checkpoint creation without timestamp
+        raise
 
-    # Create and save checkpoint
+    # Only create checkpoint in database if timestamping succeeded
+    # This ensures we don't block the database if timestamping fails
     checkpoint = Checkpoint.objects.create(
         start=start_seq,
         end=end_seq,

@@ -1012,10 +1012,10 @@ def test_create_checkpoint_timestamp_failure(example_keypair):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_create_checkpoint_atomicity():
+def test_create_checkpoint_database_failure():
     # type: () -> None
     """
-    Test that checkpoint creation is atomic.
+    Test that checkpoint creation handles database failures properly.
     """
     from unittest.mock import Mock, patch
 
@@ -1030,7 +1030,7 @@ def test_create_checkpoint_atomicity():
     text = "Test content"
     iscc_data = create_iscc_from_text(text)
     nonce = icr.create_nonce(node_id=1)
-    controller = "did:web:example.com:atomic"
+    controller = "did:web:example.com:dbfail"
     keypair = icr.key_generate(controller=controller)
 
     note = {
@@ -1043,7 +1043,7 @@ def test_create_checkpoint_atomicity():
     signed_note = icr.sign_json(note, keypair)
     sequence_iscc_note(signed_note)
 
-    # Mock both timestamp and database to test atomicity
+    # Mock both timestamp and database to test error handling
     with patch("iscc_hub.checkpoint.create_rfc3161_timestamp") as mock_timestamp:
         mock_timestamp.return_value = "mock_token"
 
