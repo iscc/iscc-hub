@@ -295,12 +295,12 @@ class CheckpointAdmin(ModelAdmin):
         "event_range",
         "event_count",
         "merkle_root_short",
-        "ots_status",
+        "timestamp_type",
         "created_at",
     ]
 
     list_filter = [
-        "ots_status",
+        "timestamp_type",
         "created_at",
     ]
 

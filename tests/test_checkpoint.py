@@ -437,8 +437,8 @@ def test_checkpoint_model_creation():
     assert checkpoint.prev == genesis_prev
     assert checkpoint.hash == "b" * 64
     assert checkpoint.created_at is not None
-    assert checkpoint.ots_status == "pending"
-    assert checkpoint.ots_proof is None
+    assert checkpoint.timestamp_type is None
+    assert checkpoint.timestamp_token is None
 
 
 @pytest.mark.django_db(transaction=True)
@@ -567,25 +567,35 @@ def test_checkpoint_unique_hash_constraint():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_checkpoint_ots_status_choices():
+def test_checkpoint_timestamp_type_choices():
     # type: () -> None
     """
-    Test OpenTimestamps status field values.
+    Test that Checkpoint model accepts valid timestamp type choices.
     """
-    # Test all valid status choices
-    statuses = ["pending", "submitted", "confirmed"]
-
-    for i, status in enumerate(statuses):
+    # Test all valid timestamp types
+    types = ["RFC3161", "OTS"]
+    for i, ts_type in enumerate(types):
         genesis_prev = "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
         checkpoint = Checkpoint.objects.create(
             start=i * 10 + 1,
             end=i * 10 + 10,
             merkle_root=f"{'a' * 63}{i}",
-            prev=genesis_prev if i == 0 else f"{'a' * 63}{i - 1}",
+            prev=genesis_prev,
             hash=f"{'b' * 63}{i}",
-            ots_status=status,
+            timestamp_type=ts_type,
         )
-        assert checkpoint.ots_status == status
+        assert checkpoint.timestamp_type == ts_type
+
+    # Test None is also valid
+    checkpoint_none = Checkpoint.objects.create(
+        start=100,
+        end=110,
+        merkle_root="c" * 64,
+        prev=genesis_prev,
+        hash="d" * 64,
+        timestamp_type=None,
+    )
+    assert checkpoint_none.timestamp_type is None
 
 
 @pytest.mark.django_db(transaction=True)
@@ -636,12 +646,12 @@ def test_checkpoint_chain_linking():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_checkpoint_with_ots_proof():
+def test_checkpoint_with_timestamp_token():
     # type: () -> None
     """
-    Test storing and retrieving OpenTimestamps proof data.
+    Test storing and retrieving external timestamp tokens.
     """
-    # Create checkpoint without proof
+    # Create checkpoint without timestamp
     genesis_prev = "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
     checkpoint = Checkpoint.objects.create(
         start=1,
@@ -651,16 +661,29 @@ def test_checkpoint_with_ots_proof():
         hash="b2" * 32,
     )
 
-    assert checkpoint.ots_proof is None
-    assert checkpoint.ots_status == "pending"
+    assert checkpoint.timestamp_type is None
+    assert checkpoint.timestamp_token is None
 
-    # Add OTS proof (using hex string as HexField expects)
-    proof_hex = "004f70656e54696d657374616d7073000050726f6f66"
-    checkpoint.ots_proof = proof_hex
-    checkpoint.ots_status = "submitted"
+    # Update with RFC3161 token
+    token_b64 = "MIIGYTCCBUmgAwIBAgIQA=="  # Example Base64 token
+    checkpoint.timestamp_type = "RFC3161"
+    checkpoint.timestamp_token = token_b64
     checkpoint.save()
 
     # Retrieve and verify
     retrieved = Checkpoint.objects.get(id=checkpoint.id)
-    assert retrieved.ots_proof == proof_hex
-    assert retrieved.ots_status == "submitted"
+    assert retrieved.timestamp_type == "RFC3161"
+    assert retrieved.timestamp_token == token_b64
+
+    # Test with OTS proof
+    ots_checkpoint = Checkpoint.objects.create(
+        start=51,
+        end=100,
+        merkle_root="123" * 21 + "1",
+        prev=checkpoint.hash,
+        hash="456" * 21 + "4",
+        timestamp_type="OTS",
+        timestamp_token="AE9wZW5UaW1lc3RhbXBzAA==",  # Example Base64 OTS proof
+    )
+    assert ots_checkpoint.timestamp_type == "OTS"
+    assert ots_checkpoint.timestamp_token == "AE9wZW5UaW1lc3RhbXBzAA=="

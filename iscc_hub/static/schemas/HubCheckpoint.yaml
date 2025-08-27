@@ -1,7 +1,7 @@
 title: HubCheckpoint
 description: |
   Cryptographic checkpoint of the ISCC Hub event log. Creates a verifiable snapshot
-  of event history using Merkle trees and hash chaining.
+  of event history using Merkle trees, hash chaining, and external timestamping.
 type: object
 required:
   - id
@@ -10,7 +10,6 @@ required:
   - merkle_root
   - hash
   - created_at
-  - ots_status
 properties:
   id:
     type: integer
@@ -46,18 +45,18 @@ properties:
     format: date-time
     description: ISO 8601 timestamp when this checkpoint was created.
     example: "2025-01-15T12:34:56.789123Z"
-  ots_proof:
+  timestamp_type:
     type: string
     nullable: true
-    description: Hex-encoded OpenTimestamps proof data for external timestamping.
-    pattern: "^[a-f0-9]*$"
-    example: "004f70656e54696d657374616d7073000050726f6f66"
-  ots_status:
-    type: string
-    description: Status of the OpenTimestamps submission.
+    description: Type of external timestamp protocol used.
     enum:
-      - pending
-      - submitted
-      - confirmed
-    example: "confirmed"
+      - RFC3161
+      - OTS
+    example: "RFC3161"
+  timestamp_token:
+    type: string
+    nullable: true
+    description: Base64-encoded timestamp token. Decode and verify using appropriate library for the timestamp_type.
+    pattern: "^[A-Za-z0-9+/]*={0,2}$"
+    example: "MIIGYTCCBUmgAwIBAgIQA..."
 additionalProperties: false

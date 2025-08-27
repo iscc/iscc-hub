@@ -171,18 +171,22 @@ class Checkpoint(models.Model):
     # Timestamp
     created_at = models.DateTimeField(auto_now_add=True, db_index=True, help_text="When this checkpoint was created")
 
-    # OpenTimestamps fields
-    ots_proof = HexField(null=True, blank=True, help_text="OpenTimestamps proof data for external timestamping")
-
-    ots_status = models.CharField(
+    # External timestamping fields
+    timestamp_type = models.CharField(
         max_length=10,
         choices=[
-            ("pending", "Pending"),
-            ("submitted", "Submitted"),
-            ("confirmed", "Confirmed"),
+            ("RFC3161", "RFC 3161 TSA"),
+            ("OTS", "OpenTimestamps"),
         ],
-        default="pending",
-        help_text="Status of OpenTimestamps submission",
+        null=True,
+        blank=True,
+        help_text="Type of external timestamp protocol used",
+    )
+
+    timestamp_token = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Base64-encoded timestamp token. Decode and verify using appropriate client library.",
     )
 
     class Meta:
