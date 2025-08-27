@@ -687,3 +687,372 @@ def test_checkpoint_with_timestamp_token():
     )
     assert ots_checkpoint.timestamp_type == "OTS"
     assert ots_checkpoint.timestamp_token == "AE9wZW5UaW1lc3RhbXBzAA=="
+
+
+# === Checkpoint Module Function Tests ===
+
+
+def test_build_merkle_root_single_hash():
+    # type: () -> None
+    """
+    Test building merkle root with single hash.
+    """
+    from iscc_hub.checkpoint import build_merkle_root
+
+    single_hash = ["a" * 64]
+    root = build_merkle_root(single_hash)
+
+    # Verify it's a valid hash
+    assert len(root) == 64
+    assert all(c in "0123456789abcdef" for c in root)
+
+    # The function returns the single hash directly for a list with one element
+    # Let's test the actual behavior
+    assert root == single_hash[0]
+
+
+def test_build_merkle_root_multiple_hashes():
+    # type: () -> None
+    """
+    Test building merkle root with multiple hashes.
+    """
+    from iscc_hub.checkpoint import build_merkle_root
+
+    hashes = ["a" * 64, "b" * 64, "c" * 64]
+    root = build_merkle_root(hashes)
+
+    # Verify it's a valid hash
+    assert len(root) == 64
+    assert all(c in "0123456789abcdef" for c in root)
+
+
+def test_build_merkle_root_power_of_two():
+    # type: () -> None
+    """
+    Test building merkle root with power of 2 hashes.
+    """
+    from iscc_hub.checkpoint import build_merkle_root
+
+    hashes = ["1" * 64, "2" * 64, "3" * 64, "4" * 64]
+    root = build_merkle_root(hashes)
+
+    assert len(root) == 64
+
+
+def test_build_merkle_root_empty_raises():
+    # type: () -> None
+    """
+    Test that building merkle root with empty list raises ValueError.
+    """
+    from iscc_hub.checkpoint import build_merkle_root
+
+    with pytest.raises(ValueError) as excinfo:
+        build_merkle_root([])
+
+    assert "empty list" in str(excinfo.value).lower()
+
+
+def test_get_checkpoint_hash():
+    # type: () -> None
+    """
+    Test checkpoint hash calculation.
+    """
+    from iscc_hub.checkpoint import get_checkpoint_hash
+
+    merkle_root = "a" * 64
+    prev_hash = "b" * 64
+
+    hash_result = get_checkpoint_hash(merkle_root, prev_hash)
+
+    # Should be Blake3(merkle_root || prev)
+    expected = blake3.blake3(bytes.fromhex(merkle_root) + bytes.fromhex(prev_hash)).hexdigest()
+    assert hash_result == expected
+
+
+def test_create_rfc3161_timestamp():
+    # type: () -> None
+    """
+    Test creating RFC3161 timestamp.
+    """
+    from unittest.mock import Mock, patch
+
+    from iscc_hub.checkpoint import create_rfc3161_timestamp
+
+    mock_token_bytes = b"test_token_data"
+
+    with patch("iscc_hub.checkpoint.TSPSigner") as MockTSPSigner:
+        mock_signer = Mock()
+        mock_signer.sign.return_value = mock_token_bytes
+        MockTSPSigner.return_value = mock_signer
+
+        hash_hex = "1234567890abcdef" * 4  # 32 bytes hex
+        token = create_rfc3161_timestamp(hash_hex)
+
+        # Verify signer was called correctly
+        mock_signer.sign.assert_called_once_with(message_digest=bytes.fromhex(hash_hex))
+
+        # Verify token is base64 encoded
+        import base64
+
+        assert token == base64.b64encode(mock_token_bytes).decode("ascii")
+        assert token == "dGVzdF90b2tlbl9kYXRh"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_create_checkpoint_no_events():
+    # type: () -> None
+    """
+    Test that create_checkpoint raises ValueError when no events exist.
+    """
+    from iscc_hub.checkpoint import create_checkpoint
+
+    # Clear all events and checkpoints
+    Event.objects.all().delete()
+    Checkpoint.objects.all().delete()
+
+    with pytest.raises(ValueError) as excinfo:
+        create_checkpoint()
+
+    assert "No events to checkpoint" in str(excinfo.value)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_create_checkpoint_first_checkpoint(example_keypair):
+    # type: (object) -> None
+    """
+    Test creating the first checkpoint.
+    """
+    from unittest.mock import patch
+
+    from iscc_hub.checkpoint import create_checkpoint
+
+    # Clear existing checkpoints
+    Checkpoint.objects.all().delete()
+
+    # Create some events
+    for i in range(3):
+        text = f"Test content {i}"
+        iscc_data = create_iscc_from_text(text)
+        nonce = icr.create_nonce(node_id=1)
+
+        note = {
+            "iscc_code": iscc_data["iscc"],
+            "datahash": iscc_data["datahash"],
+            "nonce": nonce,
+            "timestamp": f"2025-01-15T12:00:{i:02d}.000Z",
+        }
+
+        signed_note = icr.sign_json(note, example_keypair)
+        sequence_iscc_note(signed_note)
+
+    # Mock timestamping to avoid network call
+    with patch("iscc_hub.checkpoint.create_rfc3161_timestamp") as mock_timestamp:
+        mock_timestamp.return_value = "mock_timestamp_token"
+
+        checkpoint = create_checkpoint()
+
+        assert checkpoint.id is not None
+        assert checkpoint.start >= 1
+        assert checkpoint.end >= checkpoint.start
+        assert checkpoint.event_count >= 1
+        assert checkpoint.merkle_root is not None
+        assert len(checkpoint.merkle_root) == 64
+        # Genesis checkpoint should have Blake3 of empty bytes
+        assert checkpoint.prev == blake3.blake3(b"").hexdigest()
+        assert checkpoint.hash is not None
+        assert checkpoint.timestamp_type == "RFC3161"
+        assert checkpoint.timestamp_token == "mock_timestamp_token"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_create_checkpoint_subsequent(example_keypair):
+    # type: (object) -> None
+    """
+    Test creating subsequent checkpoints.
+    """
+    from unittest.mock import patch
+
+    from iscc_hub.checkpoint import create_checkpoint
+
+    # Clear existing checkpoints
+    Checkpoint.objects.all().delete()
+
+    # Create first batch of events
+    for i in range(2):
+        text = f"First batch {i}"
+        iscc_data = create_iscc_from_text(text)
+        nonce = icr.create_nonce(node_id=1)
+
+        note = {
+            "iscc_code": iscc_data["iscc"],
+            "datahash": iscc_data["datahash"],
+            "nonce": nonce,
+            "timestamp": f"2025-01-15T10:00:{i:02d}.000Z",
+        }
+
+        signed_note = icr.sign_json(note, example_keypair)
+        sequence_iscc_note(signed_note)
+
+    # Create first checkpoint
+    with patch("iscc_hub.checkpoint.create_rfc3161_timestamp") as mock_timestamp:
+        mock_timestamp.return_value = "token1"
+        checkpoint1 = create_checkpoint()
+
+    # Create second batch of events
+    for i in range(3):
+        text = f"Second batch {i}"
+        iscc_data = create_iscc_from_text(text)
+        nonce = icr.create_nonce(node_id=1)
+
+        note = {
+            "iscc_code": iscc_data["iscc"],
+            "datahash": iscc_data["datahash"],
+            "nonce": nonce,
+            "timestamp": f"2025-01-15T11:00:{i:02d}.000Z",
+        }
+
+        signed_note = icr.sign_json(note, example_keypair)
+        sequence_iscc_note(signed_note)
+
+    # Create second checkpoint
+    with patch("iscc_hub.checkpoint.create_rfc3161_timestamp") as mock_timestamp:
+        mock_timestamp.return_value = "token2"
+        checkpoint2 = create_checkpoint()
+
+    assert checkpoint2.start == checkpoint1.end + 1
+    assert checkpoint2.end >= checkpoint2.start
+    assert checkpoint2.prev == checkpoint1.hash
+    assert checkpoint2.timestamp_token == "token2"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_create_checkpoint_no_new_events():
+    # type: () -> None
+    """
+    Test that create_checkpoint raises ValueError when all events are checkpointed.
+    """
+    from unittest.mock import patch
+
+    from iscc_hub.checkpoint import create_checkpoint
+
+    # Clear existing checkpoints
+    Checkpoint.objects.all().delete()
+
+    # Create events
+    text = "Test content"
+    iscc_data = create_iscc_from_text(text)
+    nonce = icr.create_nonce(node_id=1)
+    controller = "did:web:example.com:test"
+    keypair = icr.key_generate(controller=controller)
+
+    note = {
+        "iscc_code": iscc_data["iscc"],
+        "datahash": iscc_data["datahash"],
+        "nonce": nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+
+    signed_note = icr.sign_json(note, keypair)
+    seq, _ = sequence_iscc_note(signed_note)
+
+    # Create checkpoint for all events
+    with patch("iscc_hub.checkpoint.create_rfc3161_timestamp") as mock_timestamp:
+        mock_timestamp.return_value = "token"
+        checkpoint = create_checkpoint()
+
+    assert checkpoint.end == seq
+
+    # Try to create another checkpoint - should fail
+    with pytest.raises(ValueError) as excinfo:
+        create_checkpoint()
+
+    assert "No events to checkpoint" in str(excinfo.value)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_create_checkpoint_timestamp_failure(example_keypair):
+    # type: (object) -> None
+    """
+    Test that checkpoint creation fails completely if timestamping fails.
+    """
+    from unittest.mock import patch
+
+    from iscc_hub.checkpoint import create_checkpoint
+
+    # Clear existing checkpoints
+    Checkpoint.objects.all().delete()
+
+    # Create an event
+    text = "Test content"
+    iscc_data = create_iscc_from_text(text)
+    nonce = icr.create_nonce(node_id=1)
+
+    note = {
+        "iscc_code": iscc_data["iscc"],
+        "datahash": iscc_data["datahash"],
+        "nonce": nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+
+    signed_note = icr.sign_json(note, example_keypair)
+    sequence_iscc_note(signed_note)
+
+    # Mock timestamping to fail
+    with patch("iscc_hub.checkpoint.create_rfc3161_timestamp") as mock_timestamp:
+        mock_timestamp.side_effect = Exception("Network error")
+
+        # Checkpoint creation should fail completely
+        with pytest.raises(Exception) as exc_info:
+            create_checkpoint()
+
+        assert "Network error" in str(exc_info.value)
+
+    # No checkpoint should have been created
+    assert Checkpoint.objects.count() == 0
+
+
+@pytest.mark.django_db(transaction=True)
+def test_create_checkpoint_atomicity():
+    # type: () -> None
+    """
+    Test that checkpoint creation is atomic.
+    """
+    from unittest.mock import Mock, patch
+
+    from django.db import DatabaseError
+
+    from iscc_hub.checkpoint import create_checkpoint
+
+    # Clear existing checkpoints
+    Checkpoint.objects.all().delete()
+
+    # Create an event
+    text = "Test content"
+    iscc_data = create_iscc_from_text(text)
+    nonce = icr.create_nonce(node_id=1)
+    controller = "did:web:example.com:atomic"
+    keypair = icr.key_generate(controller=controller)
+
+    note = {
+        "iscc_code": iscc_data["iscc"],
+        "datahash": iscc_data["datahash"],
+        "nonce": nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+
+    signed_note = icr.sign_json(note, keypair)
+    sequence_iscc_note(signed_note)
+
+    # Mock both timestamp and database to test atomicity
+    with patch("iscc_hub.checkpoint.create_rfc3161_timestamp") as mock_timestamp:
+        mock_timestamp.return_value = "mock_token"
+
+        # Patch Checkpoint.objects.create to fail
+        with patch.object(Checkpoint.objects, "create") as mock_create:
+            mock_create.side_effect = DatabaseError("DB error")
+
+            with pytest.raises(DatabaseError):
+                create_checkpoint()
+
+    # No checkpoint should have been created
+    assert Checkpoint.objects.count() == 0

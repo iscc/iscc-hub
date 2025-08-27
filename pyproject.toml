@@ -13,6 +13,7 @@ dependencies = [
     "iscc-core>=1.2.1",
     "iscc-crypto>=0.4.0",
     "niquests>=3.15.2",
+    "pymerkle>=6.1.0",
     "python-dateutil>=2.9.0.post0",
     "servestatic>=3.1.0",
     "tsp-client>=0.2.1",
@@ -141,6 +142,7 @@ fixtures-load = { cmd = "uv run python manage.py loaddata test_data", help = "Lo
 fixtures-generate = { cmd = "uv run python scripts/generate_fixtures.py", help = "Generate realistic fixture data from valid IsccNotes" }
 declare = { cmd = "uv run python scripts/declare.py", help = "Create and declare a random ISCC note (--hub-url to specify hub, defaults to localhost:8000)" }
 benchmark = { cmd = "uv run python scripts/benchmark.py", help = "Run benchmark tests against ISCC hub (target_url to specify hub, defaults to localhost:8000)" }
+checkpoint = { cmd = "uv run python scripts/create_checkpoint.py", help = "Create a cryptographic checkpoint of the event log" }
 
 all = [
     "build-schema",

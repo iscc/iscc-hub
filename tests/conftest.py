@@ -278,3 +278,42 @@ def sample_validation_data():
         "valid_datahash": "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
         "invalid_datahash": "not-a-hash",
     }
+
+
+@pytest.fixture
+def test_events():
+    # type: () -> list
+    """Create test events with proper event_hash for checkpoint testing."""
+    from iscc_hub.models import Event
+    from iscc_hub.sequencer import sequence_iscc_note
+
+    # Clear any existing events and checkpoints
+    Event.objects.all().delete()
+    from iscc_hub.models import Checkpoint
+
+    Checkpoint.objects.all().delete()
+
+    # Create deterministic keypair for testing
+    controller = "did:web:test.example.com"
+    keypair = icr.key_generate(controller=controller)
+
+    events = []
+    for i in range(5):
+        # Create unique note for each event
+        iscc_data = create_iscc_from_text(f"Test content {i}")
+        note = {
+            "iscc_code": iscc_data["iscc"],
+            "datahash": iscc_data["datahash"],
+            "nonce": f"{i:032x}",
+            "timestamp": f"2025-01-15T12:00:{i:02d}.000Z",
+        }
+
+        # Sign the note
+        signed_note = icr.sign_json(note, keypair)
+
+        # Sequence it to create event with proper event_hash
+        seq_num, iscc_id_bytes = sequence_iscc_note(signed_note)
+        event = Event.objects.get(seq=seq_num)
+        events.append(event)
+
+    return events
