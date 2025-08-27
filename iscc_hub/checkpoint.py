@@ -3,42 +3,38 @@ Checkpoint creation for ISCC Hub event log integrity.
 """
 
 import base64
-from typing import Optional
+import hashlib
+from binascii import unhexlify
 
 import blake3
+import pymerkle.constants
+from pymerkle import InmemoryTree as MerkleTree
 from tsp_client.signer import TSPSigner
 
 from iscc_hub.models import Checkpoint, Event
 
+# Monkey-patch blake3 into hashlib and pymerkle
+hashlib.blake3 = blake3.blake3  # type: ignore[attr-defined]
+if "blake3" not in pymerkle.constants.ALGORITHMS:
+    pymerkle.constants.ALGORITHMS.append("blake3")
 
-def build_merkle_root(hashes):
-    # type: (list[str]) -> str
+
+def build_merkle_tree(hashes):
+    # type: (list[str]) -> MerkleTree
     """
-    Build a Merkle tree root from a list of hex-encoded hashes using Blake3.
+    Build a Merkle tree from a list of hex-encoded hashes using Blake3.
 
     :param hashes: List of hex-encoded hash strings
-    :return: Hex-encoded root hash
+    :return: MerkleTree instance
     """
     if not hashes:
         raise ValueError("Cannot build merkle tree from empty list")
 
-    # Convert hex strings to bytes
-    nodes = [bytes.fromhex(h) for h in hashes]
+    tree = MerkleTree(algorithm="blake3")
+    for hash_hex in hashes:
+        tree.append_entry(unhexlify(hash_hex))
 
-    # Build tree level by level
-    while len(nodes) > 1:
-        next_level = []
-        for i in range(0, len(nodes), 2):
-            if i + 1 < len(nodes):
-                # Hash pair of nodes
-                combined = nodes[i] + nodes[i + 1]
-            else:
-                # Odd node - hash with itself
-                combined = nodes[i] + nodes[i]
-            next_level.append(blake3.blake3(combined).digest())
-        nodes = next_level
-
-    return nodes[0].hex()
+    return tree
 
 
 def get_checkpoint_hash(merkle_root, prev_hash):
@@ -50,7 +46,7 @@ def get_checkpoint_hash(merkle_root, prev_hash):
     :param prev_hash: Hex-encoded previous checkpoint hash
     :return: Hex-encoded checkpoint hash
     """
-    combined = bytes.fromhex(merkle_root) + bytes.fromhex(prev_hash)
+    combined = unhexlify(merkle_root) + unhexlify(prev_hash)
     return blake3.blake3(combined).hexdigest()
 
 
@@ -62,7 +58,7 @@ def create_rfc3161_timestamp(checkpoint_hash):
     :param checkpoint_hash: Hex-encoded checkpoint hash
     :return: Base64-encoded timestamp token
     """
-    hash_bytes = bytes.fromhex(checkpoint_hash)
+    hash_bytes = unhexlify(checkpoint_hash)
     signer = TSPSigner()
     # The sign method expects either message or message_digest, not both
     # We pass the raw hash as message_digest
@@ -107,8 +103,9 @@ def create_checkpoint():
     event_hashes = [e["event_hash"] for e in event_list]
     end_seq = event_list[-1]["seq"]
 
-    # Build merkle tree
-    merkle_root = build_merkle_root(event_hashes)
+    # Build merkle tree and get root
+    tree = build_merkle_tree(event_hashes)
+    merkle_root = tree.get_state().hex()
 
     # Calculate checkpoint hash
     checkpoint_hash = get_checkpoint_hash(merkle_root, prev_hash)

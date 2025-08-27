@@ -692,62 +692,64 @@ def test_checkpoint_with_timestamp_token():
 # === Checkpoint Module Function Tests ===
 
 
-def test_build_merkle_root_single_hash():
+def test_build_merkle_tree_single_hash():
     # type: () -> None
     """
-    Test building merkle root with single hash.
+    Test building merkle tree with single hash.
     """
-    from iscc_hub.checkpoint import build_merkle_root
+    from iscc_hub.checkpoint import build_merkle_tree
 
     single_hash = ["a" * 64]
-    root = build_merkle_root(single_hash)
+    tree = build_merkle_tree(single_hash)
+    root = tree.get_state().hex()
 
     # Verify it's a valid hash
     assert len(root) == 64
     assert all(c in "0123456789abcdef" for c in root)
-
-    # The function returns the single hash directly for a list with one element
-    # Let's test the actual behavior
-    assert root == single_hash[0]
+    assert tree.get_size() == 1
 
 
-def test_build_merkle_root_multiple_hashes():
+def test_build_merkle_tree_multiple_hashes():
     # type: () -> None
     """
-    Test building merkle root with multiple hashes.
+    Test building merkle tree with multiple hashes.
     """
-    from iscc_hub.checkpoint import build_merkle_root
+    from iscc_hub.checkpoint import build_merkle_tree
 
     hashes = ["a" * 64, "b" * 64, "c" * 64]
-    root = build_merkle_root(hashes)
+    tree = build_merkle_tree(hashes)
+    root = tree.get_state().hex()
 
     # Verify it's a valid hash
     assert len(root) == 64
     assert all(c in "0123456789abcdef" for c in root)
+    assert tree.get_size() == 3
 
 
-def test_build_merkle_root_power_of_two():
+def test_build_merkle_tree_power_of_two():
     # type: () -> None
     """
-    Test building merkle root with power of 2 hashes.
+    Test building merkle tree with power of 2 hashes.
     """
-    from iscc_hub.checkpoint import build_merkle_root
+    from iscc_hub.checkpoint import build_merkle_tree
 
     hashes = ["1" * 64, "2" * 64, "3" * 64, "4" * 64]
-    root = build_merkle_root(hashes)
+    tree = build_merkle_tree(hashes)
+    root = tree.get_state().hex()
 
     assert len(root) == 64
+    assert tree.get_size() == 4
 
 
-def test_build_merkle_root_empty_raises():
+def test_build_merkle_tree_empty_raises():
     # type: () -> None
     """
-    Test that building merkle root with empty list raises ValueError.
+    Test that building merkle tree with empty list raises ValueError.
     """
-    from iscc_hub.checkpoint import build_merkle_root
+    from iscc_hub.checkpoint import build_merkle_tree
 
     with pytest.raises(ValueError) as excinfo:
-        build_merkle_root([])
+        build_merkle_tree([])
 
     assert "empty list" in str(excinfo.value).lower()
 
@@ -765,7 +767,7 @@ def test_get_checkpoint_hash():
     hash_result = get_checkpoint_hash(merkle_root, prev_hash)
 
     # Should be Blake3(merkle_root || prev)
-    expected = blake3.blake3(bytes.fromhex(merkle_root) + bytes.fromhex(prev_hash)).hexdigest()
+    expected = blake3.blake3(unhexlify(merkle_root) + unhexlify(prev_hash)).hexdigest()
     assert hash_result == expected
 
 
@@ -789,7 +791,7 @@ def test_create_rfc3161_timestamp():
         token = create_rfc3161_timestamp(hash_hex)
 
         # Verify signer was called correctly
-        mock_signer.sign.assert_called_once_with(message_digest=bytes.fromhex(hash_hex))
+        mock_signer.sign.assert_called_once_with(message_digest=unhexlify(hash_hex))
 
         # Verify token is base64 encoded
         import base64
