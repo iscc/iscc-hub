@@ -155,11 +155,11 @@ class Checkpoint(models.Model):
     id = models.AutoField(primary_key=True, help_text="Unique checkpoint identifier")
 
     # Event sequence range
-    start = models.BigIntegerField(db_index=True, help_text="Sequence number of the first event in this checkpoint")
-
-    end = models.BigIntegerField(
-        unique=True, db_index=True, help_text="Sequence number of the last event in this checkpoint"
+    start = models.BigIntegerField(
+        unique=True, db_index=True, help_text="Sequence number of the first event in this checkpoint"
     )
+
+    end = models.BigIntegerField(db_index=True, help_text="Sequence number of the last event in this checkpoint")
 
     # Cryptographic hashes
     merkle_root = HexField(help_text="Blake3 hash of the Merkle tree root built from event hashes")

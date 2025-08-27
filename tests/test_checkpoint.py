@@ -509,10 +509,10 @@ def test_checkpoint_constraint_end_gte_start():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_checkpoint_unique_end_constraint():
+def test_checkpoint_unique_start_constraint():
     # type: () -> None
     """
-    Test that the end field must be unique.
+    Test that the start field must be unique.
     """
     # Create first checkpoint
     genesis_prev = "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
@@ -524,17 +524,17 @@ def test_checkpoint_unique_end_constraint():
         hash="a0" * 32,
     )
 
-    # Try to create another with the same end
+    # Try to create another with the same start
     with pytest.raises(IntegrityError) as excinfo:
         Checkpoint.objects.create(
-            start=50,
-            end=100,  # Same end as first checkpoint
+            start=1,  # Same start as first checkpoint
+            end=150,  # Different end
             merkle_root="b0" * 32,
             prev="a0" * 32,
             hash="c0" * 32,
         )
 
-    assert "unique" in str(excinfo.value).lower() or "end" in str(excinfo.value).lower()
+    assert "unique" in str(excinfo.value).lower() or "start" in str(excinfo.value).lower()
 
 
 @pytest.mark.django_db(transaction=True)
@@ -754,6 +754,64 @@ def test_build_merkle_tree_empty_raises():
     assert "empty list" in str(excinfo.value).lower()
 
 
+def test_merkle_root_determinism_vectors():
+    # type: () -> None
+    """
+    Test merkle tree construction with known test vectors.
+
+    These test vectors lock in the canonical construction:
+    - Leaf nodes: BLAKE3(0x00 || event_hash)
+    - Interior nodes: BLAKE3(0x01 || left || right)
+
+    IMPORTANT: These test vectors MUST NOT change. Any change would
+    invalidate all existing checkpoints.
+    """
+    from iscc_hub.checkpoint import build_merkle_tree
+
+    # Test vector 1: Single hash
+    single_hash = ["a" * 64]
+    tree = build_merkle_tree(single_hash)
+    root = tree.get_state().hex()
+    # This is BLAKE3(0x00 || unhexlify("a" * 64))
+    expected_single = "d6a5f2c0fa5b803969cda7978c315d0962b1cc7baf96ff65f701b8f2d1b25afb"
+    assert root == expected_single, f"Single hash root mismatch: {root} != {expected_single}"
+
+    # Test vector 2: Two hashes
+    two_hashes = ["a" * 64, "b" * 64]
+    tree = build_merkle_tree(two_hashes)
+    root = tree.get_state().hex()
+    # This is BLAKE3(0x01 || BLAKE3(0x00 || unhexlify("a"*64)) || BLAKE3(0x00 || unhexlify("b"*64)))
+    expected_two = "743a4953d554ef18dc7294e38d056738dd55ddf0cc997a2d936d280b45005c6f"
+    assert root == expected_two, f"Two hash root mismatch: {root} != {expected_two}"
+
+    # Test vector 3: Three hashes (tests odd node promotion)
+    three_hashes = ["a" * 64, "b" * 64, "c" * 64]
+    tree = build_merkle_tree(three_hashes)
+    root = tree.get_state().hex()
+    # Level 1: [BLAKE3(0x00||a), BLAKE3(0x00||b), BLAKE3(0x00||c)]
+    # Level 2: [BLAKE3(0x01||leaf_a||leaf_b), BLAKE3(0x00||c) promoted]
+    # Level 3: BLAKE3(0x01||node_ab||leaf_c)
+    expected_three = "1a612f9d9ebfbfb897111c2f461f1fe614b90eff1474d464af8116b2f553d293"
+    assert root == expected_three, f"Three hash root mismatch: {root} != {expected_three}"
+
+    # Test vector 4: Four hashes (perfect binary tree)
+    four_hashes = ["1" * 64, "2" * 64, "3" * 64, "4" * 64]
+    tree = build_merkle_tree(four_hashes)
+    root = tree.get_state().hex()
+    expected_four = "3a0287255b5595b681551382cd86e7f08e08d234688428e16fc3b5984d5d2a4f"
+    assert root == expected_four, f"Four hash root mismatch: {root} != {expected_four}"
+
+    # Test vector 5: Real event hashes from production
+    real_hashes = [
+        "0123456789abcdef" * 8,  # 64 hex chars
+        "fedcba9876543210" * 8,  # 64 hex chars
+    ]
+    tree = build_merkle_tree(real_hashes)
+    root = tree.get_state().hex()
+    expected_real = "15ef7eb956b56fb4113cfe44da5c4600fc67be667180ae10f8d0ab061d47587d"
+    assert root == expected_real, f"Real hash root mismatch: {root} != {expected_real}"
+
+
 def test_get_checkpoint_hash():
     # type: () -> None
     """
@@ -796,7 +854,10 @@ def test_create_rfc3161_timestamp():
 
         # Verify signer was called with Blake3 hash as message and SHA256 settings
         expected_settings = SigningSettings(digest_algorithm=DigestAlgorithm.SHA256)
-        mock_signer.sign.assert_called_once_with(unhexlify(hash_hex), signing_settings=expected_settings)
+        mock_signer.sign.assert_called_once_with(
+            unhexlify(hash_hex),
+            signing_settings=expected_settings,
+        )
 
         # Verify token is base64 encoded
         import base64
@@ -1019,6 +1080,73 @@ def test_create_checkpoint_timestamp_failure(example_keypair):
 
 
 @pytest.mark.django_db(transaction=True)
+def test_concurrent_checkpoint_same_start(example_keypair):
+    # type: (object) -> None
+    """
+    Test that concurrent checkpoints with same start but different end points are handled correctly.
+
+    When two workers try to create checkpoints from the same starting point
+    but capture different end points, the first one wins.
+    """
+    from unittest.mock import patch
+
+    # Clear existing checkpoints
+    Checkpoint.objects.all().delete()
+
+    # Create initial events
+    event_seqs = []
+    for i in range(5):
+        text = f"Event {i}"
+        iscc_data = create_iscc_from_text(text)
+        nonce = icr.create_nonce(node_id=1)
+
+        note = {
+            "iscc_code": iscc_data["iscc"],
+            "datahash": iscc_data["datahash"],
+            "nonce": nonce,
+            "timestamp": f"2025-01-15T12:00:{i:02d}.000Z",
+        }
+
+        signed_note = icr.sign_json(note, example_keypair)
+        seq, _ = sequence_iscc_note(signed_note)
+        event_seqs.append(seq)
+
+    # Directly create two checkpoints with same start but different end
+    # This simulates two concurrent workers capturing different snapshots
+    genesis_prev = blake3.blake3(b"").hexdigest()
+
+    # Worker 1 captures events 1-3
+    with patch("iscc_hub.checkpoint.create_rfc3161_timestamp") as mock_timestamp:
+        mock_timestamp.return_value = "token1"
+        checkpoint1 = Checkpoint.objects.create(
+            start=event_seqs[0],
+            end=event_seqs[2],  # Only first 3 events
+            merkle_root="a" * 64,
+            prev=genesis_prev,
+            hash="1" * 64,  # Valid hex hash
+            timestamp_type="RFC3161",
+            timestamp_token="token1",
+        )
+
+    # Worker 2 tries to create checkpoint from same start but different end
+    # This should fail due to unique constraint on start
+    with pytest.raises(IntegrityError):
+        Checkpoint.objects.create(
+            start=event_seqs[0],  # Same start
+            end=event_seqs[4],  # All 5 events (different end)
+            merkle_root="b" * 64,
+            prev=genesis_prev,
+            hash="2" * 64,  # Different valid hex hash
+            timestamp_type="RFC3161",
+            timestamp_token="token2",
+        )
+
+    # Only checkpoint1 should exist
+    assert Checkpoint.objects.count() == 1
+    assert Checkpoint.objects.first().id == checkpoint1.id
+
+
+@pytest.mark.django_db(transaction=True)
 def test_create_checkpoint_database_failure():
     # type: () -> None
     """
@@ -1063,3 +1191,272 @@ def test_create_checkpoint_database_failure():
 
     # No checkpoint should have been created
     assert Checkpoint.objects.count() == 0
+
+
+def test_create_rfc3161_timestamp_with_custom_server():
+    # type: () -> None
+    """
+    Test creating RFC3161 timestamp with custom server URL.
+    """
+    from unittest.mock import Mock, patch
+
+    from iscc_hub.checkpoint import create_rfc3161_timestamp
+
+    mock_token_bytes = b"custom_server_token"
+
+    # Mock Django settings with custom TSA server
+    with patch("iscc_hub.checkpoint.settings") as mock_settings:
+        mock_settings.TSA_SERVERS = ["https://custom.tsa.example.com"]
+
+        with patch("iscc_hub.checkpoint.TSPSigner") as MockTSPSigner:
+            mock_signer = Mock()
+            mock_signer.sign.return_value = mock_token_bytes
+            MockTSPSigner.return_value = mock_signer
+
+            hash_hex = "abcdef1234567890" * 4
+            token = create_rfc3161_timestamp(hash_hex)
+
+            # Import required modules for assertion
+            from tsp_client.algorithms import DigestAlgorithm
+            from tsp_client.signer import SigningSettings
+
+            # Verify signer was called with custom server
+            expected_settings = SigningSettings(
+                tsp_server="https://custom.tsa.example.com", digest_algorithm=DigestAlgorithm.SHA256
+            )
+            mock_signer.sign.assert_called_once_with(
+                unhexlify(hash_hex),
+                signing_settings=expected_settings,
+            )
+
+            # Verify token
+            import base64
+
+            assert token == base64.b64encode(mock_token_bytes).decode("ascii")
+
+
+def test_create_rfc3161_timestamp_all_servers_fail():
+    # type: () -> None
+    """
+    Test that exception is raised when all TSA servers fail.
+    """
+    from unittest.mock import Mock, patch
+
+    from iscc_hub.checkpoint import create_rfc3161_timestamp
+
+    # Mock Django settings with multiple TSA servers
+    with patch("iscc_hub.checkpoint.settings") as mock_settings:
+        mock_settings.TSA_SERVERS = ["https://tsa1.example.com", "https://tsa2.example.com"]
+
+        with patch("iscc_hub.checkpoint.TSPSigner") as MockTSPSigner:
+            mock_signer = Mock()
+            # Make sign fail
+            mock_signer.sign.side_effect = Exception("Network error")
+            MockTSPSigner.return_value = mock_signer
+
+            hash_hex = "1234567890abcdef" * 4
+
+            # Should raise exception with all errors
+            with pytest.raises(Exception) as excinfo:
+                create_rfc3161_timestamp(hash_hex)
+
+            assert "All TSA servers failed" in str(excinfo.value)
+            assert "tsa1.example.com: Network error" in str(excinfo.value)
+            assert "tsa2.example.com: Network error" in str(excinfo.value)
+
+
+def test_create_rfc3161_timestamp_first_fails_second_succeeds():
+    # type: () -> None
+    """
+    Test fallback to second TSA server when first fails.
+    """
+    from unittest.mock import Mock, patch
+
+    from iscc_hub.checkpoint import create_rfc3161_timestamp
+
+    # Mock Django settings with multiple TSA servers
+    with patch("iscc_hub.checkpoint.settings") as mock_settings:
+        mock_settings.TSA_SERVERS = ["https://failing.tsa.com", "https://working.tsa.com"]
+
+        with patch("iscc_hub.checkpoint.TSPSigner") as MockTSPSigner:
+            mock_signer = Mock()
+            # First call fails, second succeeds
+            mock_signer.sign.side_effect = [Exception("Server down"), b"success_token"]
+            MockTSPSigner.return_value = mock_signer
+
+            hash_hex = "fedcba0987654321" * 4
+            token = create_rfc3161_timestamp(hash_hex)
+
+            # Should have tried both servers
+            assert mock_signer.sign.call_count == 2
+
+            # Verify token from second server
+            import base64
+
+            assert token == base64.b64encode(b"success_token").decode("ascii")
+
+
+@pytest.mark.django_db(transaction=True)
+def test_create_checkpoint_defensive_empty_event_list():
+    # type: () -> None
+    """
+    Test defensive check when events query returns empty list despite max_seq check.
+    """
+    from unittest.mock import Mock, patch
+
+    from iscc_hub.checkpoint import create_checkpoint
+
+    # Clear existing checkpoints
+    Checkpoint.objects.all().delete()
+
+    # Create an event to ensure max_seq exists
+    text = "Test content"
+    iscc_data = create_iscc_from_text(text)
+    nonce = icr.create_nonce(node_id=1)
+    controller = "did:web:example.com:defensive"
+    keypair = icr.key_generate(controller=controller)
+
+    note = {
+        "iscc_code": iscc_data["iscc"],
+        "datahash": iscc_data["datahash"],
+        "nonce": nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+
+    signed_note = icr.sign_json(note, keypair)
+    sequence_iscc_note(signed_note)
+
+    # Mock Event.objects.filter to return empty queryset
+    with patch.object(Event.objects, "filter") as mock_filter:
+        # Configure mock to return an empty queryset
+        mock_queryset = Mock()
+        mock_queryset.order_by.return_value.values.return_value = []
+        mock_filter.return_value = mock_queryset
+
+        # Should raise ValueError for defensive check
+        with pytest.raises(ValueError) as excinfo:
+            create_checkpoint()
+
+        assert "No events to checkpoint" in str(excinfo.value)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_create_checkpoint_integrity_error_no_existing():
+    # type: () -> None
+    """
+    Test IntegrityError handling when existing checkpoint not found.
+    """
+    from unittest.mock import Mock, patch
+
+    from iscc_hub.checkpoint import create_checkpoint
+
+    # Clear existing checkpoints
+    Checkpoint.objects.all().delete()
+
+    # Create an event
+    text = "Test content"
+    iscc_data = create_iscc_from_text(text)
+    nonce = icr.create_nonce(node_id=1)
+    controller = "did:web:example.com:integrity"
+    keypair = icr.key_generate(controller=controller)
+
+    note = {
+        "iscc_code": iscc_data["iscc"],
+        "datahash": iscc_data["datahash"],
+        "nonce": nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+
+    signed_note = icr.sign_json(note, keypair)
+    sequence_iscc_note(signed_note)
+
+    # Mock timestamp function
+    with patch("iscc_hub.checkpoint.create_rfc3161_timestamp") as mock_timestamp:
+        mock_timestamp.return_value = "mock_token"
+
+        # Mock Checkpoint.objects.create to raise IntegrityError
+        with patch.object(Checkpoint.objects, "create") as mock_create:
+            mock_create.side_effect = IntegrityError("Duplicate start")
+
+            # Mock filter to return empty (no existing checkpoint found)
+            with patch.object(Checkpoint.objects, "filter") as mock_filter:
+                mock_filter.return_value.first.return_value = None
+
+                # Should re-raise the IntegrityError
+                with pytest.raises(IntegrityError):
+                    create_checkpoint()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_create_checkpoint_integrity_error_returns_existing():
+    # type: () -> None
+    """
+    Test IntegrityError handling when existing checkpoint is found.
+
+    This test simulates a race condition where two workers try to create
+    a checkpoint from the same starting point simultaneously.
+    """
+    from unittest.mock import patch
+
+    from iscc_hub.checkpoint import create_checkpoint
+
+    # Clear existing checkpoints
+    Checkpoint.objects.all().delete()
+
+    # Create multiple events to ensure we have something to checkpoint
+    event_seqs = []
+    for i in range(5):
+        text = f"Test content {i}"
+        iscc_data = create_iscc_from_text(text)
+        nonce = icr.create_nonce(node_id=1)
+        controller = f"did:web:example.com:existing{i}"
+        keypair = icr.key_generate(controller=controller)
+
+        note = {
+            "iscc_code": iscc_data["iscc"],
+            "datahash": iscc_data["datahash"],
+            "nonce": nonce,
+            "timestamp": f"2025-01-15T12:00:{i:02d}.000Z",
+        }
+
+        signed_note = icr.sign_json(note, keypair)
+        seq, _ = sequence_iscc_note(signed_note)
+        event_seqs.append(seq)
+
+    # Mock the checkpoint creation process
+    with patch("iscc_hub.checkpoint.create_rfc3161_timestamp") as mock_timestamp:
+        mock_timestamp.return_value = "new_token"
+
+        # Simulate this scenario:
+        # 1. Worker A and Worker B both see no checkpoints exist
+        # 2. Worker A creates checkpoint for events 1-5
+        # 3. Worker B also tries to create checkpoint for events 1-5
+        # 4. Worker B gets IntegrityError and returns Worker A's checkpoint
+
+        # First, Worker A successfully creates the checkpoint
+        existing_checkpoint = Checkpoint.objects.create(
+            start=event_seqs[0],
+            end=event_seqs[-1],
+            merkle_root="a123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            prev=blake3.blake3(b"").hexdigest(),
+            hash="b123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            timestamp_type="RFC3161",
+            timestamp_token="existing_token",
+        )
+
+        # Now simulate Worker B trying to create the same checkpoint
+        # We need to trick create_checkpoint into thinking no checkpoint exists initially
+        with patch.object(Checkpoint.objects, "order_by") as mock_order_by:
+            # First call to order_by().last() returns None (Worker B thinks no checkpoint exists)
+            mock_order_by.return_value.last.return_value = None
+
+            # Mock create to raise IntegrityError (Worker A already created it)
+            with patch.object(Checkpoint.objects, "create") as mock_create:
+                mock_create.side_effect = IntegrityError("Duplicate start")
+
+                # Call create_checkpoint (as Worker B)
+                result = create_checkpoint()
+
+                # Should return Worker A's existing checkpoint
+                assert result.id == existing_checkpoint.id
+                assert result.hash == existing_checkpoint.hash
