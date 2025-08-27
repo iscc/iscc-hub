@@ -790,8 +790,13 @@ def test_create_rfc3161_timestamp():
         hash_hex = "1234567890abcdef" * 4  # 32 bytes hex
         token = create_rfc3161_timestamp(hash_hex)
 
-        # Verify signer was called correctly
-        mock_signer.sign.assert_called_once_with(message_digest=unhexlify(hash_hex))
+        # Import required modules for assertion
+        from tsp_client.algorithms import DigestAlgorithm
+        from tsp_client.signer import SigningSettings
+
+        # Verify signer was called with Blake3 hash as message and SHA256 settings
+        expected_settings = SigningSettings(digest_algorithm=DigestAlgorithm.SHA256)
+        mock_signer.sign.assert_called_once_with(unhexlify(hash_hex), signing_settings=expected_settings)
 
         # Verify token is base64 encoded
         import base64

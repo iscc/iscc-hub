@@ -9,7 +9,8 @@ from binascii import unhexlify
 import blake3
 import pymerkle.constants
 from pymerkle import InmemoryTree as MerkleTree
-from tsp_client.signer import TSPSigner
+from tsp_client.algorithms import DigestAlgorithm
+from tsp_client.signer import SigningSettings, TSPSigner
 
 from iscc_hub.models import Checkpoint, Event
 
@@ -55,14 +56,27 @@ def create_rfc3161_timestamp(checkpoint_hash):
     """
     Create RFC3161 timestamp for checkpoint hash.
 
-    :param checkpoint_hash: Hex-encoded checkpoint hash
-    :return: Base64-encoded timestamp token
+    The Blake3 checkpoint hash is passed as the message to be timestamped.
+    The TSA will internally compute SHA-256(blake3_hash) and timestamp it.
+
+    For verification, users need to:
+    1. Provide the Blake3 checkpoint hash as the message
+    2. The verification process will compute SHA-256 internally
+    3. Verify the RFC3161 timestamp matches
+
+    :param checkpoint_hash: Hex-encoded Blake3 checkpoint hash
+    :return: Base64-encoded RFC3161 timestamp token
     """
-    hash_bytes = unhexlify(checkpoint_hash)
+    # Convert Blake3 hash from hex to bytes
+    blake3_hash_bytes = unhexlify(checkpoint_hash)
+
+    # Configure TSA to use SHA-256 digest algorithm
+    signing_settings = SigningSettings(digest_algorithm=DigestAlgorithm.SHA256)
+
+    # Pass Blake3 hash as the message - TSA will compute SHA-256 internally
     signer = TSPSigner()
-    # The sign method expects either message or message_digest, not both
-    # We pass the raw hash as message_digest
-    token_bytes = signer.sign(message_digest=hash_bytes)
+    token_bytes = signer.sign(blake3_hash_bytes, signing_settings=signing_settings)
+
     return base64.b64encode(token_bytes).decode("ascii")
 
 
