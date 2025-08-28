@@ -89,6 +89,7 @@ asyncio_mode = "auto"
 addopts = "-q --tb=short -x --cov=iscc_hub --cov-report=term-missing:skip-covered"
 filterwarnings = [
     "ignore::pydantic.PydanticDeprecatedSince20",
+    "ignore::DeprecationWarning:tsp_client.verifier",
     "ignore:Error when trying to teardown test databases.*:pytest.PytestWarning"
 ]
 testpaths = ["tests"]

@@ -44,14 +44,29 @@ ISCC_HUB_ID = env.int("ISCC_HUB_ID", default=0 if DEV else env.NOTSET)
 # Production: iscc-hub-{ID}.db where ID is the hub ID
 default_db_name = "iscc-hub-dev.db" if DEV else f"iscc-hub-{ISCC_HUB_ID:04d}.db"
 ISCC_HUB_DB_NAME = env("ISCC_HUB_DB_NAME", default=default_db_name)
+ISCC_HUB_DB_PATH = DATA_DIR / ISCC_HUB_DB_NAME
 
 # Realm-0 (SUBTYPE="0000") for sanbdox hub network
 # Realm-1 (SUBTYPE="0001") for operational network
 ISCC_HUB_REALM = env.int("ISCC_HUB_REALM", default=0 if DEV else env.NOTSET)
 
 # List of RFC3161 Timestamping servers for checkpoint timestamping
-# Will default to tsp-client default http://timestamp.digicert.com if unset
-ISCC_HUB_TSA_SERVERS = env.list("ISCC_HUB_TSA_SERVERS", default=[])
+# Ordered by performance (fastest first) based on testing with tsp-client
+# Use `python scripts/timestamp.py test` to re-test TSA server performance
+ISCC_HUB_TIMESTAMP_SERVERS = env.list(
+    "ISCC_HUB_TIMESTAMP_SERVERS",
+    default=[
+        "http://tss.accv.es:8318/tsa",
+        "http://ts.ssl.com",
+        "http://timestamp.identrust.com",
+        "http://timestamp.digicert.com",
+        "http://timestamp.sectigo.com",
+    ],
+)
+
+# Checkpoint scheduler configuration
+ISCC_HUB_CHECKPOINT_ENABLED = env.bool("ISCC_HUB_CHECKPOINT_ENABLED", default=False if DEV else True)
+ISCC_HUB_CHECKPOINT_INTERVAL = env.int("ISCC_HUB_CHECKPOINT_INTERVAL", default=4 * 3600)  # 4 hours in seconds
 
 ISCC_HUB_SYNC_MODE = env.str("ISCC_HUB_SYNC_MODE", default="FULL")
 
@@ -116,7 +131,7 @@ WSGI_APPLICATION = "iscc_hub.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": DATA_DIR / ISCC_HUB_DB_NAME,
+        "NAME": ISCC_HUB_DB_PATH,
         "CONN_MAX_AGE": 600,
         "OPTIONS": {
             "transaction_mode": "IMMEDIATE",  # Required for gapless sequences !!!

@@ -101,7 +101,7 @@ def create_rfc3161_timestamp(checkpoint_hash):
     The TSA will internally compute SHA-256(blake3_hash) and timestamp it.
 
     TSA Configuration (via Django settings):
-    - TSA_SERVERS: List of TSA server URLs (tries each until success)
+    - ISCC_HUB_TIMESTAMP_SERVERS: List of TSA server URLs (tries each until success)
 
     :param checkpoint_hash: Hex-encoded Blake3 checkpoint hash
     :return: Base64-encoded RFC3161 timestamp token
@@ -111,7 +111,7 @@ def create_rfc3161_timestamp(checkpoint_hash):
     blake3_hash_bytes = unhexlify(checkpoint_hash)
 
     # Get TSA servers from Django settings
-    tsa_servers = settings.ISCC_HUB_TSA_SERVERS
+    tsa_servers = settings.ISCC_HUB_TIMESTAMP_SERVERS
 
     # SHA256 is the protocol constant for TSA digest algorithm
     digest_algo = DigestAlgorithm.SHA256
@@ -120,7 +120,7 @@ def create_rfc3161_timestamp(checkpoint_hash):
     errors = []
 
     # If no servers configured, try with default tsp-client server
-    if not tsa_servers:
+    if not tsa_servers:  # pragma: no cover
         tsa_servers = [None]  # None will use tsp-client default
 
     for server_url in tsa_servers:
@@ -133,7 +133,7 @@ def create_rfc3161_timestamp(checkpoint_hash):
                 signing_settings = SigningSettings(tsp_server=server_url, digest_algorithm=digest_algo)
             else:
                 # Use default server with configured digest algorithm
-                signing_settings = SigningSettings(digest_algorithm=digest_algo)
+                signing_settings = SigningSettings(digest_algorithm=digest_algo)  # pragma: no cover
 
             # Pass Blake3 hash as the message - TSA will compute digest internally
             token_bytes = signer.sign(blake3_hash_bytes, signing_settings=signing_settings)

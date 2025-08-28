@@ -853,7 +853,10 @@ def test_create_rfc3161_timestamp():
         from tsp_client.signer import SigningSettings
 
         # Verify signer was called with Blake3 hash as message and SHA256 settings
-        expected_settings = SigningSettings(digest_algorithm=DigestAlgorithm.SHA256)
+        # Uses first TSA server from Django settings (ISCC_HUB_TIMESTAMP_SERVERS)
+        expected_settings = SigningSettings(
+            tsp_server="http://tss.accv.es:8318/tsa", digest_algorithm=DigestAlgorithm.SHA256
+        )
         mock_signer.sign.assert_called_once_with(
             unhexlify(hash_hex),
             signing_settings=expected_settings,
@@ -1206,7 +1209,7 @@ def test_create_rfc3161_timestamp_with_custom_server():
 
     # Mock Django settings with custom TSA server
     with patch("iscc_hub.checkpoint.settings") as mock_settings:
-        mock_settings.ISCC_HUB_TSA_SERVERS = ["https://custom.tsa.example.com"]
+        mock_settings.ISCC_HUB_TIMESTAMP_SERVERS = ["https://custom.tsa.example.com"]
 
         with patch("iscc_hub.checkpoint.TSPSigner") as MockTSPSigner:
             mock_signer = Mock()
@@ -1246,7 +1249,7 @@ def test_create_rfc3161_timestamp_all_servers_fail():
 
     # Mock Django settings with multiple TSA servers
     with patch("iscc_hub.checkpoint.settings") as mock_settings:
-        mock_settings.ISCC_HUB_TSA_SERVERS = ["https://tsa1.example.com", "https://tsa2.example.com"]
+        mock_settings.ISCC_HUB_TIMESTAMP_SERVERS = ["https://tsa1.example.com", "https://tsa2.example.com"]
 
         with patch("iscc_hub.checkpoint.TSPSigner") as MockTSPSigner:
             mock_signer = Mock()
@@ -1276,7 +1279,7 @@ def test_create_rfc3161_timestamp_first_fails_second_succeeds():
 
     # Mock Django settings with multiple TSA servers
     with patch("iscc_hub.checkpoint.settings") as mock_settings:
-        mock_settings.ISCC_HUB_TSA_SERVERS = ["https://failing.tsa.com", "https://working.tsa.com"]
+        mock_settings.ISCC_HUB_TIMESTAMP_SERVERS = ["https://failing.tsa.com", "https://working.tsa.com"]
 
         with patch("iscc_hub.checkpoint.TSPSigner") as MockTSPSigner:
             mock_signer = Mock()
