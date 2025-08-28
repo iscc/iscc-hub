@@ -18,6 +18,12 @@ if DEV:
 
 env = environ.Env()
 
+# Build metadata from Docker image
+BUILD_COMMIT = env("BUILD_COMMIT", default="unknown")
+BUILD_TAG = env("BUILD_TAG", default="unknown")
+BUILD_TIMESTAMP = env("BUILD_TIMESTAMP", default="unknown")
+
+
 ####################################################################################################
 # Mandatory Settings (no defaults - must be set explicitly)                                        #
 ####################################################################################################
@@ -32,10 +38,6 @@ ISCC_HUB_ID = env.int("ISCC_HUB_ID", default=0 if DEV else env.NOTSET)
 
 ####################################################################################################
 
-# Build metadata from Docker image
-BUILD_COMMIT = env("BUILD_COMMIT", default="unknown")
-BUILD_TAG = env("BUILD_TAG", default="unknown")
-BUILD_TIMESTAMP = env("BUILD_TIMESTAMP", default="unknown")
 
 # Database file name - defaults based on DEBUG setting
 # Development: iscc-hub-dev.db
@@ -46,6 +48,10 @@ ISCC_HUB_DB_NAME = env("ISCC_HUB_DB_NAME", default=default_db_name)
 # Realm-0 (SUBTYPE="0000") for sanbdox hub network
 # Realm-1 (SUBTYPE="0001") for operational network
 ISCC_HUB_REALM = env.int("ISCC_HUB_REALM", default=0 if DEV else env.NOTSET)
+
+# List of RFC3161 Timestamping servers for checkpoint timestamping
+# Will default to tsp-client default http://timestamp.digicert.com if unset
+ISCC_HUB_TSA_SERVERS = env.list("ISCC_HUB_TSA_SERVERS", default=[])
 
 ISCC_HUB_SYNC_MODE = env.str("ISCC_HUB_SYNC_MODE", default="FULL")
 

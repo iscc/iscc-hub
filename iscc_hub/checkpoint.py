@@ -111,7 +111,7 @@ def create_rfc3161_timestamp(checkpoint_hash):
     blake3_hash_bytes = unhexlify(checkpoint_hash)
 
     # Get TSA servers from Django settings
-    tsa_servers = getattr(settings, "TSA_SERVERS", [])
+    tsa_servers = settings.ISCC_HUB_TSA_SERVERS
 
     # SHA256 is the protocol constant for TSA digest algorithm
     digest_algo = DigestAlgorithm.SHA256

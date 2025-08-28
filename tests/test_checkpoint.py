@@ -1206,7 +1206,7 @@ def test_create_rfc3161_timestamp_with_custom_server():
 
     # Mock Django settings with custom TSA server
     with patch("iscc_hub.checkpoint.settings") as mock_settings:
-        mock_settings.TSA_SERVERS = ["https://custom.tsa.example.com"]
+        mock_settings.ISCC_HUB_TSA_SERVERS = ["https://custom.tsa.example.com"]
 
         with patch("iscc_hub.checkpoint.TSPSigner") as MockTSPSigner:
             mock_signer = Mock()
@@ -1246,7 +1246,7 @@ def test_create_rfc3161_timestamp_all_servers_fail():
 
     # Mock Django settings with multiple TSA servers
     with patch("iscc_hub.checkpoint.settings") as mock_settings:
-        mock_settings.TSA_SERVERS = ["https://tsa1.example.com", "https://tsa2.example.com"]
+        mock_settings.ISCC_HUB_TSA_SERVERS = ["https://tsa1.example.com", "https://tsa2.example.com"]
 
         with patch("iscc_hub.checkpoint.TSPSigner") as MockTSPSigner:
             mock_signer = Mock()
@@ -1276,7 +1276,7 @@ def test_create_rfc3161_timestamp_first_fails_second_succeeds():
 
     # Mock Django settings with multiple TSA servers
     with patch("iscc_hub.checkpoint.settings") as mock_settings:
-        mock_settings.TSA_SERVERS = ["https://failing.tsa.com", "https://working.tsa.com"]
+        mock_settings.ISCC_HUB_TSA_SERVERS = ["https://failing.tsa.com", "https://working.tsa.com"]
 
         with patch("iscc_hub.checkpoint.TSPSigner") as MockTSPSigner:
             mock_signer = Mock()
