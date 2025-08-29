@@ -102,6 +102,14 @@ def create_superuser():
         print(f"    Superuser '{username}' already exists")
 
 
+def install_tasks():
+    # type: () -> None
+    """Install periodic tasks for background job scheduling."""
+    print("  ✓ Installing periodic tasks...")
+    call_command("install_tasks", verbosity=0)
+    print("    Periodic tasks configured")
+
+
 def load_fixtures():
     # type: () -> None
     """Load test fixture data if available."""
@@ -230,6 +238,9 @@ def reset_database():
 
     # Create superuser
     create_superuser()
+
+    # Install periodic tasks
+    install_tasks()
 
     # Load test fixtures
     load_fixtures()
