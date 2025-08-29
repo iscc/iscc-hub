@@ -3,6 +3,7 @@ from pathlib import Path
 import environ
 from django.conf.locale.en import formats as en_formats
 from django.templatetags.static import static
+from django.urls import reverse_lazy
 from unfold.contrib.constance.settings import UNFOLD_CONSTANCE_ADDITIONAL_FIELDS
 
 # Build paths inside the project
@@ -226,10 +227,86 @@ UNFOLD = {
     "STYLES": [
         lambda request: static("css/admin_custom.css"),
     ],
-    # Performance optimizations for large datasets
     "SIDEBAR": {
-        "show_search": False,  # Disable sidebar search to reduce initial load
+        "show_search": True,
+        "command_search": True,
         "show_all_applications": False,  # Don't show all apps dropdown
+        "navigation": [
+            {
+                "title": "ISCC",
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "Declarations",
+                        "icon": "description",
+                        "link": "/admin/iscc_hub/isccdeclaration/",
+                    },
+                    {
+                        "title": "Events",
+                        "icon": "history",
+                        "link": "/admin/iscc_hub/event/",
+                    },
+                    {
+                        "title": "Checkpoints",
+                        "icon": "flag",
+                        "link": "/admin/iscc_hub/checkpoint/",
+                    },
+                ],
+            },
+            {
+                "title": "Accounts",
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "Users",
+                        "icon": "person",
+                        "link": "/admin/auth/user/",
+                    },
+                    {
+                        "title": "Groups",
+                        "icon": "group",
+                        "link": "/admin/auth/group/",
+                    },
+                ],
+            },
+            {
+                "title": "Tasks",
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "Scheduled",
+                        "icon": "schedule",
+                        "link": "/admin/django_q/schedule/",
+                    },
+                    {
+                        "title": "Queued",
+                        "icon": "queue",
+                        "link": "/admin/django_q/ormq/",
+                    },
+                    {
+                        "title": "Success",
+                        "icon": "check_circle",
+                        "link": "/admin/django_q/success/",
+                    },
+                    {
+                        "title": "Failed",
+                        "icon": "error",
+                        "link": "/admin/django_q/failure/",
+                    },
+                ],
+            },
+            {
+                "title": "Settings",
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "Configuration",
+                        "icon": "settings",
+                        "link": "/admin/constance/config/",
+                    },
+                ],
+            },
+        ],
     },
     "SHOW_HISTORY": False,  # Disable history links for better performance
 }
