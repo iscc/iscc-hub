@@ -85,18 +85,30 @@ def apply_migrations():
 def create_superuser():
     # type: () -> None
     """Create admin superuser account if it doesn't exist."""
-    # Skip superuser creation if ISCC_HUB_ADMIN_PWD is not set
+    # Detect development environment same way as settings.py
+    is_dev = (Path(__file__).parent.parent / "tests").exists()
     admin_password = os.environ.get("ISCC_HUB_ADMIN_PWD")
-    if not admin_password:
+
+    if is_dev and not admin_password:
+        # Development mode: create demo user for convenience
+        print("  ✓ Creating demo superuser for development...")
+        username = "demo"
+        email = "demo@example.com"
+        admin_password = "demo"
+    elif admin_password:
+        # Production/sandbox mode: use provided password
+        print("  ✓ Creating admin superuser...")
+        username = "admin"
+        email = "admin@example.com"
+    else:
+        # No password and not dev mode: skip (safer for production)
         print("  ℹ️  Skipping superuser creation (ISCC_HUB_ADMIN_PWD not set)")
         return
 
-    print("  ✓ Creating admin superuser...")
     User = get_user_model()
-    username = "admin"
 
     if not User.objects.filter(username=username).exists():
-        User.objects.create_superuser(username=username, email="admin@example.com", password=admin_password)
+        User.objects.create_superuser(username=username, email=email, password=admin_password)
         print(f"    Created superuser: {username}/{admin_password}")
     else:
         print(f"    Superuser '{username}' already exists")
@@ -148,6 +160,8 @@ def print_summary():
     print("\n📊 Database summary:")
 
     # Import models here to avoid issues if migrations don't exist yet
+    from django.contrib.auth import get_user_model
+
     from iscc_hub.models import Event, IsccDeclaration
 
     event_count = Event.objects.count()
@@ -164,12 +178,21 @@ def print_summary():
     print("  - Run the dev server: uv run poe serve")
     print("  - Access admin at: http://localhost:8742/admin/")
 
-    # Show current admin credentials if superuser exists
+    # Show current admin credentials based on what was created
+    User = get_user_model()
+    is_dev = (Path(__file__).parent.parent / "tests").exists()
     admin_password = os.environ.get("ISCC_HUB_ADMIN_PWD")
-    if admin_password:
-        print(f"  - Login with: admin/{admin_password}")
+
+    if is_dev and not admin_password and User.objects.filter(username="demo").exists():
+        print("\n🔐 Admin credentials:")
+        print("  - Username: demo")
+        print("  - Password: demo")
+    elif admin_password and User.objects.filter(username="admin").exists():
+        print("\n🔐 Admin credentials:")
+        print("  - Username: admin")
+        print(f"  - Password: {admin_password}")
     else:
-        print("  - No admin user (set ISCC_HUB_ADMIN_PWD to create one)")
+        print("\n⚠️  No admin user created")
 
 
 def init_database():
