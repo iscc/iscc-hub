@@ -64,10 +64,6 @@ ISCC_HUB_TIMESTAMP_SERVERS = env.list(
     ],
 )
 
-# Checkpoint scheduler configuration
-ISCC_HUB_CHECKPOINT_ENABLED = env.bool("ISCC_HUB_CHECKPOINT_ENABLED", default=False if DEV else True)
-ISCC_HUB_CHECKPOINT_INTERVAL = env.int("ISCC_HUB_CHECKPOINT_INTERVAL", default=4 * 3600)  # 4 hours in seconds
-
 ISCC_HUB_SYNC_MODE = env.str("ISCC_HUB_SYNC_MODE", default="FULL")
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=(ISCC_HUB_DOMAIN,))
