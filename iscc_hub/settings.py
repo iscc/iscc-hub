@@ -3,6 +3,7 @@ from pathlib import Path
 import environ
 from django.conf.locale.en import formats as en_formats
 from django.templatetags.static import static
+from unfold.contrib.constance.settings import UNFOLD_CONSTANCE_ADDITIONAL_FIELDS
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -78,6 +79,7 @@ APPEND_SLASH = False
 INSTALLED_APPS = [
     "unfold",
     "unfold.contrib.filters",
+    "unfold.contrib.constance",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -86,6 +88,9 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "servestatic.runserver_nostatic",
     "iscc_hub",
+    "constance",
+    "constance.backends.database",
+    "django_q",
 ]
 
 MIDDLEWARE = [
@@ -227,4 +232,34 @@ UNFOLD = {
         "show_all_applications": False,  # Don't show all apps dropdown
     },
     "SHOW_HISTORY": False,  # Disable history links for better performance
+}
+
+# Django-Q2 Configuration
+Q_CLUSTER = {
+    "name": "iscc-hub",
+    "workers": 1,
+    "recycle": 500,
+    "timeout": 90,
+    "retry": 120,
+    "queue_limit": 50,
+    "bulk": 10,
+    "orm": "default",  # Use Django ORM as broker (no Redis/RabbitMQ needed)
+    "poll": 200,  # Poll every 200ms
+    "save_limit": 250,  # Limit saved results
+    "catch_up": False,  # Don't run missed schedules on startup
+    "label": "Django Q2",
+    "django_admin": True,  # Enable Django admin interface
+}
+
+# Constance Configuration for Dynamic Settings
+CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
+CONSTANCE_DATABASE_PREFIX = "constance:iscc-hub:"
+CONSTANCE_ADDITIONAL_FIELDS = {**UNFOLD_CONSTANCE_ADDITIONAL_FIELDS}
+CONSTANCE_CONFIG = {
+    # Operator White Labeling
+    "ISCC_HUB_OPERATOR_NAME": (
+        "ISCC Foundation",
+        "Name of the ISCC-HUB operator",
+        str,
+    ),
 }

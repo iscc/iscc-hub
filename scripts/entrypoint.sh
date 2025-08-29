@@ -30,7 +30,14 @@ else
 
     echo "  Applying database migrations..."
     python manage.py migrate --no-input
+    
+    echo "  Installing periodic tasks..."
+    python manage.py install_tasks
 fi
+
+# Start Django-Q cluster worker in the background (for both dev and prod)
+echo "🔧 Starting background task worker..."
+python manage.py qcluster &
 
 echo ""
 echo "🌐 Starting server..."

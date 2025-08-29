@@ -4,10 +4,12 @@ import json
 from typing import Any
 from urllib.parse import urlparse
 
+import django_q.admin
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.utils.html import format_html
+from django_q.models import Failure, OrmQ, Schedule, Success, Task
 from unfold.admin import ModelAdmin
 from unfold.paginator import InfinitePaginator
 
@@ -341,3 +343,29 @@ class CheckpointAdmin(ModelAdmin):
 
     merkle_root_short.short_description = "Merkle Root"
     merkle_root_short.admin_order_field = "merkle_root"
+
+
+admin.site.unregister(Failure)
+admin.site.unregister(Schedule)
+admin.site.unregister(Success)
+admin.site.unregister(OrmQ)
+
+
+@admin.register(Schedule)
+class ScheduleAdmin(ModelAdmin, django_q.admin.ScheduleAdmin):
+    pass
+
+
+@admin.register(OrmQ)
+class QueueAdmin(ModelAdmin, django_q.admin.QueueAdmin):
+    pass
+
+
+@admin.register(Success)
+class TaskAdmin(ModelAdmin, django_q.admin.TaskAdmin):
+    pass
+
+
+@admin.register(Failure)
+class FailAdmin(ModelAdmin, django_q.admin.FailAdmin):
+    pass
