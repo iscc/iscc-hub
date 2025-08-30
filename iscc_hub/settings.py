@@ -234,7 +234,7 @@ UNFOLD = {
         "navigation": [
             {
                 "title": "ISCC",
-                "collapsible": True,
+                "collapsible": False,
                 "items": [
                     {
                         "title": "Declarations",
