@@ -27,7 +27,7 @@ from iscc_hub.iscc_id import IsccID
 DATAHASH_PREFIX = "1e20"
 HASH_LENGTH = 68
 NONCE_LENGTH = 32
-SUPPORTED_GATEWAY_VARIABLES = {"iscc_id", "iscc_code", "pubkey", "datahash", "controller"}
+SUPPORTED_GATEWAY_VARIABLES = {"iscc_id", "iscc_code", "datahash"}
 SUPPORTED_URL_SCHEMES = ["http", "https"]
 TIMESTAMP_TOLERANCE_MINUTES = 10
 MAX_HUB_ID = 4095  # 12-bit maximum (2^12 - 1)
@@ -548,7 +548,7 @@ def validate_gateway(gateway):
     Validate that gateway is either a valid URL or URI template.
 
     Accepts HTTP/HTTPS URLs or RFC 6570 URI templates with supported variables:
-    {iscc_id}, {iscc_code}, {pubkey}, {datahash}, {controller}
+    {iscc_id}, {iscc_code}, {datahash}
 
     :param gateway: The gateway URL or URI template string to validate
     :raises FieldValidationError: If gateway is invalid or uses unsupported variables

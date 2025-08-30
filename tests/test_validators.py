@@ -572,10 +572,10 @@ def test_validate_gateway_valid_template():
     validators.validate_gateway("https://example.com/{iscc_id}")
 
     # Template with multiple variables
-    validators.validate_gateway("https://api.example.com/{pubkey}/content/{iscc_code}")
+    validators.validate_gateway("https://api.example.com/{datahash}/content/{iscc_code}")
 
     # Template with all supported variables
-    validators.validate_gateway("https://example.com/{iscc_id}/{iscc_code}/{pubkey}/{datahash}")
+    validators.validate_gateway("https://example.com/{iscc_id}/{iscc_code}/{datahash}")
 
 
 def test_validate_gateway_invalid_template_syntax():

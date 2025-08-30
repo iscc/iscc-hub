@@ -234,7 +234,7 @@ class IsccNote(Schema):
     gateway: Annotated[
         str | None,
         Field(
-            description="URL or URI Template (RFC 6570) for metadata and service discovery\n\n**Supported template variables:**\n- `{iscc_id}` - The assigned ISCC-ID\n- `{iscc_code}` - The declared ISCC-CODE\n- `{pubkey}` - The public key from signature\n- `{datahash}` - The data hash\n- `{controller}` - The key controller from signature\n\n**Requirements:** Must use HTTP or HTTPS scheme\n",
+            description="URL or URI Template (RFC 6570) for metadata and service discovery\n\n**Supported template variables:**\n- `{iscc_id}` - The assigned ISCC-ID\n- `{iscc_code}` - The declared ISCC-CODE\n- `{datahash}` - The data hash\n\n**Requirements:** Must use HTTP or HTTPS scheme\n",
             examples=[
                 "https://example.com/metadata",
                 "https://gateway.iscc.io/iscc_id/{iscc_id}",
