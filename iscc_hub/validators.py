@@ -1,5 +1,6 @@
 """Custom IsccNote validation module for granular control and signature integrity preservation."""
 
+import re
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
@@ -582,6 +583,49 @@ def validate_gateway(gateway):
                 f"gateway contains unsupported variables: {', '.join(unsupported_list)}",
                 code="invalid_format",
             )
+
+        # Enforce allowed operators and forbid query/fragment-introducing operators, explode, and prefixes
+        # Allowed operators: none (simple), '/' (path-segment), '.' (dot-prefix)
+        # Disallowed operators: '+', ';', '?', '&', '#'
+        # Disallow modifiers '*' (explode) and ':' (prefix length)
+        expr_pattern = re.compile(r"\{([^}]+)\}")  # Changed to require at least one character
+        for match in expr_pattern.finditer(gateway):
+            inner = match.group(1)
+
+            # Extract operator if present
+            op = ""
+            if inner[0] in "+#./;?&":
+                op = inner[0]
+                varspec = inner[1:]
+            else:
+                varspec = inner
+
+            # Reject disallowed operators that introduce query/fragment
+            if op in {"+", ";", "?", "&", "#"}:
+                raise FieldValidationError(
+                    "gateway",
+                    f"gateway uses disallowed URI Template operator: '{op}'",
+                    code="invalid_format",
+                )
+
+            # At this point, op can only be "", "/", or "." which are all allowed
+            # No need for additional validation of the operator
+
+            # For simplicity and safety, allow only a single variable per expression and no modifiers
+            # (no explode '*' and no prefix length ':N').
+            if "," in varspec:
+                raise FieldValidationError(
+                    "gateway",
+                    "gateway template expressions must contain exactly one variable",
+                    code="invalid_format",
+                )
+
+            if "*" in varspec or ":" in varspec:
+                raise FieldValidationError(
+                    "gateway",
+                    "gateway template does not allow explode '*' or prefix length modifiers",
+                    code="invalid_format",
+                )
 
     # Regardless of template usage, must be a valid HTTP(S) URL
     validate_url(gateway)

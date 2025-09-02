@@ -99,22 +99,19 @@ properties:
     maxLength: 2048
     pattern: "^https?://[^\\s]+"
     description: |
-      URL or URI Template (RFC 6570) for metadata and service discovery
+      HTTP(S) URL or RFC 6570 URI Template for gateway resolution.
 
-      **Supported template variables:**
-      - `{iscc_id}` - The assigned ISCC-ID
-      - `{iscc_code}` - The declared ISCC-CODE
-      - `{datahash}` - The data hash
-
-      **Requirements:** 
-      - Must use HTTP or HTTPS scheme
-      - Must not contain username or password components
-      - Must not contain query parameters
-      - Must not contain fragment identifiers
+      - Scheme: `http` or `https`; hostname required.
+      - No userinfo, query, or fragment in the stored value.
+      - Supported variables: `{iscc_id}`, `{iscc_code}`, `{datahash}`.
+      - Placement: variables allowed in host and path only.
+      - Operators: allowed `{} (simple)`, `{/var}`, `{.var}`; disallow `{+…}`, `{;…}`, `{?…}`, `{&…}`, `{#…}`.
+      - Modifiers: no explode `*` and no prefix `:N`; one variable per expression.
     examples:
       - "https://example.com/metadata"
       - "https://gateway.iscc.io/iscc_id/{iscc_id}"
       - "https://api.example.com/content/{datahash}/metadata"
+      - "https://{iscc_id}.gw.example.com/cid"
 examples:
   - iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
     datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"

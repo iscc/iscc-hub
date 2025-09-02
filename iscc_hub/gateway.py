@@ -2,6 +2,8 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import uritemplate
 
+from iscc_hub.validators import validate_gateway, validate_url
+
 
 def expand_gateway_url(gateway_url, template_vars, request_url=None):
     # type: (str, dict, str|None) -> str
@@ -18,6 +20,8 @@ def expand_gateway_url(gateway_url, template_vars, request_url=None):
     :return: The final gateway/redirect URL with substitutions and query params applied
     """
 
+    validate_gateway(gateway_url)
+
     if "{" in gateway_url and "}" in gateway_url:
         result_url = uritemplate.expand(gateway_url, template_vars)
     else:
@@ -27,29 +31,15 @@ def expand_gateway_url(gateway_url, template_vars, request_url=None):
         result_url = gateway_url + template_vars["iscc_id"]
 
     if request_url:
-        # Append query params from request URL to the result URL, preserving any existing ones
+        # Append query params from request URL to the result URL
         req_parsed = urlparse(request_url)
         req_qs = parse_qs(req_parsed.query, keep_blank_values=True)
 
         if req_qs:
             res_parsed = urlparse(result_url)
-            res_qs = parse_qs(res_parsed.query, keep_blank_values=True)
-
-            # Merge query parameters. Since gateway URLs are validated to not contain
-            # query components, res_qs will typically be empty. For robustness, merge
-            # by extending existing values with request values for duplicate keys.
-            merged_qs = {}
-            # Start with any existing result query params
-            for k, v in res_qs.items():
-                merged_qs[k] = list(v)
-            # Add/extend with request params
-            for k, v in req_qs.items():
-                if k in merged_qs:
-                    merged_qs[k].extend(v)
-                else:
-                    merged_qs[k] = list(v)
-
-            new_query = urlencode(merged_qs, doseq=True)
+            # Since gateway URLs are validated to not contain query components,
+            # we can simply use the request query parameters directly
+            new_query = urlencode(req_qs, doseq=True)
             result_url = urlunparse(
                 (
                     res_parsed.scheme,
@@ -61,4 +51,5 @@ def expand_gateway_url(gateway_url, template_vars, request_url=None):
                 )
             )
 
+    validate_url(result_url)
     return result_url

@@ -51,13 +51,13 @@ def test_expand_gateway_url_simple_append_without_slash():
 
 def test_expand_gateway_url_simple_append_with_equals():
     # type: () -> None
-    """Test simple append when URL ends with equals sign."""
+    """Test that gateway URLs with query parameters are rejected."""
     gateway_url = "https://example.com/path?id="
     template_vars = {"iscc_id": "ISCC123", "iscc_code": "CODE456", "datahash": "HASH789"}
 
-    result = expand_gateway_url(gateway_url, template_vars)
-
-    assert result == "https://example.com/path?id=ISCC123"
+    # Should raise validation error due to query parameter restriction
+    with pytest.raises(ValueError, match="restricted URL query component"):
+        expand_gateway_url(gateway_url, template_vars)
 
 
 def test_expand_gateway_url_with_request_url_query_params():
@@ -87,13 +87,14 @@ def test_expand_gateway_url_merge_existing_and_request_params():
 
 def test_expand_gateway_url_duplicate_query_params():
     # type: () -> None
-    """Test handling duplicate query parameters."""
+    """Test handling duplicate query parameters from request URL."""
     gateway_url = "https://example.com/{iscc_id}"
     template_vars = {"iscc_id": "ISCC123", "iscc_code": "CODE456", "datahash": "HASH789"}
     request_url = "https://hub.example/iscc/ISCC123?tag=foo&tag=bar"
 
     result = expand_gateway_url(gateway_url, template_vars, request_url)
 
+    # Both tag values should be preserved
     assert result == "https://example.com/ISCC123?tag=foo&tag=bar"
 
 
@@ -133,16 +134,16 @@ def test_expand_gateway_url_request_url_no_query():
     assert result == "https://example.com/ISCC123"
 
 
-def test_expand_gateway_url_with_fragment():
+def test_expand_gateway_url_with_fragment_rejected():
     # type: () -> None
-    """Test preserving URL fragments."""
+    """Test that gateway URLs with fragments are rejected."""
     gateway_url = "https://example.com/{iscc_id}#section"
     template_vars = {"iscc_id": "ISCC123", "iscc_code": "CODE456", "datahash": "HASH789"}
     request_url = "https://hub.example/iscc/ISCC123?param=value"
 
-    result = expand_gateway_url(gateway_url, template_vars, request_url)
-
-    assert result == "https://example.com/ISCC123?param=value#section"
+    # Should raise validation error due to fragment restriction
+    with pytest.raises(ValueError, match="restricted URL fragment component"):
+        expand_gateway_url(gateway_url, template_vars, request_url)
 
 
 def test_expand_gateway_url_complex_path():
@@ -157,21 +158,14 @@ def test_expand_gateway_url_complex_path():
     assert result == "https://example.com/api/v1/content/ISCC123?format=json&lang=en"
 
 
-def test_expand_gateway_url_template_with_existing_query_params():
+def test_expand_gateway_url_template_with_query_params_rejected():
     # type: () -> None
-    """Test merging when template expansion results in URL with query params."""
-    # This gateway URL template will expand to include query parameters
+    """Test that gateway URLs with query parameters in templates are rejected."""
+    # Gateway URL templates with query parameters are now restricted
     gateway_url = "https://example.com/lookup?iscc={iscc_id}&code={iscc_code}"
     template_vars = {"iscc_id": "ISCC123", "iscc_code": "CODE456", "datahash": "HASH789"}
     request_url = "https://hub.example/iscc/ISCC123?format=json&code=override"
 
-    result = expand_gateway_url(gateway_url, template_vars, request_url)
-
-    # The result should have merged query parameters
-    # Original from template: iscc=ISCC123&code=CODE456
-    # Added from request: format=json and code=override (extends the existing code param)
-    assert "iscc=ISCC123" in result
-    assert "format=json" in result
-    # code parameter should have both values
-    assert "code=CODE456" in result
-    assert "code=override" in result
+    # Should raise validation error due to query parameter restriction
+    with pytest.raises(ValueError, match="restricted URL query component"):
+        expand_gateway_url(gateway_url, template_vars, request_url)

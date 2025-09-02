@@ -608,6 +608,15 @@ def test_validate_gateway_unsupported_variables():
     # Mix of supported and unsupported
     with pytest.raises(ValueError, match="gateway contains unsupported variables: invalid"):
         validators.validate_gateway("https://example.com/{iscc_id}/{invalid}")
+    # Test that controller is now unsupported (previously might have been supported)
+    with pytest.raises(ValueError, match="gateway contains unsupported variables: controller"):
+        validators.validate_gateway("https://example.com/{controller}")
+    # Test that pubkey is now unsupported (previously might have been supported)
+    with pytest.raises(ValueError, match="gateway contains unsupported variables: pubkey"):
+        validators.validate_gateway("https://example.com/{pubkey}")
+    # Test multiple unsupported including controller and pubkey
+    with pytest.raises(ValueError, match="gateway contains unsupported variables: controller, pubkey"):
+        validators.validate_gateway("https://example.com/{controller}/{pubkey}")
 
 
 def test_validate_gateway_invalid_url():
@@ -673,6 +682,70 @@ def test_validate_gateway_restricted_components():
     # Template with fragment
     with pytest.raises(ValueError, match="restricted URL fragment component"):
         validators.validate_gateway("https://example.com/{iscc_id}#metadata")
+
+
+def test_validate_gateway_uri_template_operators():
+    # type: () -> None
+    """Test URI template operator validation."""
+    # Allowed operators: none (simple expansion)
+    validators.validate_gateway("https://example.com/{iscc_id}")  # Should not raise
+
+    # Allowed operators: '/' (path-segment expansion)
+    validators.validate_gateway("https://example.com{/iscc_id}")  # Should not raise
+
+    # Allowed operators: '.' (dot-prefix expansion)
+    validators.validate_gateway("https://example.com{.iscc_id}")  # Should not raise
+
+    # Disallowed operators: '+' (reserved expansion)
+    with pytest.raises(ValueError, match="gateway uses disallowed URI Template operator: '\\+'"):
+        validators.validate_gateway("https://example.com/{+iscc_id}")
+
+    # Disallowed operators: ';' (path-style expansion)
+    with pytest.raises(ValueError, match="gateway uses disallowed URI Template operator: ';'"):
+        validators.validate_gateway("https://example.com/{;iscc_id}")
+
+    # Disallowed operators: '?' (query expansion) - detected as query component
+    with pytest.raises(ValueError, match="restricted URL query component"):
+        validators.validate_gateway("https://example.com/{?iscc_id}")
+
+    # Disallowed operators: '&' (query continuation)
+    with pytest.raises(ValueError, match="gateway uses disallowed URI Template operator: '&'"):
+        validators.validate_gateway("https://example.com/{&iscc_id}")
+
+    # Disallowed operators: '#' (fragment expansion) - detected as fragment component
+    with pytest.raises(ValueError, match="restricted URL fragment component"):
+        validators.validate_gateway("https://example.com/{#iscc_id}")
+
+    # Disallowed: explode modifier '*'
+    with pytest.raises(ValueError, match="gateway template does not allow explode '\\*' or prefix length modifiers"):
+        validators.validate_gateway("https://example.com/{iscc_id*}")
+
+    # Disallowed: prefix length modifier ':N'
+    with pytest.raises(ValueError, match="gateway template does not allow explode '\\*' or prefix length modifiers"):
+        validators.validate_gateway("https://example.com/{iscc_id:10}")
+
+    # Multiple variables in single expression not allowed
+    with pytest.raises(ValueError, match="gateway template expressions must contain exactly one variable"):
+        validators.validate_gateway("https://example.com/{iscc_id,iscc_code}")
+
+
+def test_validate_gateway_complex_templates():
+    # type: () -> None
+    """Test complex but valid URI templates."""
+    # Multiple separate template expressions
+    validators.validate_gateway("https://example.com/{iscc_id}/metadata/{datahash}")
+
+    # Path segment operator
+    validators.validate_gateway("https://example.com{/iscc_id}")
+
+    # Dot prefix operator
+    validators.validate_gateway("https://example.com{.datahash}")
+
+    # Mixed normal and operator expansions
+    validators.validate_gateway("https://example.com/{iscc_code}{/iscc_id}")
+
+    # Empty braces are treated as literal text, not templates (no variables to validate)
+    validators.validate_gateway("https://example.com/{}")  # Should not raise
 
 
 def test_datahash_to_instance_code():

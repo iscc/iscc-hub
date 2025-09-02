@@ -234,11 +234,12 @@ class IsccNote(Schema):
     gateway: Annotated[
         str | None,
         Field(
-            description="URL or URI Template (RFC 6570) for metadata and service discovery\n\n**Supported template variables:**\n- `{iscc_id}` - The assigned ISCC-ID\n- `{iscc_code}` - The declared ISCC-CODE\n- `{datahash}` - The data hash\n\n**Requirements:** \n- Must use HTTP or HTTPS scheme\n- Must not contain username or password components\n- Must not contain query parameters\n- Must not contain fragment identifiers\n",
+            description="HTTP(S) URL or RFC 6570 URI Template for gateway resolution.\n\n- Scheme: `http` or `https`; hostname required.\n- No userinfo, query, or fragment in the stored value.\n- Supported variables: `{iscc_id}`, `{iscc_code}`, `{datahash}`.\n- Placement: variables allowed in host and path only.\n- Operators: allowed `{} (simple)`, `{/var}`, `{.var}`; disallow `{+…}`, `{;…}`, `{?…}`, `{&…}`, `{#…}`.\n- Modifiers: no explode `*` and no prefix `:N`; one variable per expression.\n",
             examples=[
                 "https://example.com/metadata",
                 "https://gateway.iscc.io/iscc_id/{iscc_id}",
                 "https://api.example.com/content/{datahash}/metadata",
+                "https://{iscc_id}.gw.example.com/cid",
             ],
             max_length=2048,
             min_length=8,
