@@ -639,11 +639,40 @@ def test_validate_gateway_edge_cases():
     # URL with path
     validators.validate_gateway("https://example.com/api/v1")  # Should not raise
 
-    # URL with query parameters
-    validators.validate_gateway("https://example.com?key=value")  # Should not raise
-
     # Template with path segments
     validators.validate_gateway("https://api.example.com/v1/{iscc_id}/metadata")  # Should not raise
+
+
+def test_validate_gateway_restricted_components():
+    # type: () -> None
+    """Test that restricted URL components are rejected."""
+    # URL with username/password
+    with pytest.raises(ValueError, match="restricted URL username component"):
+        validators.validate_gateway("https://user:pass@example.com")
+
+    # URL with username only
+    with pytest.raises(ValueError, match="restricted URL username component"):
+        validators.validate_gateway("https://user@example.com")
+
+    # URL with query parameters
+    with pytest.raises(ValueError, match="restricted URL query component"):
+        validators.validate_gateway("https://example.com?key=value")
+
+    # URL with fragment
+    with pytest.raises(ValueError, match="restricted URL fragment component"):
+        validators.validate_gateway("https://example.com#section")
+
+    # URL with multiple restricted components (should fail on first check - username)
+    with pytest.raises(ValueError, match="restricted URL username component"):
+        validators.validate_gateway("https://user:pass@example.com?key=value#section")
+
+    # Template with query parameters
+    with pytest.raises(ValueError, match="restricted URL query component"):
+        validators.validate_gateway("https://example.com/{iscc_id}?format=json")
+
+    # Template with fragment
+    with pytest.raises(ValueError, match="restricted URL fragment component"):
+        validators.validate_gateway("https://example.com/{iscc_id}#metadata")
 
 
 def test_datahash_to_instance_code():

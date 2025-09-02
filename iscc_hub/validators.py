@@ -553,6 +553,14 @@ def validate_gateway(gateway):
     :param gateway: The gateway URL or URI template string to validate
     :raises FieldValidationError: If gateway is invalid or uses unsupported variables
     """
+
+    # Check for restricted components
+    restricted = ("username", "password", "query", "fragment")
+    url = urlparse(gateway)
+    for component in restricted:
+        if getattr(url, component):
+            raise FieldValidationError("gateway", f"restricted URL {component} component", code="invalid_format")
+
     # Check for basic template syntax errors first
     if "{" in gateway or "}" in gateway:
         # Check for mismatched braces
