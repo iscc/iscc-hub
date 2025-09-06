@@ -225,8 +225,10 @@ SERVESTATIC_INDEX_FILE = "index.html"
 SERVESTATIC_USE_FINDERS = True
 SERVESTATIC_USE_MANIFEST = False
 
-# User Uploaded media
-MEDIA_ROOT = DATA_DIR / "media"
+# Set media root as subfolder under ServeStatic root
+MEDIA_ROOT = SERVESTATIC_ROOT / "media"
+MEDIA_URL = "media/"
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

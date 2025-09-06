@@ -176,7 +176,7 @@ def print_summary():
 
     print("\n🚀 You can now:")
     print("  - Run the dev server: uv run poe serve")
-    print("  - Access admin at: http://localhost:8742/admin/")
+    print("  - Access admin at: http://localhost:8000/admin/")
 
     # Show current admin credentials based on what was created
     User = get_user_model()

@@ -1,0 +1,3 @@
+# Ignore user uploaded media in development.
+# For docker production deployments map this folder to the host system for persistence accross container restarts
+media/

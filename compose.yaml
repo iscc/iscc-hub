@@ -14,6 +14,8 @@ services:
       - /app/.venv
       # Persist database between container restarts
       - ./data:/app/data
+      # Persist user media between container restarts
+      - ./data/media:/app/iscc_hub/static/media
     environment:
       # Development environment
       ENVIRONMENT: development
