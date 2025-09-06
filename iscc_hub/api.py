@@ -1,6 +1,7 @@
 import json
 
 import iscc_crypto as icr
+from constance import config
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
 from ninja import NinjaAPI
@@ -9,7 +10,7 @@ from ninja.responses import codes_4xx
 import iscc_hub
 from iscc_hub.exceptions import BaseApiException, DuplicateDeclarationError, NotFoundError, UnauthorizedError
 from iscc_hub.iscc_id import IsccID
-from iscc_hub.models import Event, IsccDeclaration
+from iscc_hub.models import Event, PubKey
 from iscc_hub.receipt import build_iscc_receipt
 from iscc_hub.schema import ErrorResponse, IsccReceipt
 from iscc_hub.sequencer import sequence_iscc_delete, sequence_iscc_note
@@ -43,6 +44,13 @@ def handle_api_exception(request, exc):
 def declaration(request):
     # Validate and parse request body (includes size check and JSON parsing)
     valid_data = validate_iscc_note(request.body, True, settings.ISCC_HUB_ID, True)
+
+    # Check for permission
+    if not config.OPEN_ACCESS:
+        pubkey = valid_data.get("signature", {}).get("pubkey")
+        pubkey_obj = PubKey.objects.filter(pubkey=pubkey).first()
+        if not pubkey_obj or not pubkey_obj.is_active:
+            raise UnauthorizedError("Invalid or inactive pubkey")
 
     # Check for duplicate declarations (only if force header not present)
     force_declaration = request.headers.get("X-Force-Declaration", "").lower() in ("true", "1")

@@ -1,10 +1,61 @@
 """
-Django models for ISCC Hub.
+Django models for ISCC-HUB.
 """
 
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 from iscc_hub.fields import HexField, IsccIDField, PubkeyField, SequenceField
+
+
+class User(AbstractUser):
+    """
+    Custom user model for ISCC Hub.
+
+    Extends Django's AbstractUser to allow future customization
+    without complex migrations.
+    """
+
+    pass
+
+
+class PubKey(models.Model):
+    """
+    Authorized public keys for permissioned mode.
+
+    Can exist independently (unclaimed) or be linked to users.
+    """
+
+    # Core fields
+    pubkey = models.CharField(max_length=48, primary_key=True, help_text="Ed25519 public key")
+
+    # Authorization metadata
+    label = models.CharField(max_length=255, blank=True, help_text="Human-readable label for this key")
+
+    # Optional user linkage
+    user = models.ForeignKey(
+        "User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pubkeys",
+        help_text="User account managing this key (optional)",
+    )
+
+    # Status tracking
+    is_active = models.BooleanField(default=True, db_index=True, help_text="Whether this key is currently authorized")
+
+    class Meta:
+        db_table = "iscc_pubkey"
+        verbose_name = "Public Key"
+        verbose_name_plural = "Public Keys"
+
+    def __str__(self):
+        if self.label:
+            return f"{self.label} ({self.pubkey[:8]}...)"
+        elif self.user:
+            return f"{self.user.username}'s key ({self.pubkey[:8]}...)"
+        return f"Unclaimed key ({self.pubkey[:8]}...)"
 
 
 class Event(models.Model):

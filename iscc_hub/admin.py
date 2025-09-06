@@ -6,14 +6,45 @@ from urllib.parse import urlparse
 
 import django_q.admin
 from django.contrib import admin
+from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import Group
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.utils.html import format_html
 from django_q.models import Failure, OrmQ, Schedule, Success, Task
 from unfold.admin import ModelAdmin
+from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 from unfold.paginator import InfinitePaginator
 
-from iscc_hub.models import Checkpoint, Event, IsccDeclaration
+from iscc_hub.models import Checkpoint, Event, IsccDeclaration, PubKey, User
+
+admin.site.unregister(Group)
+
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin, ModelAdmin):
+    # Forms loaded from `unfold.forms`
+    form = UserChangeForm
+    add_form = UserCreationForm
+    change_password_form = AdminPasswordChangeForm
+
+
+@admin.register(Group)
+class GroupAdmin(BaseGroupAdmin, ModelAdmin):
+    pass
+
+
+@admin.register(PubKey)
+class PubKeyAdmin(ModelAdmin):
+    list_display = ["pubkey_short", "label", "user", "is_active"]
+    list_filter = ["is_active"]
+    search_fields = ["pubkey", "label", "user__username"]
+
+    def pubkey_short(self, obj):
+        return f"{obj.pubkey[:8]}..."
+
+    pubkey_short.short_description = "Public Key"
 
 
 @admin.register(IsccDeclaration)

@@ -1,10 +1,10 @@
+from collections import OrderedDict
 from pathlib import Path
 
 import environ
 from django.conf.locale.en import formats as en_formats
 from django.templatetags.static import static
 from django.urls import reverse_lazy
-from unfold.contrib.constance.settings import UNFOLD_CONSTANCE_ADDITIONAL_FIELDS
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -78,9 +78,11 @@ APPEND_SLASH = False
 
 
 INSTALLED_APPS = [
+    "unfold.contrib.constance",
+    "constance",
+    "constance.backends.database",
     "unfold",
     "unfold.contrib.filters",
-    "unfold.contrib.constance",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -89,8 +91,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "servestatic.runserver_nostatic",
     "iscc_hub",
-    "constance",
-    "constance.backends.database",
     "django_q",
 ]
 
@@ -165,8 +165,20 @@ DATABASES = {
 
 ATOMIC_REQUESTS = False  # This is the default, but we better make sure with transaction mode IMMEDIATE
 
+
+# Shared memory cache used for django-constance configuration values
+CACHES = {
+    "default": {
+        "BACKEND": "shared_memory_dict.caches.django.SharedMemoryCache",
+        "LOCATION": "memory",
+        "OPTIONS": {"MEMORY_BLOCK_SIZE": 1024},
+    }
+}
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+
+AUTH_USER_MODEL = "iscc_hub.User"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -212,6 +224,9 @@ SERVESTATIC_INDEX_FILE = "index.html"
 # Enable finders in production to serve static files without collectstatic
 SERVESTATIC_USE_FINDERS = True
 SERVESTATIC_USE_MANIFEST = False
+
+# User Uploaded media
+MEDIA_ROOT = DATA_DIR / "media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -260,7 +275,12 @@ UNFOLD = {
                     {
                         "title": "Users",
                         "icon": "person",
-                        "link": "/admin/auth/user/",
+                        "link": "/admin/iscc_hub/user/",
+                    },
+                    {
+                        "title": "Pubkeys",
+                        "icon": "key",
+                        "link": "/admin/iscc_hub/pubkey/",
                     },
                     {
                         "title": "Groups",
@@ -329,14 +349,49 @@ Q_CLUSTER = {
 }
 
 # Constance Configuration for Dynamic Settings
+UNFOLD_CONSTANCE_ADDITIONAL_FIELDS = {
+    str: [
+        "django.forms.CharField",
+        {
+            "widget": "unfold.widgets.UnfoldAdminTextInputWidget",
+        },
+    ],
+    int: [
+        "django.forms.IntegerField",
+        {
+            "widget": "unfold.widgets.UnfoldAdminIntegerFieldWidget",
+        },
+    ],
+    bool: [
+        "django.forms.BooleanField",
+        {
+            "widget": "unfold.widgets.UnfoldBooleanSwitchWidget",
+            "required": False,
+        },
+    ],
+    "file_field": [
+        "django.forms.fields.FileField",
+        {
+            "widget": "unfold.widgets.UnfoldAdminFileFieldWidget",
+        },
+    ],
+    "image_field": [
+        "django.forms.fields.ImageField",
+        {
+            "widget": "unfold.widgets.UnfoldAdminImageFieldWidget",
+        },
+    ],
+}
+
 CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 CONSTANCE_DATABASE_PREFIX = "constance:iscc-hub:"
+CONSTANCE_DATABASE_CACHE_BACKEND = "default"
 CONSTANCE_ADDITIONAL_FIELDS = {**UNFOLD_CONSTANCE_ADDITIONAL_FIELDS}
-CONSTANCE_CONFIG = {
-    # Operator White Labeling
-    "ISCC_HUB_OPERATOR_NAME": (
-        "ISCC Foundation",
-        "Name of the ISCC-HUB operator",
-        str,
-    ),
-}
+
+CONSTANCE_CONFIG = OrderedDict(
+    [
+        ("COMPANY_NAME", ("ISCC Foundation", "Company Name", str)),
+        ("COMPANY_LOGO", (None, "Company Logo", "image_field")),
+        ("OPEN_ACCESS", (True, "Open Access", bool)),
+    ]
+)
