@@ -4,7 +4,10 @@ import json
 
 import httpx
 import pytest
+from constance.test import override_config
 from django.db import connection
+
+from iscc_hub.models import PubKey
 
 
 @pytest.fixture(autouse=True)
@@ -27,6 +30,131 @@ def clear_database():
             connection.commit()
     except Exception:
         pass
+
+
+@pytest.mark.django_db(transaction=False)
+def test_declaration_permission_denied_no_pubkey(
+    live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
+):
+    """Test declaration denied when OPEN_ACCESS=False and pubkey not authorized."""
+    import iscc_crypto as icr
+
+    # Clear any existing PubKey records
+    PubKey.objects.all().delete()
+
+    # Create a minimal note
+    minimal_note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+
+    # Sign the note
+    signed_note = icr.sign_json(minimal_note, example_keypair)
+
+    # Test with OPEN_ACCESS=False
+    with override_config(OPEN_ACCESS=False):
+        # Use httpx client with live server
+        with httpx.Client(base_url=live_server.url) as client:
+            response = client.post(
+                "/declaration",
+                json=signed_note,
+                headers={"Accept": "application/json"},
+            )
+
+        # Should be unauthorized
+        assert response.status_code == 401
+        data = response.json()
+        assert data["error"]["code"] == "unauthorized"
+        assert "Invalid or inactive pubkey" in data["error"]["message"]
+
+
+@pytest.mark.django_db(transaction=False)
+def test_declaration_permission_denied_inactive_pubkey(
+    live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
+):
+    """Test declaration denied when OPEN_ACCESS=False and pubkey is inactive."""
+    import iscc_crypto as icr
+
+    # Clear any existing PubKey records
+    PubKey.objects.all().delete()
+
+    # Create a minimal note
+    minimal_note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+
+    # Sign the note
+    signed_note = icr.sign_json(minimal_note, example_keypair)
+
+    # Get pubkey from signed note and create an inactive PubKey record
+    pubkey = signed_note["signature"]["pubkey"]
+    PubKey.objects.create(pubkey=pubkey, is_active=False, label="Test inactive key")
+
+    # Test with OPEN_ACCESS=False
+    with override_config(OPEN_ACCESS=False):
+        # Use httpx client with live server
+        with httpx.Client(base_url=live_server.url) as client:
+            response = client.post(
+                "/declaration",
+                json=signed_note,
+                headers={"Accept": "application/json"},
+            )
+
+        # Should be unauthorized
+        assert response.status_code == 401
+        data = response.json()
+        assert data["error"]["code"] == "unauthorized"
+        assert "Invalid or inactive pubkey" in data["error"]["message"]
+
+
+@pytest.mark.django_db(transaction=False)
+def test_declaration_permission_allowed_with_active_pubkey(
+    live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
+):
+    """Test declaration allowed when OPEN_ACCESS=False and pubkey is active."""
+    import iscc_crypto as icr
+
+    # Clear any existing PubKey records
+    PubKey.objects.all().delete()
+
+    # Create a minimal note
+    minimal_note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+
+    # Sign the note
+    signed_note = icr.sign_json(minimal_note, example_keypair)
+
+    # Get pubkey from signed note and create an active PubKey record
+    pubkey = signed_note["signature"]["pubkey"]
+    PubKey.objects.create(pubkey=pubkey, is_active=True, label="Test active key")
+
+    # Test with OPEN_ACCESS=False
+    with override_config(OPEN_ACCESS=False):
+        # Use httpx client with live server
+        with httpx.Client(base_url=live_server.url) as client:
+            response = client.post(
+                "/declaration",
+                json=signed_note,
+                headers={"Accept": "application/json"},
+            )
+
+        # Should be successful
+        assert response.status_code == 201
+        data = response.json()
+        # Response is an IsccReceipt (W3C Verifiable Credential)
+        assert "@context" in data
+        assert "credentialSubject" in data
+        assert "declaration" in data["credentialSubject"]
+        assert "iscc_id" in data["credentialSubject"]["declaration"]
 
 
 @pytest.mark.django_db(transaction=False)

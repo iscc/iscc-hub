@@ -7,7 +7,7 @@ import json
 import iscc_crypto as icr
 import pytest
 
-from iscc_hub.models import Event, IsccDeclaration
+from iscc_hub.models import Event, IsccDeclaration, PubKey, User
 from tests.conftest import generate_test_iscc_id
 
 
@@ -33,6 +33,37 @@ def test_event_model_creation(minimal_iscc_note):
     assert event.event_type == Event.EventType.CREATED
     assert json.loads(event.event_data.decode("utf-8")) == minimal_iscc_note
     assert event.event_time is not None
+
+
+@pytest.mark.django_db
+def test_pubkey_str_with_label():
+    # type: () -> None
+    """
+    Test PubKey __str__ method with label.
+    """
+    pubkey = PubKey(pubkey="abcdefghijklmnopqrstuvwxyz123456789", label="My Test Key")
+    assert str(pubkey) == "My Test Key (abcdefgh...)"
+
+
+@pytest.mark.django_db
+def test_pubkey_str_with_user_no_label():
+    # type: () -> None
+    """
+    Test PubKey __str__ method with user but no label.
+    """
+    user = User(username="testuser")
+    pubkey = PubKey(pubkey="abcdefghijklmnopqrstuvwxyz123456789", user=user)
+    assert str(pubkey) == "testuser's key (abcdefgh...)"
+
+
+@pytest.mark.django_db
+def test_pubkey_str_no_label_no_user():
+    # type: () -> None
+    """
+    Test PubKey __str__ method without label or user.
+    """
+    pubkey = PubKey(pubkey="abcdefghijklmnopqrstuvwxyz123456789")
+    assert str(pubkey) == "Unclaimed key (abcdefgh...)"
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)

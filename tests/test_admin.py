@@ -10,8 +10,8 @@ from django.contrib.admin.sites import site
 from django.http import HttpRequest
 from django.test import RequestFactory
 
-from iscc_hub.admin import CheckpointAdmin, EventAdmin, IsccDeclarationAdmin
-from iscc_hub.models import Checkpoint, Event, IsccDeclaration
+from iscc_hub.admin import CheckpointAdmin, EventAdmin, IsccDeclarationAdmin, PubKeyAdmin
+from iscc_hub.models import Checkpoint, Event, IsccDeclaration, PubKey, User
 
 
 @pytest.fixture
@@ -381,6 +381,22 @@ class TestEventAdmin:
         event.event_hash = None
         result = admin_obj.event_hash_short(event)
         assert result == "—"
+
+
+class TestPubKeyAdmin:
+    def test_registration(self):
+        # type: () -> None
+        """Test that PubKeyAdmin is registered."""
+        assert PubKey in site._registry
+        assert isinstance(site._registry[PubKey], PubKeyAdmin)
+
+    def test_pubkey_short(self):
+        # type: () -> None
+        """Test pubkey_short method truncates public key."""
+        admin_obj = PubKeyAdmin(PubKey, site)
+        pubkey = PubKey(pubkey="abcdefghijklmnopqrstuvwxyz123456789")
+        result = admin_obj.pubkey_short(pubkey)
+        assert result == "abcdefgh..."
 
 
 class TestCheckpointAdmin:
