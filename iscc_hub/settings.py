@@ -66,11 +66,10 @@ ISCC_HUB_TIMESTAMP_SERVERS = env.list(
     ],
 )
 
-ISCC_HUB_SYNC_MODE = env.str("ISCC_HUB_SYNC_MODE", default="FULL")
+ISCC_HUB_SQLITE_SYNC_MODE = env.str("ISCC_HUB_SQLITE_SYNC_MODE", default="FULL")
 
-# Hub list synchronization on startup
-# Default: enabled (automatically skipped during test runs via pytest detection)
-ISCC_HUB_SYNC_ON_STARTUP = env.bool("ISCC_HUB_SYNC_ON_STARTUP", default=True)
+# Hub list initial synchronization (used in Docker startup sequence)
+ISCC_HUB_LIST_INITIAL_SYNC = env.bool("ISCC_HUB_LIST_INITIAL_SYNC", default=True)
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=(ISCC_HUB_DOMAIN,))
 
@@ -143,7 +142,7 @@ DATABASES = {
             "transaction_mode": "IMMEDIATE",  # Required for gapless sequences !!!
             "init_command": (
                 "PRAGMA journal_mode=WAL;"
-                f"PRAGMA synchronous={ISCC_HUB_SYNC_MODE};"
+                f"PRAGMA synchronous={ISCC_HUB_SQLITE_SYNC_MODE};"
                 "PRAGMA busy_timeout=5000;"
                 "PRAGMA cache_size=10000;"
             ),
@@ -157,7 +156,7 @@ DATABASES = {
                 "transaction_mode": "IMMEDIATE",  # Required for gapless sequences !!!
                 "init_command": (
                     "PRAGMA journal_mode=WAL;"
-                    f"PRAGMA synchronous={ISCC_HUB_SYNC_MODE};"
+                    f"PRAGMA synchronous={ISCC_HUB_SQLITE_SYNC_MODE};"
                     "PRAGMA busy_timeout=5000;"
                     "PRAGMA cache_size=10000;"
                 ),
@@ -346,17 +345,12 @@ UNFOLD = {
 Q_CLUSTER = {
     "name": "iscc-hub",
     "workers": 1,
-    "recycle": 500,
     "timeout": 90,
     "retry": 120,
-    "queue_limit": 50,
-    "bulk": 10,
-    "orm": "default",  # Use Django ORM as broker (no Redis/RabbitMQ needed)
-    "poll": 200,  # Poll every 200ms
-    "save_limit": 250,  # Limit saved results
-    "catch_up": False,  # Don't run missed schedules on startup
-    "label": "Django Q2",
-    "django_admin": True,  # Enable Django admin interface
+    "orm": "default",
+    "poll": 3,
+    "catch_up": False,
+    "label": "Tasks",
 }
 
 # Constance Configuration for Dynamic Settings

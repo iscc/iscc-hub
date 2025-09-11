@@ -122,6 +122,14 @@ def install_tasks():
     print("    Periodic tasks configured")
 
 
+def sync_hubs():
+    # type: () -> None
+    """Sync hub configurations from GitHub."""
+    print("  ✓ Syncing hub list from GitHub...")
+    call_command("sync_hubs", "--quiet", verbosity=0)
+    print("    Hub list synchronized")
+
+
 def load_fixtures():
     # type: () -> None
     """Load test fixture data if available."""
@@ -266,7 +274,8 @@ def reset_database():
     # Install periodic tasks
     install_tasks()
 
-    # Note: Hub sync removed - happens automatically on app startup
+    # Sync hub list from GitHub
+    sync_hubs()
 
     # Load test fixtures
     load_fixtures()
@@ -277,7 +286,6 @@ def reset_database():
         cleanup_migrations(migrations_dir)
 
     print("\n✅ Database reset complete!")
-    print("  ℹ️  Hub list will sync from GitHub on app startup")
     print_summary()
 
 
