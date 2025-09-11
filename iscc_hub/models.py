@@ -19,6 +19,51 @@ class User(AbstractUser):
     pass
 
 
+class Hub(models.Model):
+    """
+    Active ISCC Hubs on the network.
+
+    Stores configuration for all hubs in the ISCC network, including
+    their identifiers, public keys, and endpoints. The authoritative list wille be synced from
+    a smart contract.
+    """
+
+    # Primary identifier - matches ISCC_HUB_ID environment variable
+    hub_id = models.PositiveSmallIntegerField(
+        primary_key=True,
+        help_text="Hub identifier (0-4095) - unique network identifier",
+    )
+
+    # Hub identity
+    pubkey = PubkeyField(
+        unique=True,
+        db_index=True,
+        help_text="Ed25519 public key of the hub for signature verification",
+    )
+
+    # Network endpoint
+    url = models.URLField(
+        max_length=2048,
+        help_text="Base URL of the hub API endpoint (e.g. https://hub.example.com)",
+    )
+
+    active = models.BooleanField(
+        default=True,
+        db_index=True,
+        help_text="Whether this hub is currently active on the network",
+    )
+
+    class Meta:
+        db_table = "iscc_hub"
+        verbose_name = "Hub"
+        verbose_name_plural = "Hubs"
+
+    def __str__(self):
+        # type: () -> str
+        """String representation of the Hub."""
+        return f"Hub #{self.hub_id}: {self.url}"
+
+
 class PubKey(models.Model):
     """
     Authorized public keys for permissioned mode.

@@ -17,7 +17,7 @@ from unfold.admin import ModelAdmin
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 from unfold.paginator import InfinitePaginator
 
-from iscc_hub.models import Checkpoint, Event, IsccDeclaration, PubKey, User
+from iscc_hub.models import Checkpoint, Event, Hub, IsccDeclaration, PubKey, User
 
 admin.site.unregister(Group)
 
@@ -33,6 +33,65 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
 @admin.register(Group)
 class GroupAdmin(BaseGroupAdmin, ModelAdmin):
     pass
+
+
+@admin.register(Hub)
+class HubAdmin(ModelAdmin):
+    """Admin interface for Hub model."""
+
+    list_display = ["hub_id", "pubkey_short", "url_display", "active"]
+    list_filter = ["active"]
+    search_fields = ["hub_id", "pubkey", "url"]
+
+    readonly_fields = ["hub_id", "pubkey"]
+
+    fieldsets = (
+        ("Hub Identity", {"fields": ("hub_id", "pubkey")}),
+        ("Network Configuration", {"fields": ("url", "active")}),
+    )
+
+    def pubkey_short(self, obj):
+        # type: (Hub) -> str
+        """Display truncated public key with tooltip."""
+        if obj.pubkey:
+            key_str = str(obj.pubkey)
+            if len(key_str) > 16:
+                return format_html('<span title="{}">{}...</span>', key_str, key_str[:16])
+            return key_str
+        return "—"
+
+    pubkey_short.short_description = "Public Key"
+    pubkey_short.admin_order_field = "pubkey"
+
+    def url_display(self, obj):
+        # type: (Hub) -> str
+        """Display hub URL as clickable link."""
+        if obj.url:
+            try:
+                parsed = urlparse(obj.url)
+                domain = parsed.netloc or obj.url
+                return format_html('<a href="{}" target="_blank" title="{}">{}</a>', obj.url, obj.url, domain)
+            except Exception:
+                return obj.url
+        return "—"
+
+    url_display.short_description = "Hub URL"
+    url_display.admin_order_field = "url"
+
+    def has_add_permission(self, request):
+        # type: (HttpRequest) -> bool
+        """Prevent adding hubs through admin (synced from authoritative list)."""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # type: (HttpRequest, Hub | None) -> bool
+        """Allow viewing but not editing hubs (synced from authoritative list)."""
+        return request.method == "GET"
+
+    def has_delete_permission(self, request, obj=None):
+        # type: (HttpRequest, Hub | None) -> bool
+        """Prevent deleting hubs (synced from authoritative list)."""
+        return False
 
 
 @admin.register(PubKey)

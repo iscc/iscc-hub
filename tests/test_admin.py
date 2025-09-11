@@ -10,8 +10,8 @@ from django.contrib.admin.sites import site
 from django.http import HttpRequest
 from django.test import RequestFactory
 
-from iscc_hub.admin import CheckpointAdmin, EventAdmin, IsccDeclarationAdmin, PubKeyAdmin
-from iscc_hub.models import Checkpoint, Event, IsccDeclaration, PubKey, User
+from iscc_hub.admin import CheckpointAdmin, EventAdmin, HubAdmin, IsccDeclarationAdmin, PubKeyAdmin
+from iscc_hub.models import Checkpoint, Event, Hub, IsccDeclaration, PubKey, User
 
 
 @pytest.fixture
@@ -59,6 +59,18 @@ def event():
         iscc_id="ISCC:KAA777777UJZXHQ2",
         event_data=json.dumps({"test": "data"}).encode("utf-8"),
         event_hash="123456789abcdef0" * 4,  # 64 hex chars for BLAKE3 hash
+    )
+
+
+@pytest.fixture
+def hub():
+    # type: () -> Hub
+    """Sample Hub fixture."""
+    return Hub(
+        hub_id=42,
+        pubkey="zvREgjB5kCvSSJmGnVtUEkmf2YHfVqyPzx4JUVmJLWPQ",
+        url="https://hub.example.com",
+        active=True,
     )
 
 
@@ -397,6 +409,186 @@ class TestPubKeyAdmin:
         pubkey = PubKey(pubkey="abcdefghijklmnopqrstuvwxyz123456789")
         result = admin_obj.pubkey_short(pubkey)
         assert result == "abcdefgh..."
+
+
+class TestHubAdmin:
+    def test_registration(self):
+        # type: () -> None
+        """Test that HubAdmin is registered."""
+        assert Hub in site._registry
+        assert isinstance(site._registry[Hub], HubAdmin)
+
+    def test_list_display(self):
+        # type: () -> None
+        """Test list_display configuration."""
+        admin_obj = HubAdmin(Hub, site)
+        expected = ["hub_id", "pubkey_short", "url_display", "active"]
+        assert admin_obj.list_display == expected
+
+    def test_list_filter(self):
+        # type: () -> None
+        """Test list_filter configuration."""
+        admin_obj = HubAdmin(Hub, site)
+        assert admin_obj.list_filter == ["active"]
+
+    def test_search_fields(self):
+        # type: () -> None
+        """Test search_fields configuration."""
+        admin_obj = HubAdmin(Hub, site)
+        assert admin_obj.search_fields == ["hub_id", "pubkey", "url"]
+
+    def test_readonly_fields(self):
+        # type: () -> None
+        """Test readonly_fields configuration."""
+        admin_obj = HubAdmin(Hub, site)
+        assert admin_obj.readonly_fields == ["hub_id", "pubkey"]
+
+    def test_fieldsets(self):
+        # type: () -> None
+        """Test fieldsets configuration."""
+        admin_obj = HubAdmin(Hub, site)
+        expected = (
+            ("Hub Identity", {"fields": ("hub_id", "pubkey")}),
+            ("Network Configuration", {"fields": ("url", "active")}),
+        )
+        assert admin_obj.fieldsets == expected
+
+    def test_pubkey_short_none(self, hub):
+        # type: (Hub) -> None
+        """Test pubkey_short when pubkey is None."""
+        admin_obj = HubAdmin(Hub, site)
+        hub.pubkey = None
+        result = admin_obj.pubkey_short(hub)
+        assert result == "—"
+
+    def test_pubkey_short_empty(self, hub):
+        # type: (Hub) -> None
+        """Test pubkey_short when pubkey is empty string."""
+        admin_obj = HubAdmin(Hub, site)
+        hub.pubkey = ""
+        result = admin_obj.pubkey_short(hub)
+        assert result == "—"
+
+    def test_pubkey_short_short_key(self, hub):
+        # type: (Hub) -> None
+        """Test pubkey_short with key <= 16 chars."""
+        admin_obj = HubAdmin(Hub, site)
+        hub.pubkey = "1234567890abcdef"
+        result = admin_obj.pubkey_short(hub)
+        assert result == "1234567890abcdef"
+
+    def test_pubkey_short_long_key(self, hub):
+        # type: (Hub) -> None
+        """Test pubkey_short with key > 16 chars."""
+        admin_obj = HubAdmin(Hub, site)
+        result = admin_obj.pubkey_short(hub)
+        # Should show first 16 chars with tooltip
+        assert '<span title="zvREgjB5kCvSSJmGnVtUEkmf2YHfVqyPzx4JUVmJLWPQ">' in result
+        assert hub.pubkey[:16] + "...</span>" in result
+
+    def test_url_display_none(self, hub):
+        # type: (Hub) -> None
+        """Test url_display when URL is None."""
+        admin_obj = HubAdmin(Hub, site)
+        hub.url = None
+        result = admin_obj.url_display(hub)
+        assert result == "—"
+
+    def test_url_display_empty(self, hub):
+        # type: (Hub) -> None
+        """Test url_display when URL is empty string."""
+        admin_obj = HubAdmin(Hub, site)
+        hub.url = ""
+        result = admin_obj.url_display(hub)
+        assert result == "—"
+
+    def test_url_display_valid_url(self, hub):
+        # type: (Hub) -> None
+        """Test url_display with valid URL."""
+        admin_obj = HubAdmin(Hub, site)
+        result = admin_obj.url_display(hub)
+        # Should create clickable link with domain as text
+        assert '<a href="https://hub.example.com"' in result
+        assert 'target="_blank"' in result
+        assert 'title="https://hub.example.com"' in result
+        assert ">hub.example.com</a>" in result
+
+    def test_url_display_url_without_scheme(self, hub):
+        # type: (Hub) -> None
+        """Test url_display with URL without scheme."""
+        admin_obj = HubAdmin(Hub, site)
+        hub.url = "hub.example.com"
+        result = admin_obj.url_display(hub)
+        # Should still create link but domain extraction may fail
+        assert "hub.example.com" in result
+
+    def test_url_display_parse_error(self, hub, monkeypatch):
+        # type: (Hub, Any) -> None
+        """Test url_display fallback when URL parsing fails."""
+        admin_obj = HubAdmin(Hub, site)
+        hub.url = "https://hub.example.com"
+
+        # Mock urlparse to raise an exception
+        def mock_urlparse(url):
+            # type: (str) -> None
+            raise ValueError("Parse error")
+
+        monkeypatch.setattr("iscc_hub.admin.urlparse", mock_urlparse)
+        result = admin_obj.url_display(hub)
+        # Should fallback to original URL
+        assert result == "https://hub.example.com"
+
+    def test_has_add_permission(self, admin_request):
+        # type: (HttpRequest) -> None
+        """Test that no users can add hubs (synced from authoritative list)."""
+        admin_obj = HubAdmin(Hub, site)
+        # Test with superuser
+        admin_request.user.is_superuser = True
+        assert admin_obj.has_add_permission(admin_request) is False
+        # Test with regular user
+        admin_request.user.is_superuser = False
+        assert admin_obj.has_add_permission(admin_request) is False
+
+    def test_has_change_permission_get(self, admin_request):
+        # type: (HttpRequest) -> None
+        """Test that viewing hubs is allowed."""
+        admin_obj = HubAdmin(Hub, site)
+        admin_request.method = "GET"
+        # Test with superuser
+        admin_request.user.is_superuser = True
+        assert admin_obj.has_change_permission(admin_request) is True
+        assert admin_obj.has_change_permission(admin_request, Hub()) is True
+        # Test with regular user
+        admin_request.user.is_superuser = False
+        assert admin_obj.has_change_permission(admin_request) is True
+        assert admin_obj.has_change_permission(admin_request, Hub()) is True
+
+    def test_has_change_permission_post(self, admin_request):
+        # type: (HttpRequest) -> None
+        """Test that editing hubs is prevented."""
+        admin_obj = HubAdmin(Hub, site)
+        admin_request.method = "POST"
+        # Test with superuser
+        admin_request.user.is_superuser = True
+        assert admin_obj.has_change_permission(admin_request) is False
+        assert admin_obj.has_change_permission(admin_request, Hub()) is False
+        # Test with regular user
+        admin_request.user.is_superuser = False
+        assert admin_obj.has_change_permission(admin_request) is False
+        assert admin_obj.has_change_permission(admin_request, Hub()) is False
+
+    def test_has_delete_permission(self, admin_request):
+        # type: (HttpRequest) -> None
+        """Test that no users can delete hubs (synced from authoritative list)."""
+        admin_obj = HubAdmin(Hub, site)
+        # Test with superuser
+        admin_request.user.is_superuser = True
+        assert admin_obj.has_delete_permission(admin_request) is False
+        assert admin_obj.has_delete_permission(admin_request, Hub()) is False
+        # Test with regular user
+        admin_request.user.is_superuser = False
+        assert admin_obj.has_delete_permission(admin_request) is False
+        assert admin_obj.has_delete_permission(admin_request, Hub()) is False
 
 
 class TestCheckpointAdmin:

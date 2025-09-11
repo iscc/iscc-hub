@@ -268,6 +268,11 @@ UNFOLD = {
                         "icon": "flag",
                         "link": "/admin/iscc_hub/checkpoint/",
                     },
+                    {
+                        "title": "Hubs",
+                        "icon": "hub",
+                        "link": "/admin/iscc_hub/hub/",
+                    },
                 ],
             },
             {

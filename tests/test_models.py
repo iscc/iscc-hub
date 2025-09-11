@@ -11,6 +11,18 @@ from iscc_hub.models import Event, IsccDeclaration, PubKey, User
 from tests.conftest import generate_test_iscc_id
 
 
+@pytest.mark.django_db
+def test_hub_str_method():
+    # type: () -> None
+    """
+    Test Hub __str__ method.
+    """
+    from iscc_hub.models import Hub
+
+    hub = Hub(hub_id=42, pubkey="z6MkfrVYbLejh9Hv7Qmx4B2P681wBfPFkcHFaLwWDmSj8Kzv", url="https://hub.example.com")
+    assert str(hub) == "Hub #42: https://hub.example.com"
+
+
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
 def test_event_model_creation(minimal_iscc_note):
     # type: (dict) -> None

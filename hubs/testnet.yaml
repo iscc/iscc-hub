@@ -1,0 +1,7 @@
+version: 1
+network: testnet
+hubs:
+    - hub_id: 0
+      pubkey: z6MkqbHELZopsq6eKrn6qxiAgRoVvwp2Vp7mPfKsvrbYmGwJ
+      url: https://sb0.iscc.id/
+      active: true
