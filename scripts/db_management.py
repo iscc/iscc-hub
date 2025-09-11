@@ -135,6 +135,18 @@ def load_fixtures():
         print("     Run 'uv run poe fixtures-generate' to create fixtures")
 
 
+def import_testnet_hubs():
+    # type: () -> None
+    """Import testnet hub configurations from YAML file."""
+    testnet_file = Path("hubs/testnet.yaml")
+    if testnet_file.exists():
+        print("  ✓ Importing testnet hubs...")
+        call_command("import_hubs", str(testnet_file), "--clear", verbosity=0)
+        print(f"    Imported hubs from {testnet_file}")
+    else:
+        print(f"  ⚠️  No testnet hub config found at {testnet_file}")
+
+
 def cleanup_migrations(migrations_dir):
     # type: (Path) -> None
     """
@@ -264,6 +276,9 @@ def reset_database():
 
     # Install periodic tasks
     install_tasks()
+
+    # Import testnet hub configurations
+    import_testnet_hubs()
 
     # Load test fixtures
     load_fixtures()
