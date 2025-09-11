@@ -31,6 +31,12 @@ else
     echo "  Applying database migrations..."
     python manage.py migrate --no-input
     
+    # Perform initial hub sync if enabled
+    if [ "${ISCC_HUB_LIST_INITIAL_SYNC:-true}" = "true" ]; then
+        echo "  Syncing hub list from GitHub..."
+        python manage.py sync_hubs --quiet
+    fi
+    
     echo "  Installing periodic tasks..."
     python manage.py install_tasks
 fi

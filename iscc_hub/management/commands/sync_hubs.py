@@ -1,7 +1,8 @@
 """
-Management command to sync or import hub configurations.
+Management command to sync hub configurations from GitHub or import from local YAML file.
 
-Can sync from GitHub (default) or import from a local YAML file (for development).
+This command replaces the automatic hub synchronization that previously happened in apps.py.
+It provides explicit control over when hub synchronization occurs.
 """
 
 from pathlib import Path
@@ -29,24 +30,32 @@ class Command(BaseCommand):
             action="store_true",
             help="Clear existing hubs before importing (only works with --file)",
         )
+        parser.add_argument(
+            "--quiet",
+            action="store_true",
+            help="Suppress output except for errors",
+        )
 
     def handle(self, *args, **options):
         """Sync hubs from GitHub or import from local file."""
+        quiet = options.get("quiet", False)
         yaml_file = options.get("file")
 
         # If no file specified, sync from GitHub
         if not yaml_file:
-            self.stdout.write("Syncing hub list from GitHub...")
+            if not quiet:
+                self.stdout.write("Syncing hub list from GitHub...")
             result = sync_hub_list()
 
             if result["status"] == "success":
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"Hub sync completed successfully: "
-                        f"{result['created']} created, {result['updated']} updated, "
-                        f"{result['deactivated']} deactivated"
+                if not quiet:
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f"Hub sync completed successfully: "
+                            f"{result['created']} created, {result['updated']} updated, "
+                            f"{result['deactivated']} deactivated"
+                        )
                     )
-                )
             elif result["status"] == "partial":
                 self.stdout.write(self.style.WARNING(f"Hub sync completed with errors: {result.get('errors', [])}"))
             else:
@@ -74,7 +83,8 @@ class Command(BaseCommand):
         with transaction.atomic():
             if options["clear"]:
                 Hub.objects.all().delete()
-                self.stdout.write(self.style.WARNING("Cleared existing hubs"))
+                if not quiet:
+                    self.stdout.write(self.style.WARNING("Cleared existing hubs"))
 
             created_count = 0
             updated_count = 0
@@ -96,9 +106,12 @@ class Command(BaseCommand):
 
                 if created:
                     created_count += 1
-                    self.stdout.write(f"  Created hub {hub_id}: {hub.url}")
+                    if not quiet:
+                        self.stdout.write(f"  Created hub {hub_id}: {hub.url}")
                 else:
                     updated_count += 1
-                    self.stdout.write(f"  Updated hub {hub_id}: {hub.url}")
+                    if not quiet:
+                        self.stdout.write(f"  Updated hub {hub_id}: {hub.url}")
 
-        self.stdout.write(self.style.SUCCESS(f"Import complete: {created_count} created, {updated_count} updated"))
+        if not quiet:
+            self.stdout.write(self.style.SUCCESS(f"Import complete: {created_count} created, {updated_count} updated"))

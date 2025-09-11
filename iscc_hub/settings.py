@@ -66,11 +66,10 @@ ISCC_HUB_TIMESTAMP_SERVERS = env.list(
     ],
 )
 
-ISCC_HUB_SYNC_MODE = env.str("ISCC_HUB_SYNC_MODE", default="FULL")
+ISCC_HUB_SQLITE_SYNC_MODE = env.str("ISCC_HUB_SQLITE_SYNC_MODE", default="FULL")
 
-# Hub list synchronization on startup
-# Default: enabled (automatically skipped during test runs via pytest detection)
-ISCC_HUB_SYNC_ON_STARTUP = env.bool("ISCC_HUB_SYNC_ON_STARTUP", default=True)
+# Hub list initial synchronization (used in Docker startup sequence)
+ISCC_HUB_LIST_INITIAL_SYNC = env.bool("ISCC_HUB_LIST_INITIAL_SYNC", default=True)
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=(ISCC_HUB_DOMAIN,))
 
@@ -143,7 +142,7 @@ DATABASES = {
             "transaction_mode": "IMMEDIATE",  # Required for gapless sequences !!!
             "init_command": (
                 "PRAGMA journal_mode=WAL;"
-                f"PRAGMA synchronous={ISCC_HUB_SYNC_MODE};"
+                f"PRAGMA synchronous={ISCC_HUB_SQLITE_SYNC_MODE};"
                 "PRAGMA busy_timeout=5000;"
                 "PRAGMA cache_size=10000;"
             ),
@@ -157,7 +156,7 @@ DATABASES = {
                 "transaction_mode": "IMMEDIATE",  # Required for gapless sequences !!!
                 "init_command": (
                     "PRAGMA journal_mode=WAL;"
-                    f"PRAGMA synchronous={ISCC_HUB_SYNC_MODE};"
+                    f"PRAGMA synchronous={ISCC_HUB_SQLITE_SYNC_MODE};"
                     "PRAGMA busy_timeout=5000;"
                     "PRAGMA cache_size=10000;"
                 ),
