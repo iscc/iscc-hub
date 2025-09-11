@@ -135,18 +135,6 @@ def load_fixtures():
         print("     Run 'uv run poe fixtures-generate' to create fixtures")
 
 
-def import_testnet_hubs():
-    # type: () -> None
-    """Import testnet hub configurations from YAML file."""
-    testnet_file = Path("hubs/testnet.yaml")
-    if testnet_file.exists():
-        print("  ✓ Importing testnet hubs...")
-        call_command("import_hubs", str(testnet_file), "--clear", verbosity=0)
-        print(f"    Imported hubs from {testnet_file}")
-    else:
-        print(f"  ⚠️  No testnet hub config found at {testnet_file}")
-
-
 def cleanup_migrations(migrations_dir):
     # type: (Path) -> None
     """
@@ -252,6 +240,7 @@ def reset_database():
     Reset the development database.
 
     Deletes existing database and recreates from scratch.
+    Hub synchronization will happen automatically on app startup.
     """
     # Get database path from settings
     db_name = settings.DATABASES["default"]["NAME"]
@@ -277,8 +266,7 @@ def reset_database():
     # Install periodic tasks
     install_tasks()
 
-    # Import testnet hub configurations
-    import_testnet_hubs()
+    # Note: Hub sync removed - happens automatically on app startup
 
     # Load test fixtures
     load_fixtures()
@@ -289,6 +277,7 @@ def reset_database():
         cleanup_migrations(migrations_dir)
 
     print("\n✅ Database reset complete!")
+    print("  ℹ️  Hub list will sync from GitHub on app startup")
     print_summary()
 
 

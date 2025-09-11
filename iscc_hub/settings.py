@@ -68,6 +68,10 @@ ISCC_HUB_TIMESTAMP_SERVERS = env.list(
 
 ISCC_HUB_SYNC_MODE = env.str("ISCC_HUB_SYNC_MODE", default="FULL")
 
+# Hub list synchronization on startup
+# Default: enabled (automatically skipped during test runs via pytest detection)
+ISCC_HUB_SYNC_ON_STARTUP = env.bool("ISCC_HUB_SYNC_ON_STARTUP", default=True)
+
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=(ISCC_HUB_DOMAIN,))
 
 # CSRF settings for reverse proxy deployments

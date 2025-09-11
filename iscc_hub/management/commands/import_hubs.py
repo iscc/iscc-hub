@@ -1,5 +1,7 @@
 """
-Management command to import hub configurations from YAML files.
+Management command to sync or import hub configurations.
+
+Can sync from GitHub (default) or import from a local YAML file (for development).
 """
 
 from pathlib import Path
@@ -9,27 +11,50 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from iscc_hub.models import Hub
+from iscc_hub.tasks import sync_hub_list
 
 
 class Command(BaseCommand):
-    help = "Import hub configurations from a YAML file"
+    help = "Sync hub configurations from GitHub or import from a local YAML file"
 
     def add_arguments(self, parser):
         """Add command arguments."""
         parser.add_argument(
-            "yaml_file",
+            "--file",
             type=str,
-            help="Path to the YAML file containing hub configurations",
+            help="Path to a local YAML file to import (for development). If not provided, syncs from GitHub.",
         )
         parser.add_argument(
             "--clear",
             action="store_true",
-            help="Clear existing hubs before importing",
+            help="Clear existing hubs before importing (only works with --file)",
         )
 
     def handle(self, *args, **options):
-        """Import hubs from YAML file."""
-        yaml_path = Path(options["yaml_file"])
+        """Sync hubs from GitHub or import from local file."""
+        yaml_file = options.get("file")
+
+        # If no file specified, sync from GitHub
+        if not yaml_file:
+            self.stdout.write("Syncing hub list from GitHub...")
+            result = sync_hub_list()
+
+            if result["status"] == "success":
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"Hub sync completed successfully: "
+                        f"{result['created']} created, {result['updated']} updated, "
+                        f"{result['deactivated']} deactivated"
+                    )
+                )
+            elif result["status"] == "partial":
+                self.stdout.write(self.style.WARNING(f"Hub sync completed with errors: {result.get('errors', [])}"))
+            else:
+                self.stderr.write(self.style.ERROR(f"Hub sync failed: {result.get('error', 'Unknown error')}"))
+            return
+
+        # Import from local file (development mode)
+        yaml_path = Path(yaml_file)
 
         if not yaml_path.exists():
             self.stderr.write(self.style.ERROR(f"File not found: {yaml_path}"))
