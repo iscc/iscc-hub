@@ -247,6 +247,36 @@ UNFOLD = {
     "STYLES": [
         lambda request: static("css/admin_custom.css"),
     ],
+    "COLORS": {
+        "primary": {
+            # ISCC Blue gradient from design.md
+            "50": "240 248 255",  # Lightest blue
+            "100": "219 234 254",  # Very light blue
+            "200": "191 219 254",  # Light blue
+            "300": "122 194 247",  # Light Cyan (#7ac2f7)
+            "400": "69 150 245",  # Sky Blue (#4596f5)
+            "500": "0 84 178",  # ISCC Blue (#0054b2) - Primary
+            "600": "0 84 178",  # ISCC Blue (#0054b2) - Used for site icon
+            "700": "14 43 79",  # Darker navy
+            "800": "10 32 59",  # Even darker
+            "900": "7 22 39",  # Very dark
+            "950": "4 11 20",  # Almost black
+        },
+        "base": {
+            # Neutral colors from design.md
+            "50": "248 249 250",  # Off White (#f8f9fa)
+            "100": "233 236 239",  # Light Gray (#e9ecef)
+            "200": "222 226 230",  # Slightly darker
+            "300": "206 212 218",  # Light-medium gray
+            "400": "173 181 189",  # Medium-light gray
+            "500": "108 117 125",  # Medium Gray (#6c757d)
+            "600": "73 80 87",  # Medium-dark gray
+            "700": "52 58 64",  # Dark Gray (#343a40)
+            "800": "33 37 41",  # Near Black (#212529)
+            "900": "23 26 29",  # Very dark
+            "950": "12 14 16",  # Almost black
+        },
+    },
     "SIDEBAR": {
         "show_search": True,
         "command_search": True,

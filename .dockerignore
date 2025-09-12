@@ -81,3 +81,4 @@ docker-compose*.yml
 *.bak
 .directory
 Thumbs.db
+.playwright-mcp/
