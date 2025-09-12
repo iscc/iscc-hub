@@ -253,7 +253,7 @@ UNFOLD = {
         "show_all_applications": False,  # Don't show all apps dropdown
         "navigation": [
             {
-                "title": "ISCC",
+                "title": "ISCC-HUB",
                 "collapsible": False,
                 "items": [
                     {
@@ -275,6 +275,11 @@ UNFOLD = {
                         "title": "Hubs",
                         "icon": "hub",
                         "link": "/admin/iscc_hub/hub/",
+                    },
+                    {
+                        "title": "Configuration",
+                        "icon": "settings",
+                        "link": "/admin/constance/config/",
                     },
                 ],
             },
@@ -322,17 +327,6 @@ UNFOLD = {
                         "title": "Failed",
                         "icon": "error",
                         "link": "/admin/django_q/failure/",
-                    },
-                ],
-            },
-            {
-                "title": "Settings",
-                "collapsible": True,
-                "items": [
-                    {
-                        "title": "Configuration",
-                        "icon": "settings",
-                        "link": "/admin/constance/config/",
                     },
                 ],
             },
