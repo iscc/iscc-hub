@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}ISCC-HUB{% endblock %}</title>
+    <title>{% block title %}ISCC HUB{% endblock %}</title>
     <meta name="description" content="{% block description %}ISCC Notary provides secure timestamping, signing, and discovery services for digital content using the International Standard Content Code{% endblock %}">
     <link rel="icon" href="/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -165,14 +165,14 @@
                         <a href="/" class="flex items-center gap-3 hover:opacity-80 transition-opacity duration-200">
                             <img src="/static/img/iscc-logo-white.png" alt="ISCC Logo" class="h-8 w-auto filter brightness-0 invert opacity-95">
                             <h1 class="text-2xl font-light text-white tracking-wider leading-none border-l-2 border-yellow-400 pl-3">
-                                NOTARY
+                                HUB
                             </h1>
                         </a>
                         <!-- Node ID card (mobile) -->
                         <div class="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5 shadow-lg">
-                            <div class="text-white/70 text-[10px] font-medium uppercase tracking-wider">Node-ID</div>
+                            <div class="text-white/70 text-[10px] font-medium uppercase tracking-wider">HUB-ID</div>
                             <div class="text-iscc-yellow text-sm font-mono font-thin leading-tight">
-                                #{{ hub_id|stringformat:"04d" }}
+                                #{{ notary_node_id|stringformat:"04d" }}
                             </div>
                         </div>
                     </div>
@@ -189,9 +189,9 @@
 
                     <!-- Node ID card (desktop) -->
                     <div class="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-4 py-2 shadow-lg">
-                        <div class="text-white/70 text-xs font-medium uppercase tracking-wider">HUB-ID</div>
+                        <div class="text-white/70 text-xs font-medium uppercase tracking-wider">Node-ID</div>
                         <div class="text-iscc-yellow text-lg font-mono font-thin leading-tight">
-                            #{{ hub_id|stringformat:"04d" }}
+                            #{{ notary_node_id|stringformat:"04d" }}
                         </div>
                     </div>
                 </div>
@@ -207,7 +207,7 @@
         <div class="max-w-7xl mx-auto px-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-8">
                 <div>
-                    <h5 class="text-lg mb-4 font-medium text-yellow-400">ISCC Notary</h5>
+                    <h5 class="text-lg mb-4 font-medium text-yellow-400">ISCC HUB</h5>
                     <p class="text-white/80 text-sm">Part of the International Standard Content Code ecosystem.</p>
                 </div>
                 <div>
@@ -228,12 +228,6 @@
             </div>
             <div class="border-t border-white/10 pt-4 text-center">
                 <p class="m-0 text-white/60 text-sm">&copy; 2024 ISCC Foundation. Licensed under Apache-2.0.</p>
-                {% if build_tag != "unknown" or build_commit_short != "unknown" %}
-                <p class="m-0 mt-2 text-white/40 text-xs font-mono">
-                    {% if build_tag != "unknown" %}{{ build_tag }}{% endif %}{% if build_tag != "unknown" and build_commit_short != "unknown" %} • {% endif %}{% if build_commit_short != "unknown" %}{{ build_commit_short }}{% endif %}
-                    {% if build_timestamp != "unknown" %}<br><span class="text-white/30">{{ build_timestamp }}</span>{% endif %}
-                </p>
-                {% endif %}
             </div>
         </div>
     </footer>
