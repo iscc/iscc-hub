@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}ISCC HUB{% endblock %}</title>
-    <meta name="description" content="{% block description %}ISCC Notary provides secure timestamping, signing, and discovery services for digital content using the International Standard Content Code{% endblock %}">
+    <title>{% block title %}ISCC-HUB - Digital Content Signing, Timestamping, and Metadata Discovery{% endblock %}</title>
+    <meta name="description" content="{% block description %}ISCC-HUB provides secure timestamping, signing, and discovery services for digital content using ISO 24138:2024 International Standard Content Code (ISCC){% endblock %}">
     <link rel="icon" href="/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -160,7 +160,7 @@
             <nav class="py-4 sm:py-6">
                 <!-- Mobile layout: stacked -->
                 <div class="flex flex-col gap-3 sm:hidden">
-                    <!-- Logo and NOTARY on first row -->
+                    <!-- Logo and HUB on first row -->
                     <div class="flex items-center justify-between">
                         <a href="/" class="flex items-center gap-3 hover:opacity-80 transition-opacity duration-200">
                             <img src="/static/img/iscc-logo-white.png" alt="ISCC Logo" class="h-8 w-auto filter brightness-0 invert opacity-95">
@@ -168,11 +168,11 @@
                                 HUB
                             </h1>
                         </a>
-                        <!-- Node ID card (mobile) -->
+                        <!-- HUB-ID card (mobile) -->
                         <div class="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5 shadow-lg">
                             <div class="text-white/70 text-[10px] font-medium uppercase tracking-wider">HUB-ID</div>
                             <div class="text-iscc-yellow text-sm font-mono font-thin leading-tight">
-                                #{{ notary_node_id|stringformat:"04d" }}
+                                #{{ hub_id|stringformat:"04d" }}
                             </div>
                         </div>
                     </div>
@@ -189,9 +189,9 @@
 
                     <!-- Node ID card (desktop) -->
                     <div class="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-4 py-2 shadow-lg">
-                        <div class="text-white/70 text-xs font-medium uppercase tracking-wider">Node-ID</div>
+                        <div class="text-white/70 text-xs font-medium uppercase tracking-wider">HUB-ID</div>
                         <div class="text-iscc-yellow text-lg font-mono font-thin leading-tight">
-                            #{{ notary_node_id|stringformat:"04d" }}
+                            #{{ hub_id|stringformat:"04d" }}
                         </div>
                     </div>
                 </div>
