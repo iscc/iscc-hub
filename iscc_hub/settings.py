@@ -386,6 +386,13 @@ UNFOLD_CONSTANCE_ADDITIONAL_FIELDS = {
             "required": False,
         },
     ],
+    "text_field": [
+        "django.forms.CharField",
+        {
+            "widget": "unfold.widgets.UnfoldAdminTextareaWidget",
+            "required": False,
+        },
+    ],
     int: [
         "django.forms.IntegerField",
         {
@@ -425,11 +432,11 @@ CONSTANCE_CONFIG = OrderedDict(
         ("ORG_NAME", ("", "Organization Name", str)),
         ("ORG_LOGO", (None, "Organization Logo", "image_field")),
         ("ORG_URL", ("", "Organization URL", str)),
-        ("ORG_TAGLINE", ("", "Organization Tagline (e.g., 'Digital Archives at Example University')", str)),
+        ("ORG_TAGLINE", ("", "Organization Tagline (e.g., 'Digital Archives at Example University')", "text_field")),
         # Call to Action
         ("CTA_ENABLED", (False, "Enable Call-to-Action Section", bool)),
         ("CTA_TITLE", ("", "Call-to-Action Title (e.g., 'Integrate with Our Services')", str)),
-        ("CTA_DESCRIPTION", ("", "Call-to-Action Description", str)),
+        ("CTA_DESCRIPTION", ("", "Call-to-Action Description", "text_field")),
         ("CTA_BUTTON_TEXT", ("", "Call-to-Action Button Text (e.g., 'Explore Our Repository')", str)),
         ("CTA_BUTTON_URL", ("", "Call-to-Action Button URL", str)),
         # Access Control
