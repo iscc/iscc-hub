@@ -227,7 +227,18 @@
                 </div>
             </div>
             <div class="border-t border-white/10 pt-4 text-center">
-                <p class="m-0 text-white/60 text-sm">&copy; 2024 ISCC Foundation. Licensed under Apache-2.0.</p>
+                <p class="m-0 text-white/60 text-sm">&copy; 2025 ISCC Foundation. Licensed under Apache-2.0.</p>
+                <p class="mt-2 text-white/40 text-xs font-mono">
+                    Build:
+                    {% if build_tag != 'unknown' %}{{ build_tag }}{% endif %}
+                    {% if build_tag != 'unknown' and build_commit_short != 'unknown' %} • {% endif %}
+                    {% if build_commit_short != 'unknown' %}{{ build_commit_short }}{% endif %}
+                    {% if build_timestamp != 'unknown' %}
+                        {% if build_tag != 'unknown' or build_commit_short != 'unknown' %} • {% endif %}
+                        {{ build_timestamp }}
+                    {% endif %}
+                    {% if build_tag == 'unknown' and build_commit_short == 'unknown' and build_timestamp == 'unknown' %}development{% endif %}
+                </p>
             </div>
         </div>
     </footer>
