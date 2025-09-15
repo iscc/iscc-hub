@@ -419,8 +419,9 @@ CONSTANCE_ADDITIONAL_FIELDS = {**UNFOLD_CONSTANCE_ADDITIONAL_FIELDS}
 
 CONSTANCE_CONFIG = OrderedDict(
     [
-        ("COMPANY_NAME", ("ISCC Foundation", "Company Name", str)),
-        ("COMPANY_LOGO", (None, "Company Logo", "image_field")),
+        ("ORG_NAME", ("ISCC Foundation", "Organization Name", str)),
+        ("ORG_LOGO", (None, "Organization Logo", "image_field")),
+        ("ORG_URL", ("https://iscc.io", "Organization URL", str)),
         ("OPEN_ACCESS", (True, "Open Access", bool)),
     ]
 )
