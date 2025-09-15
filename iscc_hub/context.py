@@ -1,5 +1,6 @@
 """Context processors for making common variables available in templates."""
 
+from constance import config
 from django.conf import settings
 
 
@@ -22,6 +23,9 @@ def hub_context(request):
     else:
         build_commit_short = build_commit
 
+    # Check if co-branding is configured
+    has_cobranding = bool(config.ORG_NAME)
+
     return {
         "hub_id": getattr(settings, "ISCC_HUB_ID", 0),
         "debug_mode": getattr(settings, "DEBUG", False),
@@ -29,4 +33,15 @@ def hub_context(request):
         "build_commit_short": build_commit_short,
         "build_tag": build_tag,
         "build_timestamp": build_timestamp,
+        # Co-branding configuration
+        "has_cobranding": has_cobranding,
+        "org_name": config.ORG_NAME,
+        "org_logo": config.ORG_LOGO,
+        "org_url": config.ORG_URL,
+        "org_tagline": config.ORG_TAGLINE,
+        "cta_enabled": config.CTA_ENABLED,
+        "cta_title": config.CTA_TITLE,
+        "cta_description": config.CTA_DESCRIPTION,
+        "cta_button_text": config.CTA_BUTTON_TEXT,
+        "cta_button_url": config.CTA_BUTTON_URL,
     }

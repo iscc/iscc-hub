@@ -58,7 +58,7 @@
                             <!-- Coral red border at the top -->
                             <div class="absolute top-0 left-0 right-0 h-4 bg-iscc-coral rounded-t-2xl" style="background-image: url('/static/img/grain.png'); background-size: 256px 256px; background-blend-mode: overlay;"></div>
                             <div class="text-center mb-6 mt-4 relative z-10">
-                                <h3 class="text-2xl md:text-3xl font-semibold text-white mb-3">ISCC Lookup & Resolution</h3>
+                                <h3 class="text-2xl md:text-3xl font-semibold text-white mb-3">ISCC Lookup & Search</h3>
                             </div>
 
                             <form class="space-y-6" id="iscc-lookup-form">
@@ -127,6 +127,63 @@
                 </div>
             </div>
         </section>
+
+        <!-- Operator Co-branding Section (only shown if configured) -->
+        {% if has_cobranding %}
+        <section class="py-12 bg-white/80 backdrop-blur-sm border-y border-gray-200">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="flex flex-col lg:flex-row items-center gap-8">
+                    <!-- Organization Logo and Info -->
+                    <div class="flex flex-col sm:flex-row items-center gap-6 flex-1">
+                        {% if org_logo %}
+                        <img src="/static/media/{{ org_logo }}" alt="{{ org_name }} Logo" class="h-24 w-auto object-contain">
+                        {% endif %}
+                        <div class="text-center sm:text-left">
+                            <h3 class="text-xl font-semibold text-gray-900 mb-1">{{ org_name }}</h3>
+                            {% if org_tagline %}
+                            <p class="text-gray-600">{{ org_tagline }}</p>
+                            {% endif %}
+                            {% if org_url %}
+                            <a href="{{ org_url }}" target="_blank" rel="noopener noreferrer" class="text-sm text-iscc-blue hover:text-blue-700 transition-colors inline-flex items-center gap-1 mt-2">
+                                Visit our website
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M15 3H21V9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Call to Action (if enabled) -->
+                    {% if cta_enabled %}
+                    <div class="lg:border-l lg:border-gray-300 lg:pl-8">
+                        <div class="text-center lg:text-left">
+                            {% if cta_title %}
+                            <h4 class="text-lg font-semibold text-gray-900 mb-2">{{ cta_title }}</h4>
+                            {% endif %}
+                            {% if cta_description %}
+                            <p class="text-gray-600 mb-4 max-w-md">{{ cta_description }}</p>
+                            {% endif %}
+                            {% if cta_button_text and cta_button_url %}
+                            <a href="{{ cta_button_url }}"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="inline-flex items-center px-6 py-3 bg-iscc-coral hover:bg-red-600 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-[1.02] shadow-lg">
+                                {{ cta_button_text }}
+                                <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                                </svg>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+        {% endif %}
 
         <!-- Results Section -->
         <section id="results-section" class="py-16 hidden">

@@ -15,7 +15,19 @@ def test_hub_context_returns_hub_id():
     mock_settings.ISCC_HUB_ID = 42
     mock_settings.DEBUG = True
 
-    with patch("iscc_hub.context.settings", mock_settings):
+    # Mock constance config
+    mock_config = MagicMock()
+    mock_config.ORG_NAME = ""
+    mock_config.ORG_LOGO = None
+    mock_config.ORG_URL = ""
+    mock_config.ORG_TAGLINE = ""
+    mock_config.CTA_ENABLED = False
+    mock_config.CTA_TITLE = ""
+    mock_config.CTA_DESCRIPTION = ""
+    mock_config.CTA_BUTTON_TEXT = ""
+    mock_config.CTA_BUTTON_URL = ""
+
+    with patch("iscc_hub.context.settings", mock_settings), patch("iscc_hub.context.config", mock_config):
         result = hub_context(request)
 
         assert result["hub_id"] == 42
@@ -25,6 +37,10 @@ def test_hub_context_returns_hub_id():
         assert result["build_commit_short"] == "unknown"
         assert result["build_tag"] == "unknown"
         assert result["build_timestamp"] == "unknown"
+        # Check co-branding fields
+        assert result["has_cobranding"] is False
+        assert result["org_name"] == ""
+        assert result["cta_enabled"] is False
 
 
 def test_hub_context_with_missing_settings():
@@ -35,7 +51,19 @@ def test_hub_context_with_missing_settings():
     # Mock settings without the ISCC_HUB_ID and DEBUG attributes
     mock_settings = MagicMock(spec=[])
 
-    with patch("iscc_hub.context.settings", mock_settings):
+    # Mock constance config
+    mock_config = MagicMock()
+    mock_config.ORG_NAME = ""
+    mock_config.ORG_LOGO = None
+    mock_config.ORG_URL = ""
+    mock_config.ORG_TAGLINE = ""
+    mock_config.CTA_ENABLED = False
+    mock_config.CTA_TITLE = ""
+    mock_config.CTA_DESCRIPTION = ""
+    mock_config.CTA_BUTTON_TEXT = ""
+    mock_config.CTA_BUTTON_URL = ""
+
+    with patch("iscc_hub.context.settings", mock_settings), patch("iscc_hub.context.config", mock_config):
         result = hub_context(request)
 
         assert result["hub_id"] == 0
@@ -51,13 +79,28 @@ def test_hub_context_with_build_metadata():
     """Test that hub_context correctly handles build metadata."""
     request = MagicMock()
 
-    with patch(
-        "iscc_hub.context.settings",
-        ISCC_HUB_ID=123,
-        DEBUG=False,
-        BUILD_COMMIT="a1b2c3d4e5f6789012345678901234567890abcd",
-        BUILD_TAG="v1.2.3",
-        BUILD_TIMESTAMP="2024-01-15T12:00:00Z",
+    # Mock constance config
+    mock_config = MagicMock()
+    mock_config.ORG_NAME = ""
+    mock_config.ORG_LOGO = None
+    mock_config.ORG_URL = ""
+    mock_config.ORG_TAGLINE = ""
+    mock_config.CTA_ENABLED = False
+    mock_config.CTA_TITLE = ""
+    mock_config.CTA_DESCRIPTION = ""
+    mock_config.CTA_BUTTON_TEXT = ""
+    mock_config.CTA_BUTTON_URL = ""
+
+    with (
+        patch(
+            "iscc_hub.context.settings",
+            ISCC_HUB_ID=123,
+            DEBUG=False,
+            BUILD_COMMIT="a1b2c3d4e5f6789012345678901234567890abcd",
+            BUILD_TAG="v1.2.3",
+            BUILD_TIMESTAMP="2024-01-15T12:00:00Z",
+        ),
+        patch("iscc_hub.context.config", mock_config),
     ):
         result = hub_context(request)
 
@@ -78,7 +121,19 @@ def test_hub_context_with_short_commit():
     mock_settings = MagicMock(spec=["BUILD_COMMIT"])
     mock_settings.BUILD_COMMIT = "abc"
 
-    with patch("iscc_hub.context.settings", mock_settings):
+    # Mock constance config
+    mock_config = MagicMock()
+    mock_config.ORG_NAME = ""
+    mock_config.ORG_LOGO = None
+    mock_config.ORG_URL = ""
+    mock_config.ORG_TAGLINE = ""
+    mock_config.CTA_ENABLED = False
+    mock_config.CTA_TITLE = ""
+    mock_config.CTA_DESCRIPTION = ""
+    mock_config.CTA_BUTTON_TEXT = ""
+    mock_config.CTA_BUTTON_URL = ""
+
+    with patch("iscc_hub.context.settings", mock_settings), patch("iscc_hub.context.config", mock_config):
         result = hub_context(request)
 
         # Should not shorten if already less than 8 chars
