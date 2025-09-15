@@ -1,101 +1,722 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ISCC-HUB</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        html, body {
-            height: 100%;
-            background: radial-gradient(circle at center, #ffffff 0%, 70%, #c0c0c0 100%);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            position: relative;
-        }
-        
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: url('/static/img/grain.png');
-            background-size: 256px 256px;
-            opacity: 0.3;
-            pointer-events: none;
-            z-index: 1;
-        }
-        
-        .container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            position: relative;
-            z-index: 2;
-        }
-        
-        .logo {
-            /* Make the white logo visible on white background by inverting colors */
-            filter: invert(1) brightness(0) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
-            max-width: 300px;
-            height: auto;
-            transition: transform 0.3s ease, filter 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .logo:hover {
-            transform: scale(1.05);
-            filter: invert(1) brightness(0) drop-shadow(0 8px 20px rgba(0, 0, 0, 0.25));
-        }
-        
-        .hub-info {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            color: #666;
-            font-size: 14px;
-            font-family: monospace;
-            z-index: 10;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .hub-info a {
-            color: #666;
-            text-decoration: none;
-            transition: color 0.2s ease;
-        }
-        
-        .hub-info a:hover {
-            color: #333;
-        }
-        
-        .debug-badge {
-            background-color: #ff6b6b;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            margin-left: 10px;
-        }
-    </style>
-</head>
-<body>
-    <div class="hub-info">
-        <a href="/docs">API</a>
-        <a href="/admin">ADMIN</a>
-        <span>HUB-ID: {{ hub_id }}</span>{% if debug_mode %}<span class="debug-badge">DEBUG</span>{% endif %}
-    </div>
-    <div class="container">
-        <img src="/static/img/iscc-logo-white.png" alt="ISCC Logo" class="logo">
-    </div>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}ISCC Notary - The DNA of your digital content{% endblock %}
+
+{% block extra_head %}
+        <!-- Uppy CSS -->
+        <link href="https://releases.transloadit.com/uppy/v4.3.0/uppy.min.css" rel="stylesheet">
+        <style>
+            @keyframes stripes {
+                0% {
+                    background-position: 0 0;
+                }
+                100% {
+                    background-position: 40px 0;
+                }
+            }
+        </style>
+{% endblock %}
+
+{% block content %}
+        <section class="py-16 md:py-24 bg-iscc-blue relative overflow-hidden">
+            <div class="max-w-7xl mx-auto px-6 relative z-10">
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12 items-center">
+                    <!-- Hero Text - Left Side (2/5 width) -->
+                    <div class="lg:col-span-2">
+                        <div class="mb-4">
+                            <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-white/20 text-white border border-white/30 backdrop-blur-sm">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                ISO 24138:2024 Standard
+                            </span>
+                        </div>
+                        <h1 class="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight mb-6">
+                            Universal Content
+                            <span class="text-iscc-yellow">Identification</span>
+                        </h1>
+                        <p class="text-lg md:text-xl text-white/90 leading-relaxed mb-8 font-extralight">
+                            Transparent, verifiable, and universally accessible content timestamping and discovery powered by the <b>International Standard Content Code</b>.
+                        </p>
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <a href="/docs" class="inline-flex items-center px-6 py-3 bg-white text-iscc-blue font-semibold rounded-lg hover:bg-gray-100 transition-all duration-200 transform hover:scale-[1.02] shadow-lg">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                API Documentation
+                            </a>
+                            <a href="#features" class="inline-flex items-center px-6 py-3 text-white font-semibold rounded-lg border border-white/30 hover:bg-white/10 transition-all duration-200 backdrop-blur-sm">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Learn More
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- ISCC Lookup Card - Right Side (3/5 width) -->
+                    <div class="lg:col-span-3">
+                        <div class="bg-iscc-navy backdrop-blur-sm rounded-2xl shadow-xl border border-white/10 p-6 md:p-8 transition-all duration-300 hover:shadow-2xl hover:border-white/20 hover:transform hover:scale-[1.02] relative overflow-hidden">
+                            <!-- Coral red border at the top -->
+                            <div class="absolute top-0 left-0 right-0 h-4 bg-iscc-coral rounded-t-2xl" style="background-image: url('/static/img/grain.png'); background-size: 256px 256px; background-blend-mode: overlay;"></div>
+                            <div class="text-center mb-6 mt-4 relative z-10">
+                                <h3 class="text-2xl md:text-3xl font-semibold text-white mb-3">ISCC Lookup & Resolution</h3>
+                            </div>
+
+                            <form class="space-y-6" id="iscc-lookup-form">
+                                <div class="relative">
+                                    <div class="relative flex border-2 border-white/20 rounded-xl focus-within:border-iscc-coral transition-all duration-300">
+                                        <input
+                                            type="text"
+                                            id="iscc-input"
+                                            name="iscc"
+                                            placeholder="ISCC:KED572P4A0F5K60... or drop a file"
+                                            class="flex-1 px-4 py-4 text-[15px] border-0 rounded-l-lg outline-none font-mono font-thin tracking-tighter text-white bg-white/10 placeholder-gray-400 transition-all duration-300"
+                                            required
+                                        />
+                                        <button
+                                            type="submit"
+                                            id="resolve-button"
+                                            class="px-4 py-4 bg-iscc-coral hover:bg-red-600 text-white font-semibold rounded-r-lg transition-all duration-200 transform hover:scale-[1.02] outline-none shadow-lg border-0"
+                                        >
+                                            <span class="flex items-center justify-center" id="button-content">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                                                    <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                </svg>
+                                                <span id="button-text" class="sr-only">Resolve</span>
+                                            </span>
+                                        </button>
+                                    </div>
+                                    <!-- File info display -->
+                                    <div id="file-info" class="hidden mt-2 flex items-center gap-2 text-sm text-iscc-cyan">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M14 2V8H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                        <span id="file-name"></span>
+                                        <button type="button" id="clear-file" class="text-white/60 hover:text-white ml-2 p-1 rounded transition-all hover:bg-white/10 cursor-pointer">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <!-- Uppy Drop Area -->
+                                    <div id="uppy-drop-area" class="absolute inset-0 pointer-events-none"></div>
+                                </div>
+
+                                <div class="flex flex-wrap gap-2 justify-center pt-2">
+                                    <span class="text-sm text-white/60">Try example:</span>
+                                    <button
+                                        type="button"
+                                        class="text-sm text-iscc-cyan hover:text-white underline font-mono transition-colors"
+                                        onclick="document.getElementById('iscc-input').value='ISCC:KED572P4A0F5K60XQA4T60JD5UGX7UBPFW2TVQNTHBCKFRFCANCZARQ4K6NSFZQSH4GQ'"
+                                    >
+                                        ISCC:KED572P4A0F5K60...
+                                    </button>
+                                    <span class="text-sm text-white/40">or</span>
+                                    <button
+                                        type="button"
+                                        id="browse-files"
+                                        class="text-sm text-iscc-cyan hover:text-white underline transition-colors"
+                                    >
+                                        browse files
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="results-section" class="py-16 hidden">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="mb-6 flex items-center justify-between">
+                    <h2 class="text-2xl font-semibold text-gray-900">Search Results</h2>
+                    <button id="clear-results" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                        Clear Results ×
+                    </button>
+                </div>
+
+                <div id="results-container" class="space-y-4">
+                    <!-- Dummy Result Card 1 (with controller) -->
+                    <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 overflow-hidden relative group">
+                        <!-- Top Section with Blue Background -->
+                        <div class="bg-iscc-light-blue h-20 relative" style="background-image: url('/static/img/grain.png'); background-size: 256px 256px; background-blend-mode: overlay;">
+                            <!-- Certificate Icon -->
+                            <div class="absolute top-1/2 -translate-y-1/2 right-4 z-10">
+                                <div class="w-10 h-10 bg-iscc-green/20 rounded-lg flex items-center justify-center" title="Verified with Controller">
+                                    <svg class="w-6 h-6 text-iscc-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- ISCC-ID Tab -->
+                            <div class="absolute top-1/2 -translate-y-1/2 -left-1 z-10">
+                                <div class="bg-gray-700 text-gray-100 px-4 py-2 rounded-r-lg shadow-lg">
+                                    <span class="font-mono text-xs tracking-tight">ISCC:MAIGHFECJMOPMIAB</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Content -->
+                        <div class="p-6">
+                            <!-- ISCC-CODE Section - Full Width -->
+                            <div class="mb-4">
+                                <h4 class="text-sm font-medium text-gray-600 mb-1">ISCC-CODE</h4>
+                                <p class="font-mono text-xs text-gray-700 bg-gray-50 px-3 py-2 rounded border border-gray-200 break-all">ISCC:KED572P4AOF5K6QXQA4T6OJD5UGX7UBPFW2TVQNTHBCKFRFCANCZARQ4K6NSFZQSH4GQ</p>
+                            </div>
+
+                            <!-- Meta Information Grid -->
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                <!-- Timestamp -->
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Registered</h4>
+                                    <p class="text-sm text-gray-800">2025-01-20 14:32:18 UTC</p>
+                                </div>
+
+                                <!-- Controller/Signature -->
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Controller</h4>
+                                    <p class="text-sm text-gray-800 font-mono break-all">did:web:example.com</p>
+                                </div>
+
+                                <!-- Resolver -->
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Resolver</h4>
+                                    <a href="https://example.com/metadata/ISCC:MAIGHFECJMOPMIAB"
+                                       class="text-sm text-iscc-blue hover:text-blue-700 transition-colors inline-flex items-center gap-1"
+                                       target="_blank"
+                                       rel="noopener noreferrer">
+                                        example.com/metadata
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M15 3H21V9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dummy Result Card 2 (pubkey only, no resolver) -->
+                    <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 overflow-hidden relative group">
+                        <!-- Top Section with Blue Background -->
+                        <div class="bg-iscc-light-blue h-20 relative" style="background-image: url('/static/img/grain.png'); background-size: 256px 256px; background-blend-mode: overlay;">
+                            <!-- Certificate Icon (Coral for no controller, no resolver) -->
+                            <div class="absolute top-1/2 -translate-y-1/2 right-4 z-10">
+                                <div class="w-10 h-10 bg-iscc-coral/20 rounded-lg flex items-center justify-center" title="Basic Signature">
+                                    <svg class="w-6 h-6 text-iscc-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- ISCC-ID Tab -->
+                            <div class="absolute top-1/2 -translate-y-1/2 -left-1 z-10">
+                                <div class="bg-gray-700 text-gray-100 px-4 py-2 rounded-r-lg shadow-lg">
+                                    <span class="font-mono text-xs tracking-tight">ISCC:MABXW23FQLCYPKIZ</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Content -->
+                        <div class="p-6">
+                            <!-- ISCC-CODE Section - Full Width -->
+                            <div class="mb-4">
+                                <h4 class="text-sm font-medium text-gray-600 mb-1">ISCC-CODE</h4>
+                                <p class="font-mono text-xs text-gray-700 bg-gray-50 px-3 py-2 rounded border border-gray-200 break-all">ISCC:KACT3NRHBQXWJKXV6OJ7XR7B62NJXMYQDNHCNZQZLW4L2UXBCJIZERA</p>
+                            </div>
+
+                            <!-- Meta Information Grid -->
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                <!-- Timestamp -->
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Registered</h4>
+                                    <p class="text-sm text-gray-800">2025-01-19 09:15:42 UTC</p>
+                                </div>
+
+                                <!-- Public Key -->
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Public Key</h4>
+                                    <p class="text-sm text-gray-800 font-mono break-all" title="z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB">z6MknNWEmX1z...2g5EkFrB</p>
+                                </div>
+
+                                <!-- Resolver -->
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Resolver</h4>
+                                    <p class="text-sm text-gray-500">Not specified</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dummy Result Card 3 (with controller and resolver) -->
+                    <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 overflow-hidden relative group">
+                        <!-- Top Section with Blue Background -->
+                        <div class="bg-iscc-light-blue h-20 relative" style="background-image: url('/static/img/grain.png'); background-size: 256px 256px; background-blend-mode: overlay;">
+                            <!-- Certificate Icon (Yellow for controller with resolver) -->
+                            <div class="absolute top-1/2 -translate-y-1/2 right-4 z-10">
+                                <div class="w-10 h-10 bg-iscc-yellow/20 rounded-lg flex items-center justify-center" title="Verified with Controller">
+                                    <svg class="w-6 h-6 text-iscc-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- ISCC-ID Tab -->
+                            <div class="absolute top-1/2 -translate-y-1/2 -left-1 z-10">
+                                <div class="bg-gray-700 text-gray-100 px-4 py-2 rounded-r-lg shadow-lg">
+                                    <span class="font-mono text-xs tracking-tight">ISCC:MADKZ5PLNRXGTVQB</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Content -->
+                        <div class="p-6">
+                            <!-- ISCC-CODE Section - Full Width -->
+                            <div class="mb-4">
+                                <h4 class="text-sm font-medium text-gray-600 mb-1">ISCC-CODE</h4>
+                                <p class="font-mono text-xs text-gray-700 bg-gray-50 px-3 py-2 rounded border border-gray-200 break-all">ISCC:KACTXL7PSZSWDVMQ2DPDF6FXHTKLM3Y5WNRQZQAJDKQRTXHIZXMIRJI</p>
+                            </div>
+
+                            <!-- Meta Information Grid -->
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                <!-- Timestamp -->
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Registered</h4>
+                                    <p class="text-sm text-gray-800">2025-01-18 21:47:33 UTC</p>
+                                </div>
+
+                                <!-- Controller -->
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Controller</h4>
+                                    <p class="text-sm text-gray-800 font-mono break-all">did:ipfs:QmX9dhRp...</p>
+                                </div>
+
+                                <!-- Resolver -->
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Resolver</h4>
+                                    <a href="https://ipfs.io/ipfs/ISCC:MADKZ5PLNRXGTVQB"
+                                       class="text-sm text-iscc-blue hover:text-blue-700 transition-colors inline-flex items-center gap-1"
+                                       target="_blank"
+                                       rel="noopener noreferrer">
+                                        ipfs.io/ipfs
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M15 3H21V9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Feature Cards Section -->
+        <section class="py-16">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Content Timestamping Card -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-200 hover:border-gray-300 transition-all duration-300 hover:transform hover:translate-y-[-2px] shadow-md hover:shadow-lg">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 bg-iscc-green/20 rounded-lg flex items-center justify-center text-iscc-green flex-shrink-0">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M12 6V12L16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-xl font-semibold text-gray-900 mb-2">Content Timestamping</h3>
+                                <p class="text-sm text-gray-700 font-thin leading-relaxed">Demonstrate when your content was created with cryptographic proof</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Digital Signatures Card -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-200 hover:border-gray-300 transition-all duration-300 hover:transform hover:translate-y-[-2px] shadow-md hover:shadow-lg">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 bg-iscc-cyan/20 rounded-lg flex items-center justify-center text-iscc-cyan flex-shrink-0">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-xl font-semibold text-gray-900 mb-2">Digital Signatures</h3>
+                                <p class="text-sm text-gray-700 font-thin leading-relaxed">Cryptographically prove your work's authenticity and integrity</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ISCC Fingerprints Card -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-200 hover:border-gray-300 transition-all duration-300 hover:transform hover:translate-y-[-2px] shadow-md hover:shadow-lg">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 bg-iscc-coral/20 rounded-lg flex items-center justify-center text-iscc-coral flex-shrink-0">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-xl font-semibold text-gray-900 mb-2">ISCC Fingerprints</h3>
+                                <p class="text-sm text-gray-700 font-thin leading-relaxed">Make your content metadata discoverable across networks</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Uppy JS -->
+        <script src="https://releases.transloadit.com/uppy/v4.3.0/uppy.min.js"></script>
+
+        <script>
+            // ISCC API Configuration
+            const ISCC_API_BASE = 'https://demo.iscc.io/api/v1';
+
+            // Uppy-based Upload functionality
+            document.addEventListener('DOMContentLoaded', function() {
+                const isccInput = document.getElementById('iscc-input');
+                const browseButton = document.getElementById('browse-files');
+                const fileInfo = document.getElementById('file-info');
+                const fileName = document.getElementById('file-name');
+                const clearFile = document.getElementById('clear-file');
+                const buttonText = document.getElementById('button-text');
+                const buttonContent = document.getElementById('button-content');
+                const resolveButton = document.getElementById('resolve-button');
+                const uppyDropArea = document.getElementById('uppy-drop-area');
+
+                let currentFile = null;
+                let isGenerating = false;
+                let currentUppy = null;
+
+                // Initialize Uppy
+                function initializeUppy() {
+                    if (currentUppy) {
+                        currentUppy.close();
+                    }
+
+                    currentUppy = new Uppy.Uppy({
+                        debug: false,
+                        autoProceed: false,
+                        restrictions: {
+                            maxNumberOfFiles: 1,
+                            allowedFileTypes: ['image/*', 'video/*', 'audio/*', 'text/*', '.pdf', '.epub', '.doc', '.docx']
+                        }
+                    });
+
+                    // Use DropTarget plugin for drag & drop - target only the input area
+                    currentUppy.use(Uppy.DropTarget, {
+                        target: '#iscc-input',
+                        onDragOver: (event) => {
+                            uppyDropArea.innerHTML = `
+                                <div class="absolute inset-0 bg-iscc-coral border-2 border-dashed border-white rounded-xl flex items-center justify-center pointer-events-none">
+                                    <div class="flex items-center gap-2 text-white">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="flex-shrink-0">
+                                            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                        <span class="font-medium">Drop your file here</span>
+                                    </div>
+                                </div>
+                            `;
+                            isccInput.classList.add('border-iscc-coral/50', 'bg-white/15');
+                        },
+                        onDragLeave: (event) => {
+                            uppyDropArea.innerHTML = '';
+                            isccInput.classList.remove('border-iscc-coral/50', 'bg-white/15');
+                        },
+                        onDrop: (event) => {
+                            uppyDropArea.innerHTML = '';
+                            isccInput.classList.remove('border-iscc-coral/50', 'bg-white/15');
+                        }
+                    });
+
+                    // Handle file added
+                    currentUppy.on('file-added', (file) => {
+                        handleUppyFile(file);
+                    });
+
+                    // Handle browse button click
+                    if (browseButton) {
+                        browseButton.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.accept = 'image/*,video/*,audio/*,text/*,.pdf,.epub,.doc,.docx';
+                            input.onchange = (e) => {
+                                const files = Array.from(e.target.files);
+                                files.forEach(file => {
+                                    try {
+                                        currentUppy.addFile({
+                                            name: file.name,
+                                            type: file.type,
+                                            data: file
+                                        });
+                                    } catch (err) {
+                                        console.error('Error adding file:', err);
+                                    }
+                                });
+                            };
+                            input.click();
+                        });
+                    }
+                }
+
+                // Initialize Uppy on load
+                initializeUppy();
+
+                // Show error message
+                function showError(message) {
+                    isccInput.value = '';
+                    isccInput.placeholder = message;
+                    isccInput.classList.add('text-red-400', 'placeholder-red-400');
+                    setTimeout(() => {
+                        isccInput.classList.remove('text-red-400', 'placeholder-red-400');
+                        isccInput.placeholder = 'ISCC:KED572P4A0F5K60... or drop a file';
+                    }, 5000);
+                }
+
+                // Show loading state with infinite progress bar
+                function setLoading(loading) {
+                    isGenerating = loading;
+                    resolveButton.disabled = loading;
+
+                    if (loading) {
+                        // Create progress overlay on top of input field only
+                        let progressOverlay = document.getElementById('progress-overlay');
+                        if (!progressOverlay) {
+                            progressOverlay = document.createElement('div');
+                            progressOverlay.id = 'progress-overlay';
+                            progressOverlay.className = 'absolute top-0 left-0 bottom-0 rounded-l-lg overflow-hidden pointer-events-none z-10';
+                            progressOverlay.style.right = resolveButton.offsetWidth + 'px'; // Leave space for button
+                            progressOverlay.innerHTML = `
+                                <div class="absolute inset-0 bg-iscc-green/20"></div>
+                                <div class="absolute inset-0 bg-gradient-to-r from-iscc-green/40 via-iscc-green/60 to-iscc-green/40 animate-[shimmer_2s_infinite]"
+                                     style="background-size: 200% 100%; background-position: -100% 0;"></div>
+                                <div class="absolute inset-0"
+                                     style="background-image: repeating-linear-gradient(
+                                       45deg,
+                                       transparent,
+                                       transparent 10px,
+                                       rgba(166, 219, 80, 0.1) 10px,
+                                       rgba(166, 219, 80, 0.1) 20px
+                                     ); animation: stripes 1s linear infinite;"></div>
+                            `;
+                            // Insert the overlay inside the parent div that contains the input
+                            isccInput.parentNode.style.position = 'relative';
+                            isccInput.parentNode.appendChild(progressOverlay);
+                        }
+                        progressOverlay.style.display = 'block';
+                        progressOverlay.style.right = resolveButton.offsetWidth + 'px'; // Update in case button size changed
+
+                        // Update button
+                        buttonContent.innerHTML = `
+                            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        `;
+                        resolveButton.classList.add('opacity-75', 'cursor-not-allowed');
+                    } else {
+                        // Hide progress overlay
+                        const progressOverlay = document.getElementById('progress-overlay');
+                        if (progressOverlay) {
+                            progressOverlay.style.display = 'none';
+                        }
+
+                        // Reset button
+                        buttonContent.innerHTML = `
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                                <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            <span id="button-text" class="sr-only">Resolve</span>
+                        `;
+                        resolveButton.classList.remove('opacity-75', 'cursor-not-allowed');
+                    }
+                }
+
+                // Generate ISCC directly from file using /iscc endpoint
+                async function generateISCCFromFile(file) {
+                    try {
+                        // Base64 encode filename for X-Upload-Filename header
+                        const encodedFilename = btoa(file.name);
+
+                        const response = await fetch(`${ISCC_API_BASE}/iscc`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/octet-stream',
+                                'X-Upload-Filename': encodedFilename
+                            },
+                            body: file
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`ISCC generation failed: ${response.status} ${response.statusText}`);
+                        }
+
+                        const data = await response.json();
+                        return data.iscc;
+                    } catch (error) {
+                        console.error('ISCC generation error:', error);
+                        if (error.message.includes('Failed to fetch')) {
+                            throw new Error('CORS error: API not accessible. Please configure CORS on demo.iscc.io');
+                        }
+                        throw error;
+                    }
+                }
+
+                async function handleUppyFile(uppyFile) {
+                    const file = uppyFile.data;
+                    currentFile = file;
+
+                    // Show file info
+                    fileName.textContent = file.name;
+                    fileInfo.classList.remove('hidden');
+
+                    // Button is now icon-only, no text update needed
+
+                    // Clear any existing value
+                    isccInput.value = '';
+
+                    // Start loading with progress bar
+                    setLoading(true);
+
+                    try {
+                        // Generate ISCC directly from file
+                        const iscc = await generateISCCFromFile(file);
+                        console.log('ISCC generated:', iscc);
+
+                        // Update input with ISCC
+                        isccInput.value = iscc;
+                        // Button is now icon-only, no text update needed
+
+                        // Automatically trigger search to show results
+                        showResults();
+
+                    } catch (error) {
+                        console.error('Error processing file:', error);
+                        showError(error.message);
+
+                        // Clear file on error
+                        currentFile = null;
+                        currentUppy.removeFile(uppyFile.id);
+                        fileInfo.classList.add('hidden');
+                        // Button is now icon-only, no text update needed
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+
+                // Clear file functionality
+                if (clearFile) {
+                    clearFile.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        currentFile = null;
+                        if (currentUppy) {
+                            currentUppy.cancelAll();
+                            // Clear all Uppy files
+                            const files = currentUppy.getFiles();
+                            files.forEach(file => {
+                                currentUppy.removeFile(file.id);
+                            });
+                        }
+                        isccInput.value = '';
+                        fileInfo.classList.add('hidden');
+                        isccInput.placeholder = 'ISCC:KED572P4A0F5K60... or drop a file';
+                        // Button is now icon-only, no text update needed
+                    });
+                }
+
+                // Handle form submission
+                document.getElementById('iscc-lookup-form').addEventListener('submit', async function(e) {
+                    e.preventDefault();
+
+                    if (isGenerating) {
+                        // Still generating ISCC, prevent submission
+                        return;
+                    }
+
+                    const isccValue = isccInput.value.trim();
+                    if (isccValue) {
+                        setLoading(true);
+
+                        try {
+                            // For now, just show the dummy results section
+                            // In a real implementation, this would query the API
+                            showResults();
+
+                            // Simulate API call
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+
+                        } catch (error) {
+                            console.error('Lookup error:', error);
+                            showError('Failed to resolve ISCC');
+                        } finally {
+                            setLoading(false);
+                        }
+                    }
+                });
+
+                // Show results section with dramatic fade-in
+                function showResults() {
+                    const resultsSection = document.getElementById('results-section');
+                    const resultCards = resultsSection.querySelectorAll('#results-container > div');
+
+                    // First make section visible but keep cards hidden
+                    resultsSection.classList.remove('hidden');
+                    resultsSection.style.opacity = '1';
+                    resultsSection.style.transform = 'translateY(0)';
+
+                    // Hide all cards initially
+                    resultCards.forEach(card => {
+                        card.style.opacity = '0';
+                        card.style.transform = 'translateY(30px)';
+                        card.style.transition = 'opacity 0.8s ease-out, transform 0.8s ease-out';
+                    });
+
+                    // Fade in cards one by one with staggered delay
+                    resultCards.forEach((card, index) => {
+                        setTimeout(() => {
+                            card.style.opacity = '1';
+                            card.style.transform = 'translateY(0)';
+                        }, 300 + (index * 400)); // 300ms initial delay, then 400ms between each card
+                    });
+                }
+
+                // Clear results functionality
+                document.getElementById('clear-results').addEventListener('click', function() {
+                    const resultsSection = document.getElementById('results-section');
+
+                    // Fade out animation
+                    resultsSection.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+                    resultsSection.style.opacity = '0';
+                    resultsSection.style.transform = 'translateY(10px)';
+
+                    // Hide after animation completes
+                    setTimeout(() => {
+                        resultsSection.classList.add('hidden');
+                        resultsSection.style.opacity = '';
+                        resultsSection.style.transform = '';
+                        resultsSection.style.transition = '';
+                    }, 300);
+
+                    isccInput.value = '';
+                    currentFile = null;
+                    fileInfo.classList.add('hidden');
+                });
+            });
+        </script>
+{% endblock %}
