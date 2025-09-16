@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}ISCC-ID Not Found - ISCC-HUB{% endblock %}
+
+{% block content %}
+<section class="py-16 md:py-24">
+    <div class="max-w-4xl mx-auto px-6">
+        <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 md:p-12 text-center">
+            <!-- Error Icon -->
+            <div class="w-20 h-20 bg-iscc-coral/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-10 h-10 text-iscc-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+
+            <!-- Error Message -->
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">ISCC-ID Not Found</h1>
+
+            {% if iscc_id %}
+            <div class="mb-6">
+                <p class="text-gray-600 mb-3">The requested ISCC-ID could not be resolved:</p>
+                <div class="inline-block bg-gray-100 rounded-lg px-4 py-2">
+                    <code class="font-mono text-sm text-gray-800">{{ iscc_id }}</code>
+                </div>
+            </div>
+            {% endif %}
+
+            <p class="text-gray-600 mb-8 max-w-2xl mx-auto">
+                This could mean the ISCC-ID doesn't exist, has been redacted, or is not valid.
+                Please verify the ISCC-ID and try again.
+            </p>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="/" class="inline-flex items-center justify-center px-6 py-3 bg-iscc-blue text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 transform hover:scale-[1.02] shadow-lg">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    Return Home
+                </a>
+                <a href="/docs" class="inline-flex items-center justify-center px-6 py-3 text-iscc-blue font-semibold rounded-lg border border-gray-300 hover:bg-gray-50 transition-all duration-200">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    View API Docs
+                </a>
+            </div>
+
+            <!-- Help Text -->
+            <div class="mt-12 pt-8 border-t border-gray-200">
+                <p class="text-sm text-gray-500">
+                    ISCC-IDs are 16-character lowercase identifiers using characters a-z and 2-7.
+                    <br>
+                    Example: <code class="font-mono text-xs bg-gray-100 px-2 py-1 rounded">maighfecjmopmiab</code>
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

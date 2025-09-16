@@ -11,4 +11,5 @@ urlpatterns = [
     path("admin", RedirectView.as_view(url="/admin/", permanent=True)),  # Convenience redirect
     path("admin/", admin.site.urls),  # Keep trailing slash for admin compatibility
     path("health", views.health, name="health"),
+    path("<str:iscc_id>", views.iscc_id_resolve, name="iscc_id_resolve"),  # ISCC-ID resolution
 ]

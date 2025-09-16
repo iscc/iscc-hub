@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}{{ iscc_id }} - ISCC Declaration{% endblock %}
+
+{% block content %}
+<section class="py-16 md:py-24">
+    <div class="max-w-6xl mx-auto px-6">
+        <!-- Header Card -->
+        <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-8">
+            <!-- Header with gradient background -->
+            <div class="bg-gradient-to-r from-iscc-blue to-iscc-light-blue h-32 relative" style="background-image: url('/static/img/grain.png'); background-size: 256px 256px; background-blend-mode: overlay;">
+                <!-- ISCC-ID Badge -->
+                <div class="absolute bottom-0 left-0 transform translate-y-1/2 ml-8">
+                    <div class="bg-gray-800 text-white px-6 py-3 rounded-lg shadow-xl">
+                        <div class="text-xs font-medium uppercase tracking-wider text-gray-300 mb-1">ISCC-ID</div>
+                        <div class="font-mono text-lg tracking-tight">{{ iscc_id }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="p-8 pt-16">
+                <!-- ISCC-CODE Section -->
+                <div class="mb-8">
+                    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">ISCC-CODE</h2>
+                    <div class="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                        <code class="font-mono text-sm text-gray-800 break-all">{{ declaration.iscc_code }}</code>
+                    </div>
+                </div>
+
+                <!-- Metadata Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Data Hash -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">Data Hash</h3>
+                        <div class="bg-gray-50 rounded-lg border border-gray-200 p-3">
+                            <code class="font-mono text-xs text-gray-700 break-all">{{ declaration.datahash }}</code>
+                        </div>
+                    </div>
+
+                    <!-- Timestamp -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">Declared</h3>
+                        <div class="bg-gray-50 rounded-lg border border-gray-200 p-3">
+                            <span class="text-gray-800">{{ declaration.updated_at|date:"Y-m-d H:i:s" }} UTC</span>
+                        </div>
+                    </div>
+
+                    <!-- Actor -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">Declared By</h3>
+                        <div class="bg-gray-50 rounded-lg border border-gray-200 p-3">
+                            <code class="font-mono text-xs text-gray-700 break-all">{{ declaration.actor }}</code>
+                        </div>
+                    </div>
+
+                    <!-- Sequence Number -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">Event Sequence</h3>
+                        <div class="bg-gray-50 rounded-lg border border-gray-200 p-3">
+                            <span class="text-gray-800">#{{ declaration.event_seq }}</span>
+                        </div>
+                    </div>
+
+                    {% if declaration.metahash %}
+                    <!-- Meta Hash (if present) -->
+                    <div class="md:col-span-2">
+                        <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">Metadata Hash</h3>
+                        <div class="bg-gray-50 rounded-lg border border-gray-200 p-3">
+                            <code class="font-mono text-xs text-gray-700 break-all">{{ declaration.metahash }}</code>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Gateway Notice -->
+                {% if not declaration.gateway %}
+                <div class="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-blue-800">
+                                No gateway URL is configured for this declaration.
+                                The declaring party has not specified an external metadata discovery endpoint.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <a href="/" class="inline-flex items-center justify-center px-6 py-3 bg-iscc-blue text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 transform hover:scale-[1.02] shadow-lg">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                New Search
+            </a>
+            <a href="/docs" class="inline-flex items-center justify-center px-6 py-3 text-iscc-blue font-semibold rounded-lg border border-gray-300 hover:bg-gray-50 transition-all duration-200">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                API Documentation
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}
