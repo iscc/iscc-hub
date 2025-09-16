@@ -174,7 +174,7 @@ CACHES = {
     "default": {
         "BACKEND": "shared_memory_dict.caches.django.SharedMemoryCache",
         "LOCATION": "memory",
-        "OPTIONS": {"MEMORY_BLOCK_SIZE": 1024},
+        "OPTIONS": {"MEMORY_BLOCK_SIZE": 1024 * 1024},  # 1MB instead of 1KB
     }
 }
 
