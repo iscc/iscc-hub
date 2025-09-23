@@ -691,8 +691,21 @@ def validate_units_reconstruction(units, datahash, iscc_code):
         instance_code = datahash_to_instance_code(datahash)
         all_codes = units + [instance_code]
 
+        # Check if the ISCC-CODE is WIDE subtype
+        try:
+            _, subtype, _, _, _ = ic.iscc_decode(iscc_code)
+            is_wide = subtype == ic.ST_ISCC.WIDE
+        except Exception:
+            # If we can't decode, assume it's not WIDE
+            is_wide = False
+
         # Attempt to reconstruct ISCC-CODE
-        iscc_result = ic.gen_iscc_code(all_codes)
+        if is_wide:
+            # Use gen_iscc_code_v0 with wide=True for WIDE subtype
+            iscc_result = ic.gen_iscc_code_v0(all_codes, wide=True)
+        else:
+            # Use standard gen_iscc_code for normal ISCCs
+            iscc_result = ic.gen_iscc_code(all_codes)
         reconstructed_iscc = iscc_result["iscc"]
 
         # Validate reconstruction matches original

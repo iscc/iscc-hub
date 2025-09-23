@@ -1543,6 +1543,64 @@ def test_validate_iscc_note_delete_unknown_fields():
         validators.validate_iscc_note_delete(to_bytes(delete_note), verify_signature=False, verify_timestamp=False)
 
 
+def test_validate_iscc_note_with_wide_subtype():
+    # type: () -> None
+    """Test validate_iscc_note with WIDE subtype ISCC-CODE (reproduces bug)."""
+    import iscc_crypto as icr
+
+    # WIDE subtype ISCC-CODE and its components
+    wide_iscc_code = "ISCC:K4AOMRWUFR7TLBSPLER2DFPEX5HETSVKUVWSS2CL7MJFWCHQKDQNW3Q"
+    data_code_unit = "ISCC:GAD6MRWUFR7TLBSPLER2DFPEX5HETYSUYMDBR57MG6CFSFUYV4SNQTI"
+    instance_code_unit = "ISCC:IAD4VKVFNUUWQS73CJNQR4CQ4DNW5FKIAWI7LC32UAG5JVVCPRQMOTI"
+
+    # Extract datahash from the Instance-Code unit
+    import iscc_core as ic
+
+    _, _, _, _, instance_hash_digest = ic.iscc_decode(instance_code_unit)
+    datahash = "1e20" + instance_hash_digest.hex()
+
+    # Create a test keypair
+    controller = "did:web:example.com"
+    keypair = icr.key_generate(controller=controller)
+
+    # Create an IsccNote with WIDE subtype ISCC
+    wide_note = {
+        "iscc_code": wide_iscc_code,
+        "datahash": datahash,
+        "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
+        "timestamp": "2025-01-15T12:00:00.000Z",
+        "units": [data_code_unit],  # Only Data-Code unit (Instance is embedded in ISCC-CODE)
+    }
+
+    # Sign the note
+    signed_wide_note = icr.sign_json(wide_note, keypair)
+
+    # This should validate successfully but currently fails due to WIDE subtype bug
+    # The bug is in validate_units_reconstruction which doesn't handle WIDE subtype properly
+    validated = validators.validate_iscc_note(
+        to_bytes(signed_wide_note), verify_signature=True, verify_timestamp=False
+    )
+    assert validated["iscc_code"] == wide_iscc_code
+    assert validated["datahash"] == datahash
+
+
+def test_validate_units_reconstruction_invalid_iscc_decode_fallback():
+    # type: () -> None
+    """Test validate_units_reconstruction handles invalid ISCC codes that can't be decoded for WIDE check."""
+    # Use a malformed ISCC that will cause decode to fail
+    # The string has invalid characters that will cause base32 decode to fail
+    malformed_iscc = "ISCC:K!!!INVALID!!!INVALID!!!INVALID!!!INVALID!!!INVALID!!!!"
+    datahash = "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d"
+    units = [
+        "ISCC:AADZH265WE3KJOSR5K67QJEF5JHLF2REJJYVI4ZYKJ727JU2ZX2AHNQ",
+    ]
+
+    # This should fail - the decode exception will be caught (is_wide=False)
+    # Then gen_iscc_code will fail because units are incomplete
+    with pytest.raises(ValueError, match="Invalid ISCC unit"):
+        validators.validate_units_reconstruction(units, datahash, malformed_iscc)
+
+
 def test_validate_input_size_delete_non_dict():
     # type: () -> None
     """Test validate_structure raises for non-dict input with delete fields."""

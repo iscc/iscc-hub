@@ -26,8 +26,8 @@ dependencies = [
     "uritemplate>=4.2.0",
 ]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "django-types>=0.22.0",
     "mdformat>=0.7.22",
     "mdformat-frontmatter>=2.0.8",

@@ -66,7 +66,7 @@ ISCC_HUB_TIMESTAMP_SERVERS = env.list(
     ],
 )
 
-ISCC_HUB_SQLITE_SYNC_MODE = env.str("ISCC_HUB_SQLITE_SYNC_MODE", default="FULL")
+ISCC_HUB_SQLITE_SYNC_MODE = env.str("ISCC_HUB_SQLITE_SYNC_MODE", default="NORMAL")
 
 # Hub list initial synchronization (used in Docker startup sequence)
 ISCC_HUB_LIST_INITIAL_SYNC = env.bool("ISCC_HUB_LIST_INITIAL_SYNC", default=True)
