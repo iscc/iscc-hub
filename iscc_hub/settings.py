@@ -168,13 +168,14 @@ DATABASES = {
 
 ATOMIC_REQUESTS = False  # This is the default, but we better make sure with transaction mode IMMEDIATE
 
+ISCC_HUB_CACHE_MEMORY_SIZE = 1024 * 1024 * 10  # 10MB
 
 # Shared memory cache used for django-constance configuration values
 CACHES = {
     "default": {
         "BACKEND": "shared_memory_dict.caches.django.SharedMemoryCache",
         "LOCATION": "memory",
-        "OPTIONS": {"MEMORY_BLOCK_SIZE": 1024 * 1024},  # 1MB instead of 1KB
+        "OPTIONS": {"MEMORY_BLOCK_SIZE": ISCC_HUB_CACHE_MEMORY_SIZE},
     }
 }
 
