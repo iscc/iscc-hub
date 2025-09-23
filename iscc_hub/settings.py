@@ -176,7 +176,11 @@ CACHES = {
         "BACKEND": "shared_memory_dict.caches.django.SharedMemoryCache",
         "LOCATION": "memory",
         "OPTIONS": {"MEMORY_BLOCK_SIZE": ISCC_HUB_CACHE_MEMORY_SIZE},
-    }
+    },
+    "tasks": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake-django-q2",
+    },
 }
 
 # Password validation
@@ -376,6 +380,8 @@ Q_CLUSTER = {
     "poll": 3,
     "catch_up": False,
     "label": "Tasks",
+    "cached": False,  # Store results in Database
+    "cache": "tasks",  # Use local memory cache for monitoring features
 }
 
 # Constance Configuration for Dynamic Settings
