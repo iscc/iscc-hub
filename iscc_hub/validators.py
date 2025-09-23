@@ -551,16 +551,25 @@ def validate_gateway(gateway):
     Accepts HTTP/HTTPS URLs or RFC 6570 URI templates with supported variables:
     {iscc_id}, {iscc_code}, {datahash}
 
+    Query parameters are allowed for both regular URLs and URI templates.
+
     :param gateway: The gateway URL or URI template string to validate
     :raises FieldValidationError: If gateway is invalid or uses unsupported variables
     """
 
     # Check for restricted components
-    restricted = ("username", "password", "query", "fragment")
     url = urlparse(gateway)
-    for component in restricted:
-        if getattr(url, component):
-            raise FieldValidationError("gateway", f"restricted URL {component} component", code="invalid_format")
+
+    # Username and password are always restricted
+    if url.username or url.password:
+        component = "username" if url.username else "password"
+        raise FieldValidationError("gateway", f"restricted URL {component} component", code="invalid_format")
+
+    # Fragment is always restricted
+    if url.fragment:
+        raise FieldValidationError("gateway", "restricted URL fragment component", code="invalid_format")
+
+    # Query parameters are allowed for all gateway URLs
 
     # Check for basic template syntax errors first
     if "{" in gateway or "}" in gateway:

@@ -651,6 +651,15 @@ def test_validate_gateway_edge_cases():
     # Template with path segments
     validators.validate_gateway("https://api.example.com/v1/{iscc_id}/metadata")  # Should not raise
 
+    # URL with query parameters (new functionality)
+    validators.validate_gateway("https://example.com?key=value&another=param")  # Should not raise
+
+    # Complex URL with port, path, and query params
+    validators.validate_gateway("https://example.com:8080/api/v1?format=json&limit=10")  # Should not raise
+
+    # Template with existing query params and variables
+    validators.validate_gateway("https://api.example.com/{iscc_id}?format=json&show=details")  # Should not raise
+
 
 def test_validate_gateway_restricted_components():
     # type: () -> None
@@ -663,9 +672,8 @@ def test_validate_gateway_restricted_components():
     with pytest.raises(ValueError, match="restricted URL username component"):
         validators.validate_gateway("https://user@example.com")
 
-    # URL with query parameters
-    with pytest.raises(ValueError, match="restricted URL query component"):
-        validators.validate_gateway("https://example.com?key=value")
+    # URL with query parameters - NOW ALLOWED
+    validators.validate_gateway("https://example.com?key=value")  # Should not raise
 
     # URL with fragment
     with pytest.raises(ValueError, match="restricted URL fragment component"):
@@ -675,9 +683,8 @@ def test_validate_gateway_restricted_components():
     with pytest.raises(ValueError, match="restricted URL username component"):
         validators.validate_gateway("https://user:pass@example.com?key=value#section")
 
-    # Template with query parameters
-    with pytest.raises(ValueError, match="restricted URL query component"):
-        validators.validate_gateway("https://example.com/{iscc_id}?format=json")
+    # Template with query parameters - NOW ALLOWED
+    validators.validate_gateway("https://example.com/{iscc_id}?format=json")  # Should not raise
 
     # Template with fragment
     with pytest.raises(ValueError, match="restricted URL fragment component"):
@@ -704,8 +711,8 @@ def test_validate_gateway_uri_template_operators():
     with pytest.raises(ValueError, match="gateway uses disallowed URI Template operator: ';'"):
         validators.validate_gateway("https://example.com/{;iscc_id}")
 
-    # Disallowed operators: '?' (query expansion) - detected as query component
-    with pytest.raises(ValueError, match="restricted URL query component"):
+    # Disallowed operators: '?' (query expansion)
+    with pytest.raises(ValueError, match=r"gateway uses disallowed URI Template operator: '\?'"):
         validators.validate_gateway("https://example.com/{?iscc_id}")
 
     # Disallowed operators: '&' (query continuation)

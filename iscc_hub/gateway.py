@@ -35,9 +35,11 @@ def expand_gateway_url(gateway_url, template_vars, request_url=None):
 
         if req_qs:
             res_parsed = urlparse(result_url)
-            # Since gateway URLs are validated to not contain query components,
-            # we can simply use the request query parameters directly
-            new_query = urlencode(req_qs, doseq=True)
+            # Merge existing query parameters with request query parameters
+            existing_qs = parse_qs(res_parsed.query, keep_blank_values=True) if res_parsed.query else {}
+            # Request parameters take precedence over existing ones
+            merged_qs = {**existing_qs, **req_qs}
+            new_query = urlencode(merged_qs, doseq=True)
             result_url = urlunparse(
                 (
                     res_parsed.scheme,

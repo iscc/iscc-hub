@@ -51,13 +51,13 @@ def test_expand_gateway_url_simple_append_without_slash():
 
 def test_expand_gateway_url_simple_append_with_equals():
     # type: () -> None
-    """Test that gateway URLs with query parameters are rejected."""
+    """Test that gateway URLs with query parameters are allowed."""
     gateway_url = "https://example.com/path?id="
     template_vars = {"iscc_id": "ISCC123", "iscc_code": "CODE456", "datahash": "HASH789"}
 
-    # Should raise validation error due to query parameter restriction
-    with pytest.raises(ValueError, match="restricted URL query component"):
-        expand_gateway_url(gateway_url, template_vars)
+    # Query parameters are now allowed
+    result = expand_gateway_url(gateway_url, template_vars)
+    assert result == "https://example.com/path?id="
 
 
 def test_expand_gateway_url_with_request_url_query_params():
@@ -158,14 +158,36 @@ def test_expand_gateway_url_complex_path():
     assert result == "https://example.com/api/v1/content?format=json&lang=en"
 
 
-def test_expand_gateway_url_template_with_query_params_rejected():
+def test_expand_gateway_url_with_existing_query_params():
     # type: () -> None
-    """Test that gateway URLs with query parameters in templates are rejected."""
-    # Gateway URL templates with query parameters are now restricted
+    """Test gateway URL with existing query parameters like the user's example."""
+    # Example from user: https://omero.iscc.id/webclient/?show=image-53
+    gateway_url = "https://omero.iscc.id/webclient/?show=image-53"
+    template_vars = {"iscc_id": "ISCC123", "iscc_code": "CODE456", "datahash": "HASH789"}
+
+    # Should work without any issues
+    result = expand_gateway_url(gateway_url, template_vars)
+    assert result == "https://omero.iscc.id/webclient/?show=image-53"
+
+    # With request URL having additional params
+    request_url = "https://hub.example/iscc/ISCC123?format=json"
+    result = expand_gateway_url(gateway_url, template_vars, request_url)
+    # Request params should be merged with existing ones
+    assert "show=image-53" in result
+    assert "format=json" in result
+
+
+def test_expand_gateway_url_template_with_query_params_allowed():
+    # type: () -> None
+    """Test that gateway URLs with query parameters in templates are allowed."""
+    # Gateway URL templates with query parameters are now allowed
     gateway_url = "https://example.com/lookup?iscc={iscc_id}&code={iscc_code}"
     template_vars = {"iscc_id": "ISCC123", "iscc_code": "CODE456", "datahash": "HASH789"}
     request_url = "https://hub.example/iscc/ISCC123?format=json&code=override"
 
-    # Should raise validation error due to query parameter restriction
-    with pytest.raises(ValueError, match="restricted URL query component"):
-        expand_gateway_url(gateway_url, template_vars, request_url)
+    # Query parameters are now allowed and templates are expanded
+    result = expand_gateway_url(gateway_url, template_vars, request_url)
+    # Templates expanded, request params override template params
+    assert "ISCC123" in result  # From template expansion
+    assert "code=override" in result  # Request param overrides template value
+    assert "format=json" in result  # Added from request
