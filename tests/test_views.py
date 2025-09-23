@@ -27,8 +27,8 @@ def test_iscc_id_resolve_valid_with_gateway():
 
     # Should redirect with 307
     assert response.status_code == 307
-    # The expanded URL should use the path version (without ISCC: prefix)
-    assert response["Location"] == f"https://example.com/metadata/{iscc_id_path}"
+    # Non-template gateway URLs are returned unmodified
+    assert response["Location"] == "https://example.com/metadata"
 
 
 @pytest.mark.django_db
@@ -208,7 +208,8 @@ def test_iscc_id_resolve_gateway_ending_with_equals():
 
     # Should redirect
     assert response.status_code == 307
-    assert response["Location"] == f"https://example.com/path/{iscc_id_path}"
+    # Non-template gateway URLs are returned unmodified
+    assert response["Location"] == "https://example.com/path/"
 
 
 @pytest.mark.django_db

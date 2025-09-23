@@ -29,24 +29,24 @@ def test_expand_gateway_url_with_multiple_templates():
 
 def test_expand_gateway_url_simple_append_with_slash():
     # type: () -> None
-    """Test simple append when URL ends with slash."""
+    """Test that non-template URL ending with slash is returned unmodified."""
     gateway_url = "https://example.com/path/"
     template_vars = {"iscc_id": "ISCC123", "iscc_code": "CODE456", "datahash": "HASH789"}
 
     result = expand_gateway_url(gateway_url, template_vars)
 
-    assert result == "https://example.com/path/ISCC123"
+    assert result == "https://example.com/path/"
 
 
 def test_expand_gateway_url_simple_append_without_slash():
     # type: () -> None
-    """Test simple append when URL doesn't end with slash."""
+    """Test that non-template URL without slash is returned unmodified."""
     gateway_url = "https://example.com/path"
     template_vars = {"iscc_id": "ISCC123", "iscc_code": "CODE456", "datahash": "HASH789"}
 
     result = expand_gateway_url(gateway_url, template_vars)
 
-    assert result == "https://example.com/path/ISCC123"
+    assert result == "https://example.com/path"
 
 
 def test_expand_gateway_url_simple_append_with_equals():
@@ -74,15 +74,15 @@ def test_expand_gateway_url_with_request_url_query_params():
 
 def test_expand_gateway_url_merge_existing_and_request_params():
     # type: () -> None
-    """Test merging existing and request query parameters."""
+    """Test merging request query parameters with non-template URL."""
     gateway_url = "https://example.com/path"
     template_vars = {"iscc_id": "ISCC123", "iscc_code": "CODE456", "datahash": "HASH789"}
     request_url = "https://hub.example/iscc/ISCC123?new=param"
 
     result = expand_gateway_url(gateway_url, template_vars, request_url)
 
-    # First expand adds ISCC123, then query params are added
-    assert result == "https://example.com/path/ISCC123?new=param"
+    # Non-template URL is returned with query params added
+    assert result == "https://example.com/path?new=param"
 
 
 def test_expand_gateway_url_duplicate_query_params():
@@ -155,7 +155,7 @@ def test_expand_gateway_url_complex_path():
 
     result = expand_gateway_url(gateway_url, template_vars, request_url)
 
-    assert result == "https://example.com/api/v1/content/ISCC123?format=json&lang=en"
+    assert result == "https://example.com/api/v1/content?format=json&lang=en"
 
 
 def test_expand_gateway_url_template_with_query_params_rejected():

@@ -8,14 +8,14 @@ from iscc_hub.validators import validate_gateway, validate_url
 def expand_gateway_url(gateway_url, template_vars, request_url=None):
     # type: (str, dict, str|None) -> str
     """
-    Build a gateway URL with the appropriate template substitution or appending.
+    Build a gateway URL with the appropriate template substitution or direct redirect.
 
     This function handles URL template substitution if the gateway URL contains
     template variables (e.g., {iscc_id}, {iscc_code}). If no template variables
-    are present, it appends the ISCC-ID to the gateway URL.
+    are present, it returns the gateway URL unmodified for direct redirect.
 
     :param gateway_url: The base gateway URL (may contain template variables)
-    :param template_vars: Veriables for URI template substitution (iscc_id, iscc_code, datahash)
+    :param template_vars: Variables for URI template substitution (iscc_id, iscc_code, datahash)
     :param request_url: Optional request URL for redirect URL building
     :return: The final gateway/redirect URL with substitutions and query params applied
     """
@@ -25,10 +25,8 @@ def expand_gateway_url(gateway_url, template_vars, request_url=None):
     if "{" in gateway_url and "}" in gateway_url:
         result_url = uritemplate.expand(gateway_url, template_vars)
     else:
-        # Simple append - add slash if needed
-        if not gateway_url.endswith("/") and not gateway_url.endswith("="):
-            gateway_url += "/"
-        result_url = gateway_url + template_vars["iscc_id"]
+        # Return non-template URLs unmodified for direct redirect
+        result_url = gateway_url
 
     if request_url:
         # Append query params from request URL to the result URL
