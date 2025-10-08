@@ -443,3 +443,58 @@ def test_iscc_id_resolve_local_hub_nonexistent():
     # Should return 404 because local ISCC-ID doesn't exist
     assert response.status_code == 404
     assert b"ISCC-ID Not Found" in response.content
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_remote_hub_preserves_query_params():
+    # type: () -> None
+    """Test remote hub forwarding preserves query parameters."""
+    from iscc_hub.models import Hub
+
+    # Create a remote hub entry with valid pubkey from fixtures
+    Hub.objects.filter(hub_id=500).delete()  # Clean up first
+    Hub.objects.create(
+        hub_id=500,
+        pubkey="z6MkqCganwv6TXSy5r3XLJf5KsjadEWDgbTP5apycN4zbdhk",  # Valid pubkey from fixtures
+        url="https://hub500.example.com",
+        active=True,
+    )
+
+    # Generate ISCC-ID with hub_id=500
+    remote_iscc_id = generate_test_iscc_id(hub_id=500, seq=5000)
+    # Extract just the ID part without ISCC: prefix for URL
+    iscc_id_path = remote_iscc_id[5:].lower() if remote_iscc_id.startswith("ISCC:") else remote_iscc_id.lower()
+
+    client = Client()
+    response = client.get(f"/{iscc_id_path}?serviceType=Foo&key=value")
+
+    # Should redirect to remote hub with query params preserved
+    assert response.status_code == 307
+    location = response["Location"]
+    assert location.startswith(f"https://hub500.example.com/{iscc_id_path}")
+    assert "serviceType=Foo" in location
+    assert "key=value" in location
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_gateway_template_preserves_query_params():
+    # type: () -> None
+    """Test gateway template expansion preserves query parameters."""
+    # Create a declaration with gateway template
+    declaration = create_test_declaration(
+        gateway="https://registry.com/{iscc_id}",
+        nonce=icr.create_nonce(node_id=1),
+    )
+
+    client = Client()
+    # Strip ISCC: prefix from the ID for the URL path - MUST BE LOWERCASE
+    iscc_id_path = (
+        declaration.iscc_id[5:].lower() if declaration.iscc_id.startswith("ISCC:") else declaration.iscc_id.lower()
+    )
+    response = client.get(f"/{iscc_id_path}?serviceType=CoreMetadata")
+
+    # Should redirect with query params preserved
+    assert response.status_code == 307
+    location = response["Location"]
+    assert location.startswith(f"https://registry.com/{iscc_id_path}")
+    assert "serviceType=CoreMetadata" in location

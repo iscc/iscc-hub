@@ -2,7 +2,7 @@
 
 import pytest
 
-from iscc_hub.gateway import expand_gateway_url
+from iscc_hub.gateway import expand_gateway_url, preserve_query_params
 
 
 def test_expand_gateway_url_with_template():
@@ -191,3 +191,77 @@ def test_expand_gateway_url_template_with_query_params_allowed():
     assert "ISCC123" in result  # From template expansion
     assert "code=override" in result  # Request param overrides template value
     assert "format=json" in result  # Added from request
+
+
+def test_preserve_query_params_basic():
+    # type: () -> None
+    """Test basic query parameter preservation."""
+    url = "https://example.com/path"
+    request_url = "https://hub.example/iscc?key=value&foo=bar"
+
+    result = preserve_query_params(url, request_url)
+
+    assert result == "https://example.com/path?key=value&foo=bar"
+
+
+def test_preserve_query_params_no_query():
+    # type: () -> None
+    """Test preserve_query_params with no query parameters in request."""
+    url = "https://example.com/path"
+    request_url = "https://hub.example/iscc"
+
+    result = preserve_query_params(url, request_url)
+
+    # URL should remain unchanged
+    assert result == "https://example.com/path"
+
+
+def test_preserve_query_params_with_existing():
+    # type: () -> None
+    """Test merging request query params with existing params in target URL."""
+    url = "https://example.com/path?existing=value"
+    request_url = "https://hub.example/iscc?new=param"
+
+    result = preserve_query_params(url, request_url)
+
+    # Both params should be present, request param takes precedence
+    assert "existing=value" in result
+    assert "new=param" in result
+
+
+def test_preserve_query_params_override():
+    # type: () -> None
+    """Test that request params override existing params."""
+    url = "https://example.com/path?key=old"
+    request_url = "https://hub.example/iscc?key=new"
+
+    result = preserve_query_params(url, request_url)
+
+    # Request param should override
+    assert "key=new" in result
+    assert "key=old" not in result
+
+
+def test_preserve_query_params_duplicates():
+    # type: () -> None
+    """Test preserving duplicate query parameters."""
+    url = "https://example.com/path"
+    request_url = "https://hub.example/iscc?tag=foo&tag=bar"
+
+    result = preserve_query_params(url, request_url)
+
+    # Both tag values should be preserved
+    assert "tag=foo" in result
+    assert "tag=bar" in result
+
+
+def test_preserve_query_params_blank_values():
+    # type: () -> None
+    """Test preserving blank query parameter values."""
+    url = "https://example.com/path"
+    request_url = "https://hub.example/iscc?empty=&key=value"
+
+    result = preserve_query_params(url, request_url)
+
+    assert "empty=" in result
+    assert "key=value" in result
