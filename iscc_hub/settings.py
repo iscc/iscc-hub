@@ -224,11 +224,13 @@ STATICFILES_DIRS = [
 ]
 
 # ServeStatic configuration
-# This serves all files from iscc_hub/static at the root path
+# Serves files at BOTH root (/) and /static/ paths:
+# - SERVESTATIC_ROOT serves at / for robots.txt, favicon.ico, etc.
+# - SERVESTATIC_USE_FINDERS serves at /static/ for Django admin and app static files
 SERVESTATIC_ROOT = BASE_DIR / "iscc_hub" / "static"
 SERVESTATIC_INDEX_FILE = "index.html"
-# Disable finders to avoid duplicate serving at /static/
-SERVESTATIC_USE_FINDERS = False
+# Enable finders to serve Django admin static files at /static/ without collectstatic
+SERVESTATIC_USE_FINDERS = True
 SERVESTATIC_USE_MANIFEST = False
 # Enable autorefresh to detect newly uploaded media files (co-branding logos)
 # This has a slight performance impact but is necessary for dynamic media uploads
