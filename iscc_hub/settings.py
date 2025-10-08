@@ -217,17 +217,22 @@ SERIALIZATION_MODULES = {"json_micro": "iscc_hub.serializers"}
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
+# Keep traditional static URL to avoid Django conflicts
 STATIC_URL = "static/"
 STATICFILES_DIRS = [
     BASE_DIR / "iscc_hub" / "static",
 ]
 
 # ServeStatic configuration
+# This serves all files from iscc_hub/static at the root path
 SERVESTATIC_ROOT = BASE_DIR / "iscc_hub" / "static"
 SERVESTATIC_INDEX_FILE = "index.html"
-# Enable finders in production to serve static files without collectstatic
-SERVESTATIC_USE_FINDERS = True
+# Disable finders to avoid duplicate serving at /static/
+SERVESTATIC_USE_FINDERS = False
 SERVESTATIC_USE_MANIFEST = False
+# Enable autorefresh to detect newly uploaded media files (co-branding logos)
+# This has a slight performance impact but is necessary for dynamic media uploads
+SERVESTATIC_AUTOREFRESH = True
 
 # Set media root as subfolder under ServeStatic root
 MEDIA_ROOT = SERVESTATIC_ROOT / "media"
