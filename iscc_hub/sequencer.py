@@ -51,13 +51,24 @@ def sequence_iscc_note(iscc_note):
     with connection.cursor() as cursor:
         try:
             cursor.execute("BEGIN IMMEDIATE")
-            cursor.execute("SELECT seq, iscc_id, event_hash FROM iscc_event ORDER BY seq DESC LIMIT 1")
+            cursor.execute("SELECT seq, iscc_id, event_hash, event_type FROM iscc_event ORDER BY seq DESC LIMIT 1")
             row = cursor.fetchone()
             if row:
                 last_seq = row[0]
-                last_iscc_id_bytes = row[1]
                 last_event_hash = row[2]
-                last_timestamp_us = int.from_bytes(last_iscc_id_bytes, "big") >> 12
+                event_type = row[3]
+
+                # For timestamp monotonicity, use last CREATED event's timestamp
+                if event_type == 1:  # CREATED event
+                    last_iscc_id_bytes = row[1]
+                    last_timestamp_us = int.from_bytes(last_iscc_id_bytes, "big") >> 12
+                else:  # DELETE or other event type - need to find last CREATED
+                    cursor.execute("SELECT iscc_id FROM iscc_event WHERE event_type = 1 ORDER BY seq DESC LIMIT 1")
+                    created_row = cursor.fetchone()
+                    if created_row:
+                        last_timestamp_us = int.from_bytes(created_row[0], "big") >> 12
+                    else:
+                        raise SequencerError("Database corruption: DELETE event exists without any CREATED events")
             else:
                 last_seq = 0
                 last_timestamp_us = 0
