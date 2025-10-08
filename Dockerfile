@@ -45,8 +45,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Create data directory
-RUN mkdir -p /app/data
+# Create data directory and media directory for static file serving
+RUN mkdir -p /app/data /app/iscc_hub/static/media
 
 # Set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
@@ -89,8 +89,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Create data directory
-RUN mkdir -p /app/data
+# Create data directory and media directory for static file serving
+RUN mkdir -p /app/data /app/iscc_hub/static/media
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
