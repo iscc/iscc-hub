@@ -7,7 +7,8 @@ from django.shortcuts import render
 
 import iscc_hub
 from iscc_hub.gateway import expand_gateway_url
-from iscc_hub.models import IsccDeclaration
+from iscc_hub.iscc_id import IsccID
+from iscc_hub.models import Hub, IsccDeclaration
 
 
 def homepage(request):
@@ -90,6 +91,22 @@ def iscc_id_resolve(request, iscc_id):
     except Exception:
         # Invalid format
         return render(request, "iscc_hub/404.html", {"iscc_id": iscc_id}, status=404)
+
+    # Check if ISCC-ID belongs to a remote hub and forward if needed
+    iscc_id_obj = IsccID(iscc_id_canonical)
+    remote_hub_id = iscc_id_obj.hub_id
+    local_hub_id = settings.ISCC_HUB_ID
+
+    if remote_hub_id != local_hub_id:
+        # ISCC-ID from remote hub - try to forward
+        try:
+            hub = Hub.objects.get(hub_id=remote_hub_id, active=True)
+            # Forward to remote hub using same path structure
+            redirect_url = f"{hub.url.rstrip('/')}/{iscc_id_clean}"
+            return HttpResponseRedirect(redirect_url, status=307)
+        except Hub.DoesNotExist:
+            # Remote hub not found or not active
+            return render(request, "iscc_hub/404.html", {"iscc_id": iscc_id}, status=404)
 
     # Query for the declaration using the canonical ISCC-ID
     try:

@@ -333,3 +333,113 @@ def test_iscc_id_resolve_404_template():
     assert nonexistent_id.encode() in response.content
     # Check for template-specific content
     assert b"could not be resolved" in response.content
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_forward_to_active_remote_hub():
+    # type: () -> None
+    """Test ISCC-ID resolution forwards to active remote hub."""
+    from iscc_hub.models import Hub
+
+    # Create a remote hub entry
+    Hub.objects.create(
+        hub_id=2,
+        pubkey="z6MkqLoZvd5FQbmZMf8amGUBTdqL1c4pWK7NmhxTJBRFXQHc",
+        url="https://hub2.example.com",
+        active=True,
+    )
+
+    # Generate ISCC-ID with hub_id=2
+    remote_iscc_id = generate_test_iscc_id(hub_id=2, seq=100)
+    # Extract just the ID part without ISCC: prefix for URL
+    iscc_id_path = remote_iscc_id[5:].lower() if remote_iscc_id.startswith("ISCC:") else remote_iscc_id.lower()
+
+    client = Client()
+    response = client.get(f"/{iscc_id_path}")
+
+    # Should redirect to remote hub
+    assert response.status_code == 307
+    assert response["Location"] == f"https://hub2.example.com/{iscc_id_path}"
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_forward_to_inactive_hub_returns_404():
+    # type: () -> None
+    """Test ISCC-ID resolution returns 404 for inactive remote hub."""
+    from iscc_hub.models import Hub
+
+    # Create an inactive hub entry
+    Hub.objects.create(
+        hub_id=3,
+        pubkey="z6Mkr2dAqiRrYBYMzk2U1Fw5wjQoTxbnXsuT9JJT6ZFZyMFY",
+        url="https://hub3.example.com",
+        active=False,
+    )
+
+    # Generate ISCC-ID with hub_id=3
+    remote_iscc_id = generate_test_iscc_id(hub_id=3, seq=200)
+    # Extract just the ID part without ISCC: prefix for URL
+    iscc_id_path = remote_iscc_id[5:].lower() if remote_iscc_id.startswith("ISCC:") else remote_iscc_id.lower()
+
+    client = Client()
+    response = client.get(f"/{iscc_id_path}")
+
+    # Should return 404 because hub is not active
+    assert response.status_code == 404
+    assert b"ISCC-ID Not Found" in response.content
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_forward_to_nonexistent_hub_returns_404():
+    # type: () -> None
+    """Test ISCC-ID resolution returns 404 for non-existent remote hub."""
+    # Generate ISCC-ID with hub_id=999 (no Hub record exists)
+    remote_iscc_id = generate_test_iscc_id(hub_id=999, seq=300)
+    # Extract just the ID part without ISCC: prefix for URL
+    iscc_id_path = remote_iscc_id[5:].lower() if remote_iscc_id.startswith("ISCC:") else remote_iscc_id.lower()
+
+    client = Client()
+    response = client.get(f"/{iscc_id_path}")
+
+    # Should return 404 because hub doesn't exist
+    assert response.status_code == 404
+    assert b"ISCC-ID Not Found" in response.content
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_local_hub_still_works():
+    # type: () -> None
+    """Test local ISCC-ID resolution still works (hub_id=1)."""
+    # Create a local declaration (hub_id=1 matches ISCC_HUB_ID in test env)
+    declaration = create_test_declaration(
+        gateway="https://example.com/metadata",
+        nonce=icr.create_nonce(node_id=1),
+    )
+
+    client = Client()
+    # Strip ISCC: prefix from the ID for the URL path - MUST BE LOWERCASE
+    iscc_id_path = (
+        declaration.iscc_id[5:].lower() if declaration.iscc_id.startswith("ISCC:") else declaration.iscc_id.lower()
+    )
+    response = client.get(f"/{iscc_id_path}")
+
+    # Should redirect to gateway (local resolution works)
+    assert response.status_code == 307
+    assert response["Location"] == "https://example.com/metadata"
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_local_hub_nonexistent():
+    # type: () -> None
+    """Test local ISCC-ID that doesn't exist returns 404."""
+    # Generate a local ISCC-ID (hub_id=1) that doesn't exist in DB
+    local_iscc_id = generate_test_iscc_id(hub_id=1, seq=999999)
+    # Extract just the ID part without ISCC: prefix for URL
+    iscc_id_path = local_iscc_id[5:].lower() if local_iscc_id.startswith("ISCC:") else local_iscc_id.lower()
+
+    client = Client()
+    response = client.get(f"/{iscc_id_path}")
+
+    # Should return 404 because local ISCC-ID doesn't exist
+    assert response.status_code == 404
+    assert b"ISCC-ID Not Found" in response.content
