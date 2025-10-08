@@ -555,3 +555,137 @@ def test_sequence_iscc_delete_rollback_exception(full_iscc_note):
                 cursor.execute("ROLLBACK")
         except Exception:
             pass
+
+
+@pytest.mark.django_db(transaction=True)
+def test_delete_does_not_break_monotonic_timestamps(monkeypatch):
+    """Test that DELETE events don't break monotonic timestamp checking for new CREATEs."""
+    import time as time_module
+
+    # Helper to create and sign a note
+    def create_note(text, nonce_suffix):
+        iscc_data = create_iscc_from_text(text)
+        nonce = f"0010000000000000000000000000{nonce_suffix}"
+        note = {
+            "iscc_code": iscc_data["iscc"],
+            "datahash": iscc_data["datahash"],
+            "nonce": nonce,
+            "timestamp": "2025-01-15T12:00:00.000Z",
+        }
+        keypair = icr.key_generate(controller=f"did:web:example{nonce_suffix}.com")
+        return icr.sign_json(note, keypair)
+
+    # Step 1: Create an old event (mock time to be 1 hour ago)
+    def old_time_ns():
+        return int((time.time() - 3600) * 1_000_000_000)  # 1 hour ago in nanoseconds
+
+    monkeypatch.setattr("iscc_hub.sequencer.time.time_ns", old_time_ns)
+    old_note = create_note("Old content", "aa00")
+    seq1, old_iscc_id = sequence_iscc_note(old_note)
+    old_timestamp = IsccID(old_iscc_id).timestamp_micros
+
+    # Step 2: Create a recent event (use current time)
+    monkeypatch.undo()  # Reset to normal time
+    recent_note = create_note("Recent content", "bb00")
+    seq2, recent_iscc_id = sequence_iscc_note(recent_note)
+    recent_timestamp = IsccID(recent_iscc_id).timestamp_micros
+
+    # Verify recent timestamp is newer than old
+    assert recent_timestamp > old_timestamp
+
+    # Step 3: Delete the old event (this reuses the old ISCC-ID)
+    delete_note = {
+        "iscc_id": str(IsccID(old_iscc_id)),
+        "timestamp": "2025-01-15T12:00:01.000Z",
+        "nonce": "0010000000000000000000000000cc00",
+    }
+    keypair = icr.key_generate(controller="did:web:example.com")
+    signed_delete = icr.sign_json(delete_note, keypair)
+    seq3, returned_iscc_id = sequence_iscc_delete(signed_delete, unhexlify(old_note["datahash"]))
+
+    # Verify DELETE reused the old ISCC-ID
+    assert returned_iscc_id == old_iscc_id
+    assert seq3 == 3
+
+    # Step 4: Create another new event - timestamp should be monotonic relative to recent CREATE
+    # Don't mock time - let it use current time which will be after recent event
+    monkeypatch.undo()  # Ensure we're using real time
+
+    new_note = create_note("New content", "dd00")
+    seq4, new_iscc_id = sequence_iscc_note(new_note)
+    new_timestamp = IsccID(new_iscc_id).timestamp_micros
+
+    # Verify new timestamp is monotonic relative to recent CREATE, not the DELETE
+    # With the fix, even though the last event was a DELETE with an old timestamp,
+    # the new CREATE should have a timestamp greater than the recent CREATE
+    assert new_timestamp > recent_timestamp, (
+        f"New timestamp {new_timestamp} should be monotonic relative to "
+        f"recent CREATE {recent_timestamp}, not the old DELETE timestamp {old_timestamp}"
+    )
+    assert seq4 == 4
+
+
+@pytest.mark.django_db(transaction=True)
+def test_sequence_with_delete_but_no_created_events():
+    """Test that sequencing raises error when DELETE exists without CREATED events (covers line 71)."""
+    import blake3
+    import jcs
+
+    # Manually insert a DELETE event without any CREATED events (corrupt state)
+    # This shouldn't happen normally but tests the corruption detection
+    with connection.cursor() as cursor:
+        cursor.execute("BEGIN IMMEDIATE")
+
+        # Create a fake DELETE event as the first/only event
+        fake_iscc_id = b"\x00\x01\x02\x03\x04\x05\x06\x07"
+        fake_nonce = b"\x00\x10" + os.urandom(14)
+        fake_datahash = blake3.blake3(b"fake").digest()
+        fake_pubkey = base58.b58decode("p1XTws5uDpCPCH5iVSdUNvdvdUCCX5pmcFEotC2jTkDBK")[2:]
+
+        # Create minimal event data for DELETE
+        event_data = {
+            "seq": 1,
+            "iscc_id": str(IsccID(fake_iscc_id)),
+            "prev": blake3.blake3(b"").digest().hex(),
+            "note": {"iscc_id": str(IsccID(fake_iscc_id)), "nonce": fake_nonce.hex()},
+        }
+        canonical = jcs.canonicalize(event_data)
+        event_hash = blake3.blake3(canonical).digest()
+
+        cursor.execute(
+            """
+            INSERT INTO iscc_event (
+                seq, event_type, iscc_id, nonce, datahash, pubkey, event_data, event_hash, event_time
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+            (
+                1,
+                3,
+                fake_iscc_id,
+                fake_nonce,
+                fake_datahash,
+                fake_pubkey,
+                canonical,
+                event_hash,
+                "2025-01-01 00:00:00.000000",
+            ),
+        )
+
+        cursor.execute("COMMIT")
+
+    # Now sequence a real note - should raise error about corruption
+    iscc_data = create_iscc_from_text("New content after orphan delete")
+    note = {
+        "iscc_code": iscc_data["iscc"],
+        "datahash": iscc_data["datahash"],
+        "nonce": "001000000000000000000000000000ff",
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    keypair = icr.key_generate(controller="did:web:example.com")
+    signed_note = icr.sign_json(note, keypair)
+
+    # Should raise SequencerError about database corruption
+    with pytest.raises(SequencerError) as exc_info:
+        sequence_iscc_note(signed_note)
+
+    assert "Database corruption: DELETE event exists without any CREATED events" in str(exc_info.value)
