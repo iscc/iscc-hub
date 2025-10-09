@@ -1,20 +1,23 @@
-# ISCC - Discovery Protocol
+# ISCC - Discovery Protocol - Concept
 
-## *Decentralized signing, timestamping, and discovery for ISCCs, actors, and metadata. An open competition for trust in digital content, powered by a neutral protocol.*
+## \*Digital signing, timestamping, and content based discovery of actors and metadata, powered by ISCC and a neutral
 
-**Date**: 2025-07-30\
-**Status**: Draft\
-**Author**: Titusz Pan\
-**Email**: tp@iscc.io
+protocol.\*
+
+**Date**: 2025-09-23 **Status**: Draft **Author**: Titusz Pan **Email**:
+[tp@iscc.io](mailto:tp@iscc.io) **PoC**:
+[https://github.com/iscc/iscc-hub](https://github.com/iscc/iscc-hub) **Sandbox**:
+[https://sb1.iscc.id](https://sb1.iscc.id)
 
 # Introduction
 
 The first edition of ISO 24138:2024 specifies the syntax, structure, and initial algorithms for the
 International Standard Content Code (ISCC).
 
-An ISCC-CODE is a deterministically generated data descriptor that applies to a specific piece of
-digital content. Anyone can generate an ISCC-CODE using the open-source reference implementation or
-any other application conforming to the provisions of ISO 24138:2024.
+An ISCC-CODE is a deterministically generated data descriptor (fingerprint) that applies to a
+specific piece of digital content and supports similarity based clustering. Anyone can generate an
+ISCC-CODE using the open-source reference implementation or any other application conforming to the
+provisions of ISO 24138:2024.
 
 However, an ISCC-CODE describes only the digital manifestation itself. It makes no assumptions about
 any related copyrightable work, associated actors, or other metadata. Additionally, ISO 24138:2024
@@ -22,56 +25,52 @@ does not define any methods for a global and interoperable discovery of such inf
 ISCC-CODEs.
 
 This document introduces the **ISCC Discovery Protocol (IDP)**. The proposed protocol enables
-sector-specific or jurisdiction-specific centralized registries to coexist and mutually benefit
-through seamless interoperability and efficient content-based metadata discovery.
+sector-specific or jurisdiction-specific registries to coexist and mutually benefit through seamless
+interoperability and efficient content-based discovery of metadata.
 
 The protocol achieves this by transparently recording who declared what content at what time and
-where to find related metadata and services. These “Declaration Events” are identified by globally
-unique **ISCC-ID**s and can be resolved to external registries that provide metadata.
+where to find related metadata and services. These “Declaration Events” are identified by the newly
+introduced and globally unique \*\*ISCC-ID \*\*s. ISCC-IDs can be resolved to external registries
+that provide metadata.
 
 The protocol supports self-sovereign signing and timestamping of ISCC declarations, and open
 information discovery.
 
 # 
 
-# Terminology
+# Terminology & glossary
 
-**ISCC-HUB**\
-An independently operated server that participates in the decentralized network of ISCC-HUBs by
+**ISCC** Any ISCC-CODE, ISCC-UNIT or ISCC-ID
+
+**ISCC-BODY** The actual payload of an ISCC, similarity preserving compact binary code, hash or
+timestamp
+
+**ISCC-CODE** An ISCC-HEADER + ISCC-BODY where the ISCC-BODY is a sequence of multiple ISCC-UNIT
+BODYs calculated using multiple different algorithms
+
+**ISCC-UNIT** An ISCC-HEADER + ISCC-BODY where the ISCC-BODY is calculated using one specific
+algorithm
+
+**ISCC-ID** A globally unique, owned, compact identifier with an ISCC-BODY composed of a 52-bit
+microsecond timestamp and a 12-bit HUB-ID of the issuing ISCC-HUB server
+
+**ISCC-HEADER** Self describing header section of all ISCCs composed of MainType, SubType, Version,
+Length
+
+**ISCC-HUB** An independently operated server that participates in the network of ISCC-HUBs by
 running software conformant with the ISCC discovery protocol
 
-**ISCC-GATEWAY**\
-A service that returns a W3C Controlled Identifier Document ([CID](https://www.w3.org/TR/cid-1.0/))
-listing available metadata endpoints and services for the identified content
+**ISCC-GATEWAY** A service that returns a W3C Controlled Identifier Document
+([CID](https://www.w3.org/TR/cid-1.0/)) listing available metadata endpoints and services for the
+identified content
 
-**ISCC-REGISTRY**\
-A service provider that stores and serves metadata, implements sector-specific schemas, and offers
-specialized services for content identified by ISCCs
+**ISCC-REGISTRY** A service provider that stores and serves metadata, implements sector-specific
+schemas, and offers specialized services for content identified by ISCCs
 
-**ISCC-DECLARATION**\
-The act of publicly declaring an ISCC-CODE by sending a digitally signed message to an ISCC-HUB
+**ISCC-DECLARATION** The act of publicly declaring an ISCC-CODE by sending a digitally signed
+message to an ISCC-HUB
 
-**ISCC-HEADER**\
-Self describing header section of all ISCCs composed of MainType, SubType, Version, Length
-
-**ISCC-BODY**\
-The actual payload of an ISCC, similarity preserving compact binary code, hash or timestamp
-
-**ISCC-UNIT**\
-An ISCC-HEADER + ISCC-BODY where the ISCC-BODY is calculated using one specific algorithm
-
-**ISCC-CODE**\
-An ISCC-HEADER + ISCC-BODY where the ISCC-BODY is a sequence of multiple ISCC-UNIT BODYs calculated
-using multiple different algorithms
-
-**ISCC-ID**\
-A globally unique, owned, compact identifier with an ISCC-BODY composed of a 52-bit microsecond
-timestamp and a 12-bit HUB-ID of the issuing ISCC-HUB server
-
-**ISCC**\
-Any ISCC-CODE, ISCC-UNIT or ISCC-ID
-
-# 
+**Hamming distance** Number of differences between two ISCC-CODEs in bits (dis-similiarity)
 
 # Infrastructure Layers
 
@@ -80,7 +79,7 @@ metadata and services. Every piece of content becomes:
 
 - **Self-describing**: Discoverable metadata ecosystem
 - **Addressable**: Direct API-like access to services
-- **Competitive**: Multiple providers can offer services
+- **Open**: ISCC-IDs can resolve to multiple services offered bdifferent providers
 - **Composable**: Services can build on each other
 
 This enables a post-platform internet where content identity itself becomes the gateway to metadata
@@ -108,8 +107,9 @@ based on use case, sector, or service type.
 
 The metadata and service provisioning layer. REGISTRIEs store and serve actual metadata about
 content, implement sector-specific schemas, enforce their own trust and verification requirements,
-and provide specialized services such as licensing, attribution, or rights management. Multiple
-competing registries can serve the same content, enabling an open marketplace for metadata services.
+and provide specialized services such as licensing, attribution, or rights management. Existing and
+new registries can utilize and interface with the ISCC-HUB network to archive global content base
+discoverability and interconnection in an open marketplace for metadata services.
 
 This separation ensures that core infrastructure (HUBs) remains lightweight and neutral, while
 allowing sophisticated services and trust models to emerge at the registry layer, with gateways
@@ -118,7 +118,7 @@ providing seamless discovery and routing between them.
 # Trust Through Transparency
 
 The ISCC Discovery Protocol embraces universal content identification while providing strong
-accountability mechanisms through an open competition for trust:
+accountability mechanisms:
 
 ## Universal Declarations
 
@@ -146,32 +146,33 @@ record that enables:
 - **Evidence attachment**: Claimants can link to supporting documentation, building their case
 - **Counter-claims**: Legitimate parties can always respond with their own verifiable claims
 
-This transparency transforms potential chaos into useful signals. False claims don't disappear—they
-remain visible, attributed to their source. Over time, trust develops through multiple signals:
+This transparency transforms potential chaos into useful signals. False claims don't disappear -
+they remain visible, attributed to their source. Over time, trust develops through multiple signals:
 
 - **Actor Reputation**: Public keys accumulate reputation over time through consistent, accurate
   ISCC declarations
-- **REGISTRY Reputation**: Operators establish trust through transparent policies and reliable
+- **Registry Reputation**: Operators establish trust through transparent policies and reliable
   service
 - **Network Accountability**: Participants can flag malicious actors, enabling blocklists of
   problematic public keys or hubs.
 - **Authoritative Presence**: Publishers and creators can establish verified identities (via DIDs or
   domain-linked keys) that become recognizable trust anchors
 
-This open-yet-accountable model balances broad participation with verifiable attribution, enabling
-legitimate stakeholders to build reputation while exposing bad actors through transparent records.
+This open-yet-accountable model creates an open competition for trust that balances broad
+participation with verifiable attribution, enabling legitimate stakeholders to build reputation
+while exposing bad actors through transparent records.
 
 ## Conflict Detection and Resolution
 
-A single ISCC-CODE may be attached to multiple ISCC-IDs from different actors. This multiplicity
-enables rich discovery while the permanent audit trail ensures accountability, creating strong
-incentives for accurate ISCC declarations.
+A single ISCC-CODE may be declared multiple times across the network by different actors creating
+unique but matchable ISCC-IDs. This multiplicity enables rich discovery while the permanent audit
+trail ensures accountability, creating strong incentives for accurate declarations.
 
 The protocol's transparency naturally exposes conflicting claims about content. When multiple
 parties declare the same content with different metadata or ownership assertions, these conflicts
 become immediately visible globally.
 
-The permanent timestamp ordering provides crucial evidence for dispute resolution—showing who made
+The permanent timestamp ordering provides crucial evidence for dispute resolution - showing who made
 which claims when. While the protocol itself remains neutral and doesn't adjudicate disputes, it
 provides the verifiable audit trail that legal systems, arbitrators, or community governance
 mechanisms need to resolve conflicts. This "sunlight as disinfectant" approach ensures that all
@@ -181,25 +182,41 @@ Recognizing that both centralized authorities and decentralized systems only app
 strength, not a weakness. It creates a system that adapts to different contexts, jurisdictions, and
 evolving norms while maintaining the transparency needed for accountability.
 
+## Content Moderation and Redaction
+
+While maintaining transparency, ISCC-HUBs MAY implement content moderation mechanisms:
+
+**Redaction Capability**:
+
+- HUBs MAY mark declarations as "redacted" without removing them from the log
+- Redacted declarations remain in the log but are excluded from public queries
+- Redaction reasons MAY include legal compliance, abuse prevention, or terms violation
+
+**Implementation Requirements**:
+
+- Redaction MUST NOT delete events from the append-only log
+- Redacted content MUST remain verifiable through checkpoint proofs
+- HUBs MUST document their redaction policies publicly
+- Appeals or dispute resolution processes SHOULD be available
+
 # ISCC-ID
 
 ![][image3]
 
-The ISCC-ID is a new primitive within the ISCC Framework. ISCC-ID are timestamps minted and
-digitally signed by ISCC-HUBs. Each valid ISCC-ID is issued as a verifiable credential, binding
-together the following critical information:
+The ISCC-ID is a new primitive within the ISCC System. ISCC-IDs are globally unique timestamp based
+identifiers minted and digitally signed by independent ISCC-HUBs. Each valid ISCC-ID is issued as a
+verifiable credential, binding together the following critical information:
 
-- **WHO**: The cryptographic public key of the ISCC-ID owner.
+- **WHO**: The public key of the ISCC-ID owner (declarer) and issuer (hub).
 - **WHEN**: A timestamp (proof of existence), signed by the ISCC-HUB.
 - **WHERE**: A URL location where associated metadata/services can be discovered.
-- **WHAT**: The digital content represented by an ISCC-CODE.
+- **WHAT**: The digital content represented by an ISCC-CODE and a secure hash.
+
+## Structure & Format of the ISCC-ID:
 
 ![][image4]
 
-**Structure & Format of the ISCC-ID**:
-
-The ISCC-ID is an ISCC-encoded 64-bit content identifier constructed from a timestamp and a
-server-id:
+The ISCC-ID is an ISCC-encoded 64-bit content identifier constructed from a timestamp and a hub-id:
 
 - First 52 bits: UTC time in microseconds since UNIX epoch (1970-01-01T00:00:00Z)
 - Last 12 bits: ID of the timestamping server (0–4095)
@@ -214,29 +231,46 @@ server-id:
     - 52-bit timestamp: Microseconds since epoch (1970-01-01T00:00:00Z)
     - 12-bit server-id: Server-ID (0–4095) of the issuing ISCC-HUB
 
-**With this structure**:
+With this structure:
 
-- A single server can issue up to one million timestamps per second until the year 2112
+- A single HUB can issue up to one million timestamps per second until the year 2112
 - The system supports up to 4096 timestamp servers (IDs 0–4095)
-- Timestamps are globally unique and support total ordering in both integer and base32hex forms
-- The theoretical maximum throughput is ~4 billion unique timestamps per second
+- Timestamps are globally unique and support total ordering in both integer and base32hex
+  representations
+- The theoretical maximum throughput per REALM is ~4 billion unique timestamps per second
 
-The 64-bit ISCC-BODY of the ISCC-ID is the ideal candidate for efficient primary keys in database
-and indexing systems. Should the ID space become crowded, it can be extended by introducing
-additional REALMS via ISCC-HEADER SUBTYPEs.
+For database storage efficiency, ISCC-HUBs MAY store the ISCC-ID as 8-byte binary data containing
+only the 64-bit ISCC-BODY, omitting the 16-bit ISCC-HEADER. The ISCC-HEADER can be deterministically
+reconstructed when converting back to the string representation. This optimization reduces storage
+requirements by 20% while maintaining full compatibility with the ISCC-ID format.
 
 # ISCC-HUBs
 
-ISCC-HUBs are servers that provide content timestamping services and initial entry points for
-metadata discovery. ISCC-HUBs MUST publish an auditable contiguous transparency log of all
-declaration events and provide public access to those logs in bulk and at no cost.
+ISCC-HUBs are servers that provide distributed ISCC-ID issuing, content timestamping, content based
+search services and initial entry points for metadata discovery. ISCC-HUBs MUST publish an auditable
+contiguous transparency log of all declaration events and provide public access to those logs in
+bulk and at no cost.
 
 ISCC-HUBs do not store or provide specific metadata about digital content aside from optionally
-resolving to a single entrypoint (Resolver URL) per ISCC-ID for further use-case of sector-specific
+resolving to a single entrypoint (GATEWAY URL) per ISCC-ID for further use-case of sector-specific
 metadata discovery.
 
 Service policies for ISCC declarations (permissions, fees, ...) are at the discretion of individual
 ISCC-HUBs implementation and operator.
+
+## Event Log Structure
+
+ISCC-HUBs MUST maintain an append-only event log with the following properties:
+
+- **Gapless sequence numbers**: Each event receives a monotonically increasing sequence number
+  without gaps, enabling detection of missing events
+- **Event types**: Support for CREATED, UPDATED, and DELETED event types to track the full lifecycle
+  of declarations
+- **Event hash**: Each event includes a Blake3 hash of its canonicalized content for integrity
+  verification
+
+The event log serves as the authoritative source of truth, with all other data structures being
+derivable from it.
 
 ## The ISCC-HUB-LIST
 
@@ -253,29 +287,61 @@ the protocol because:
 - The ID space for ISCC-HUBs is limited to 4096 HUBs
 - Frequent HUB joins/leaves are costly in terms of replica reorganization
 - The IHL requires high service availability and long-term data persistence
-- The protocol targets a stable network with a low-to-moderate node churn rate
+- The protocol targets a stable network with a low-to-moderate HUB churn rate
 
 Management of the IHL itself is a centralization risk and requires high security but low transaction
 volume. As such it is an ideal candidate for a blockchain-based Smart Contract. HUB registration
 should be permissionless but somewhat costly to minimize node churn and avoid HUB-ID squatting.
 
-## Log Transparency
-
-ISCC-HUBs MUST anchor their declaration log state to a blockchain daily. This creates tamper-proof
-checkpoints that prove historical log states and enable dispute resolution.
-
-## HUB Registration
+## HUB-LIST Registration
 
 **Public Key Requirements**:
 
 HUBs SHOULD optimize their public keys for uniform distribution across the 256-bit ID space. This
-prevents clustering and ensures balanced load distribution.
+ensures balanced load distribution.
 
 **HUB Registration Process**:
 
 1. Generate Ed25519 keypair optimized for ID space coverage
-2. Register public key and API endpoint in smart contract
+2. Register public key and API endpoint with authoritative smart contract
 3. Begin accepting declaration requests
+
+## Log Transparency and Verification
+
+ISCC-HUBs MUST provide cryptographic auditing and verification of their event logs by anchoring
+their declaration log state at least once daily through a tamper-proof **Checkpoint System** that
+prove historical log states and enable dispute resolution. Cryptographic checkpoints include:
+
+- Merkle tree root of all events since the last checkpoint
+- Previous checkpoint hash for chain continuity
+- Timestamp from an external authority (RFC3161 or OpenTimestamps)
+- Digital signature from the hub's private key
+
+The checkpoint system enables efficient verification of log integrity without accessing the entire
+event history. Clients can verify any event's inclusion by checking its Merkle proof against the
+nearest checkpoint.
+
+## Hub Operational Modes
+
+ISCC-HUBs MAY operate in different modes based on deployment requirements:
+
+**Open Mode**:
+
+- Any actor can declare any content without prior authorization
+- Implements the universal declaration principle described in this document
+
+**Permissioned Mode**:
+
+- Only pre-authorized public keys can make declarations
+- HUBs maintain a list of authorized keys
+- Suitable for enterprise or consortium deployments
+- Does not affect the global discovery network
+
+**Hybrid Mode**:
+
+- Combines open and permissioned access
+- Certain operations require authorization
+- Public declarations allowed with restrictions (rate limits, duplicate filters)
 
 # Content Declaration
 
@@ -286,16 +352,16 @@ prevents clustering and ensures balanced load distribution.
 1. Create a self-sovereign account by generating an Ed25519 keypair (no third-party sign-up
    required).
 2. Create an ISCC-CODE for a digital asset you want to declare
-3. Create an IsccNote (JSON object) including the ISCC-CODE, datahash, nonce, and optional gateway
-   URL.
-4. Sign the IsccNote with your Ed25519 keypair (see:
+3. Create an IsccNote (JSON object) including the ISCC-CODE, datahash, nonce, timestamp and optional
+   gateway URL and extended ISCC-UNITs.
+4. Sign the IsccNote with your Ed25519 keypair ( see:
    [https://github.com/iscc/iscc-crypto](https://github.com/iscc/iscc-crypto))
 5. Submit the IsccNote to the ISCC-HUB of your choosing
 
 **The ISCC-HUB will then**:
 
 - Verify the submitted IsccNote
-- Create and record a unique ISCC-ID based on the current time and the ISCC-HUB HUB-ID
+- Create and record a unique ISCC-ID based on the current time and the HUB-ID
 - Create, digitally sign, and return an **IsccReceipt** including the original IsccNote
 
 The IsccReceipt is a Verifiable Credential that binds the WHO, WHEN, WHERE, WHAT and is replicated
@@ -309,37 +375,37 @@ they MUST not be null or empty strings or empty arrays.
 
 **Properties**
 
-**iscc_code** (required):\
-The ISCC-CODE that describes the digital content
+**iscc_code** (required): The ISCC-CODE that describes the digital content
 
-**datahash** (required):\
-A cryptographic hash of the content (256-bit hex-encoded blake3 multihash with prefix `1e20`)
+**datahash** (required): A cryptographic hash of the content (256-bit hex-encoded blake3 multihash
+with prefix `1e20`)
 
-**nonce** (required):\
-128-bit hex-encoded random value where the first 12 bits MUST match the ID (0-4095) of the target
-ISCC-HUB to prevent cross-server replay attacks
+**nonce** (required): 128-bit hex-encoded random value where the first 12 bits MUST match the ID
+(0-4095) of the target ISCC-HUB to prevent cross-server replay attacks. HUBs MUST reject IsccNotes
+where the nonce prefix does not match their HUB-ID. The nonce MUST be unique per HUB to prevent
+replay attacks.
 
-**timestamp** (required):\
-RFC 3339 formatted timestamp in UTC with millisecond precision (e.g., "2025-08-04T12:34:56.789Z").
-The 'Z' suffix MUST be used to indicate UTC. This timestamp indicates when the IsccNote was created
-and signed by the declaring party. HUBs MUST reject IsccNotes with timestamps outside of ±10 minutes
-from the HUB's current time.
+**timestamp** (required): RFC 3339 formatted timestamp in UTC with millisecond precision (e.g.,
+"2025-08-04T12:34:56.789Z"). The 'Z' suffix MUST be used to indicate UTC. This timestamp indicates
+when the IsccNote was created and signed by the declaring party. HUBs MUST reject IsccNotes with
+timestamps outside of ±10 minutes from the HUB's current time.
 
-**gateway** (optional):\
-URL or [uritemplate](https://datatracker.ietf.org/doc/html/rfc6570) pointing to a GATEWAY for
-metadata and service discovery
+**Note**: While client timestamps use millisecond precision for cross-platform compatibility, the
+ISCC-ID contains a microsecond-precision timestamp generated by the HUB at declaration time.
 
-**units** (optional):\
-Array of extended similarity-preserving ISCC-UNITs
+**gateway** (optional): URL or [uritemplate](https://datatracker.ietf.org/doc/html/rfc6570) pointing
+to a GATEWAY for metadata and service discovery
 
-**metahash** (optional):\
-Blake3 hash of [seed metadata](https://ieps.iscc.codes/iep-0002/#62-meta-hash-processing) (256-bit
-hex-encoded multihash with prefix `1e20`). When present, this creates a cryptographic commitment to
-the exact metadata state at declaration time, allowing external registries to store mutable or
-deletable metadata while maintaining temporal integrity.
+**units** (optional): Array of extended similarity-preserving ISCC-UNITs excluding the Instance-Code
+(can be derived from datahash)
 
-**signature** (required):\
-A digital signature for the IsccNote request
+**metahash** (optional): Blake3 hash of
+[seed metadata](https://ieps.iscc.codes/iep-0002/#62-meta-hash-processing) (256-bit hex-encoded
+multihash with prefix `1e20`). When present, this creates a cryptographic commitment to the exact
+metadata state at declaration time, allowing external registries to store mutable or deletable
+metadata while maintaining temporal integrity.
+
+**signature** (required): A digital signature for the IsccNote request
 
 ## IsccSignature Structure
 
@@ -348,22 +414,26 @@ A digital signature as specified in the
 
 **Properties**
 
-**version** (required):\
-Signature format version (currently `ISCC-SIG v1.0`)
+**version** (required): Signature format version (currently `ISCC-SIG v1.0`)
 
-**pubkey** (required):\
-Ed25519 public key in multibase format
+**pubkey** (required): Ed25519 public key in multibase format
 
-**proof** (required):\
-EdDSA signature in multibase format
+**proof** (required): EdDSA signature in multibase format
 
-**controller** (optional):\
-DID identifying the key controller
+**controller** (optional): DID identifying the key controller
 
-**keyid** (optional):\
-Specific key identifier within controller document
+**keyid** (optional): Specific key identifier within controller document
 
 ## Gateway handling
+
+ISCC-HUBs have flexibility in gateway URL handling:
+
+1. **Redirect Mode**: HUBs MAY simply redirect resolution requests to the gateway URL, allowing
+   external services to handle all metadata and CID document generation
+2. **Gateway Mode**: HUBs MAY act as gateways themselves, generating and serving W3C CID documents
+   directly
+3. **Hybrid Mode**: HUBs MAY selectively serve some metadata while redirecting to external gateways
+   for specialized services
 
 Gateway URLs can be either URLs or URI Templates as defined in
 [RFC 6570](https://datatracker.ietf.org/doc/html/rfc6570). If the gateway property is provided with
@@ -372,13 +442,7 @@ When resolving an ISCC-ID the gateway value will be used to construct the forwar
 
 **URL handling**
 
-If the gateway value is an URL, the target URL will be constructed by simply appending the
-corresponding ISCC-ID together with an initial forward slash (if required).
-
-Examples:
-
-`https://example.com/content  -> https://example.com/content/ISCC:MAIGHFECJMOPMIAB`\
-`https://example.com/content/ -> https://example.com/content/ISCC:MAIGHFECJMOPMIAB`
+If the gateway value is an URL the ISCC-HUB will redirect to that url.
 
 **URI Template handling**
 
@@ -387,39 +451,38 @@ are:
 
 - `{iscc_id}` - The ISCC-ID assigned by the HUB
 - `{iscc_code}` - The ISCC-CODE from this note
-- `{pubkey}` - The pubkey of the actor that signed the IsccNote
 - `{datahash}` - The content's blake3 hash
 
 Example:
 
-`https://api.example.com/v1/{controller}/content/{iscc_id}`
+`https://api.example.com/v1/content/{iscc_id}`
 
-Service deep links append to the expanded template:
+Service deep links append to the URL or expanded template:
 
-- Template: `https://gateway.example.com/{iscc_i`d}
-- Deep link: /tdm
-- Final URL: `https://gateway.example.com/ISCC:MAIGHFECJMOPMIAB/tdm`
+- Template: `https://gateway.example.com/{iscc_id}`
+- Deep link: TdmInfo
+- Final URL: `https://gateway.example.com/maighfecjmopmiab?serviceType=TdmInfo`
 
 **IsccNote example with gateway**:
 
 ```json
 {
-  "iscc_code": "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA",
-  "datahash": "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d",
-  "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
-  "gateway": "https://gateway.example.com",
-  "units": [
-    "ISCC:AADZH265WE3KJOSR5K67QJEF5JHLF2REJJYVI4ZYKJ727JU2ZX2AHNQ",
-    "ISCC:EADUZ5XBKQCWGG4HYIKX7CNPQMFTPTWEUCQLXFJWC25TKM645KYUSNQ",
-    "ISCC:GADZFVRM53JZBN7XOOT3Y6FL372G2GY6PEKRY43JIJ6KV4GH5P7NN4A"
-  ],
-  "signature": {
-    "version": "ISCC-SIG v1.0",
-    "controller": "did:web:publisher.example.com",
-    "keyid": "signing-key-2025",
-    "pubkey": "z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
-    "proof": "zYsDddLFwrhcw8YfbmTQXCSiZYu5BEyCp1ULWERuvgVEVunoCiwxe5n8KF3QPA9s7W4z9eM8dUbtQML5y7mqjCDr"
-  }
+    "iscc_code": "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA",
+    "datahash": "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d",
+    "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
+    "gateway": "https://gateway.example.com",
+    "units": [
+        "ISCC:AADZH265WE3KJOSR5K67QJEF5JHLF2REJJYVI4ZYKJ727JU2ZX2AHNQ",
+        "ISCC:EADUZ5XBKQCWGG4HYIKX7CNPQMFTPTWEUCQLXFJWC25TKM645KYUSNQ",
+        "ISCC:GADZFVRM53JZBN7XOOT3Y6FL372G2GY6PEKRY43JIJ6KV4GH5P7NN4A"
+    ],
+    "signature": {
+        "version": "ISCC-SIG v1.0",
+        "controller": "did:web:publisher.example.com",
+        "keyid": "signing-key-2025",
+        "pubkey": "z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
+        "proof": "zYsDddLFwrhcw8YfbmTQXCSiZYu5BEyCp1ULWERuvgVEVunoCiwxe5n8KF3QPA9s7W4z9eM8dUbtQML5y7mqjCDr"
+    }
 }
 ```
 
@@ -484,8 +547,9 @@ determine the responsible replication HUB to retrieve declaration records for ex
 
 # Gateways
 
-Act as a gateway to different services related to the content identified by a given ISCC-ID — such
-as sector or use-case specific metadata lookup or other services.
+A gateway is an HTTP endpoint that acts as a resolver to different services related to the content
+identified by a given ISCC-ID - such as sector or use-case specific metadata lookup or other
+services.
 
 ## Gateway Response Format
 
@@ -497,19 +561,19 @@ A GATEWAY response for an ISCC-ID follows this structure:
 
 ```json
 {
-  "@context": [
-    "https://www.w3.org/ns/cid/v1",
-    "https://purl.org/iscc/context/v1"
-  ],
-  "id": "<resolver-url>/<iscc-id>",
-  "controller": "<did-of-iscc-id-owner>",
-  "service": [
-    {
-      "id": "#tdm",
-      "type": "TdmMetadataService",
-      "serviceEndpoint": "<metadata-endpoint-url>"
-    }
-  ]
+    "@context": [
+        "https://www.w3.org/ns/cid/v1",
+        "https://purl.org/iscc/context/v1"
+    ],
+    "id": "<resolver-url>/<iscc-id>",
+    "controller": "<did-of-iscc-id-owner>",
+    "service": [
+        {
+            "id": "#tdm",
+            "type": "TdmMetadataService",
+            "serviceEndpoint": "<metadata-endpoint-url>"
+        }
+    ]
 }
 ```
 
@@ -527,14 +591,14 @@ disambiguation, and rich client-side presentation of search results:
 
 ```json
 {
-  "id": "#core",
-  "type": "IsccCoreMetadata",
-  "serviceEndpoint": {
-    "name": "<content-title>",
-    "description": "<brief-description>",
-    "meta": "<data-uri-encoded-sector-kernel-metadata>",
-    "thumbnail": "<data-uri-or-url>"
-  }
+    "id": "#core",
+    "type": "IsccCoreMetadata",
+    "serviceEndpoint": {
+        "name": "<content-title>",
+        "description": "<brief-description>",
+        "meta": "<data-uri-encoded-sector-kernel-metadata>",
+        "thumbnail": "<data-uri-or-url>"
+    }
 }
 ```
 
@@ -565,8 +629,10 @@ expansion:
 
 - Template: [https://gateway.example.com/{iscc_id}](https://resolver.example.com/%7Biscc_id%7D)
 - Service path: /tdm
-- Result:
-  [https://gateway.example.com/ISCC:MAEK2NC3Y5VZ4.../tdm](https://resolver.example.com/ISCC:MAEK2NC3Y5VZ4.../tdm)
+-
+
+Result:
+[https://gateway.example.com/ISCC:MAEK2NC3Y5VZ4.../tdm](https://resolver.example.com/ISCC:MAEK2NC3Y5VZ4.../tdm)
 
 Service types and their corresponding endpoint schemas will be defined in the ISCC Service Registry
 to ensure consistent implementation across the ecosystem.
@@ -583,10 +649,24 @@ by ensuring interoperability across the ecosystem:
 
 # Economic Models and Incentives
 
-To add: Reasoning to have mechanisms to avoid squatting of node addresses, incentives for operators
-to create for profit business, “credible neutrality” through a smart contract approach. Explore
-different fee models such as subscription based, similar to ENS, what happens when node addresses
-are being returned…
+To avoid squatting of the namespace there will be an annual fee for running a hub, payable to the
+registrar of the namespace. Currently it is estimated to be ~4000 Euro p.a.
+
+**Governance of the ISCC Foundation controlling the namespace and driving standardisation efforts**
+
+The namespace will be governed by the ISCC foundation, collecting the fees for registration of an
+ISCC Hub.
+
+The ISCC Foundation plans to set up a directed development fund modeled after the legal contracts
+provided by the
+[Joint Development Foundation/ a Linux Foundation Fund](https://jointdevelopment.org/) governed by a
+steering committee composed of relevant stakeholders of the industry interested to use the ISCC
+Discovery Protocol.
+
+There will be a technical charter ensuring that contributions to the codebase will not require a
+membership.
+
+Members of the steering committee have voting rights and pay an annual membership fee.
 
 ## HUB Operator Business Models
 
