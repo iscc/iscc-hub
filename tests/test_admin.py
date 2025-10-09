@@ -39,7 +39,7 @@ def iscc_declaration():
         iscc_code="ISCC:KAA777777UJZXHQ2I5EBNSAAAA",
         datahash="bdyqnosmb56tqudeimdvmbvkn4dtsn5xpeub26pesrtl2lgoqy",
         nonce="123456789abcdef0123456789abcdef0",
-        actor="ed25519_public_key_test",
+        pubkey="ed25519_public_key_test",
         gateway="https://example.com",
         metahash="test_metahash",
         event_seq=1,
@@ -121,18 +121,18 @@ class TestIsccDeclarationAdmin:
 
     def test_actor_short_truncated(self, iscc_declaration):
         # type: (IsccDeclaration) -> None
-        """Test actor truncation for long keys."""
+        """Test pubkey truncation for long keys."""
         admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
-        iscc_declaration.actor = "a" * 50
+        iscc_declaration.pubkey = "a" * 50
         result = admin_obj.actor_short(iscc_declaration)
         assert '<span title="' in result
         assert "..." in result
 
     def test_actor_short_not_truncated(self, iscc_declaration):
         # type: (IsccDeclaration) -> None
-        """Test actor display for short keys."""
+        """Test pubkey display for short keys."""
         admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
-        iscc_declaration.actor = "short_key"
+        iscc_declaration.pubkey = "short_key"
         result = admin_obj.actor_short(iscc_declaration)
         assert result == "short_key"
 

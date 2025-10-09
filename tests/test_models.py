@@ -414,7 +414,7 @@ def test_iscc_declaration_creation():
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="000abcd1234567890abcdef123456789",
-        actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
+        pubkey="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
     )
 
     assert declaration.iscc_id == "ISCC:MEAJU3PC4ICWCTYI"
@@ -437,7 +437,7 @@ def test_iscc_declaration_with_optional_fields():
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="000abcd1234567890abcdef123456789",
-        actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
+        pubkey="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
         gateway="https://gateway.example.com",
         metahash="1e20abcd1234567890abcdef1234567890abcdef1234567890abcdef12345678",
     )
@@ -459,7 +459,7 @@ def test_iscc_declaration_str_representation():
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="000abcd1234567890abcdef123456789",
-        actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
+        pubkey="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
     )
     assert str(active_declaration) == f"{generate_test_iscc_id(seq=60)} (active)"
 
@@ -470,7 +470,7 @@ def test_iscc_declaration_str_representation():
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="001abcd1234567890abcdef123456789",
-        actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
+        pubkey="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
         redacted=True,
     )
     assert str(redacted_declaration) == f"{generate_test_iscc_id(seq=61)} (redacted)"
@@ -489,7 +489,7 @@ def test_iscc_declaration_unique_constraints():
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="000abcd1234567890abcdef123456789",
-        actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
+        pubkey="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
     )
 
     # Test iscc_id uniqueness (primary key)
@@ -502,7 +502,7 @@ def test_iscc_declaration_unique_constraints():
             iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
             datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
             nonce="001abcd1234567890abcdef123456789",
-            actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
+            pubkey="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
         )
 
     # Test event_seq uniqueness
@@ -513,7 +513,7 @@ def test_iscc_declaration_unique_constraints():
             iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
             datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
             nonce="002abcd1234567890abcdef123456789",
-            actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
+            pubkey="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
         )
 
     # Test nonce uniqueness
@@ -524,7 +524,7 @@ def test_iscc_declaration_unique_constraints():
             iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
             datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
             nonce="000abcd1234567890abcdef123456789",  # Duplicate
-            actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
+            pubkey="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
         )
 
 
@@ -541,7 +541,7 @@ def test_iscc_declaration_redacted_field():
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="000abcd1234567890abcdef123456789",
-        actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
+        pubkey="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
         gateway="https://malicious.example.com",
     )
 
@@ -586,7 +586,7 @@ def test_iscc_declaration_indexes():
             iscc_code=f"ISCC:CODE{i % 2}",  # Two different codes
             datahash=f"1e20{'a' * 64}" if i % 2 == 0 else f"1e20{'b' * 64}",
             nonce=f"{i:03d}abcd1234567890abcdef123456789",
-            actor=test_actors[i % 3],  # Three different actors
+            pubkey=test_actors[i % 3],  # Three different pubkeys
         )
 
     # Test indexed queries
@@ -598,12 +598,12 @@ def test_iscc_declaration_indexes():
     results = IsccDeclaration.objects.filter(datahash=f"1e20{'a' * 64}")
     assert results.count() == 3
 
-    # Query by actor
-    results = IsccDeclaration.objects.filter(actor=test_actors[0])
+    # Query by pubkey
+    results = IsccDeclaration.objects.filter(pubkey=test_actors[0])
     assert results.count() == 2
 
-    # Query by actor and iscc_code
-    results = IsccDeclaration.objects.filter(actor=test_actors[0], iscc_code="ISCC:CODE0")
+    # Query by pubkey and iscc_code
+    results = IsccDeclaration.objects.filter(pubkey=test_actors[0], iscc_code="ISCC:CODE0")
     assert results.count() == 1
 
     # Query by event_seq
@@ -624,7 +624,7 @@ def test_iscc_declaration_update():
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="000abcd1234567890abcdef123456789",
-        actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
+        pubkey="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
         gateway="https://old.gateway.com",
     )
 
@@ -639,7 +639,7 @@ def test_iscc_declaration_update():
     declaration.event_seq = 2
     declaration.iscc_code = "ISCC:NEWCODE"
     declaration.datahash = "1e20ffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-    declaration.actor = "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"  # Different valid Ed25519 key
+    declaration.pubkey = "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"  # Different valid Ed25519 key
     declaration.gateway = "https://new.gateway.com"
     declaration.save()
 
@@ -648,7 +648,7 @@ def test_iscc_declaration_update():
     assert declaration.event_seq == 2
     assert declaration.iscc_code == "ISCC:NEWCODE"
     assert declaration.datahash == "1e20ffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-    assert declaration.actor == "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"
+    assert declaration.pubkey == "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"
     assert declaration.gateway == "https://new.gateway.com"
     assert declaration.updated_at > original_updated_at  # auto_now should update
 
@@ -681,7 +681,7 @@ def test_iscc_declaration_duplicate_content_allowed():
     Test that the same actor can declare the same content multiple times.
     This verifies no database constraints prevent duplicate declarations.
     """
-    actor = "z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1"
+    pubkey = "z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1"
     iscc_code = "ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ"
     datahash = "1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c"
 
@@ -692,10 +692,10 @@ def test_iscc_declaration_duplicate_content_allowed():
         iscc_code=iscc_code,
         datahash=datahash,
         nonce="000abcd1234567890abcdef123456789",
-        actor=actor,
+        pubkey=pubkey,
     )
 
-    # Create second declaration with same actor, iscc_code, and datahash
+    # Create second declaration with same pubkey, iscc_code, and datahash
     # This should succeed as we removed unique constraints
     declaration2 = IsccDeclaration.objects.create(
         iscc_id=generate_test_iscc_id(seq=111),
@@ -703,13 +703,13 @@ def test_iscc_declaration_duplicate_content_allowed():
         iscc_code=iscc_code,  # Same code
         datahash=datahash,  # Same hash
         nonce="001abcd1234567890abcdef123456789",  # Different nonce
-        actor=actor,  # Same actor
+        pubkey=pubkey,  # Same pubkey
     )
 
     # Verify both exist
     assert declaration1.iscc_id == generate_test_iscc_id(seq=110)
     assert declaration2.iscc_id == generate_test_iscc_id(seq=111)
 
-    # Query declarations by actor and iscc_code
-    declarations = IsccDeclaration.objects.filter(actor=actor, iscc_code=iscc_code)
+    # Query declarations by pubkey and iscc_code
+    declarations = IsccDeclaration.objects.filter(pubkey=pubkey, iscc_code=iscc_code)
     assert declarations.count() == 2

@@ -135,9 +135,10 @@ def sequence_iscc_note(iscc_note):
             cursor.execute(
                 """
                 INSERT INTO iscc_declaration (
-                    iscc_id, event_seq, iscc_code, datahash, nonce, actor, gateway, metahash, updated_at, redacted
+                    iscc_id, event_seq, iscc_code, datahash, nonce, pubkey, controller, gateway, metahash,
+                    updated_at, redacted
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
                 (
                     iscc_id_bytes,
@@ -146,6 +147,7 @@ def sequence_iscc_note(iscc_note):
                     iscc_note["datahash"],
                     iscc_note["nonce"],
                     iscc_note["signature"]["pubkey"],
+                    iscc_note.get("signature", {}).get("controller", ""),
                     iscc_note.get("gateway", ""),
                     iscc_note.get("metahash", None),  # HexField converts empty string to None
                     event_time_str,

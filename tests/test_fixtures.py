@@ -40,7 +40,7 @@ def test_load_fixtures_command():
         assert declaration.iscc_code is not None
         assert declaration.datahash is not None
         assert declaration.nonce is not None
-        assert declaration.actor is not None
+        assert declaration.pubkey is not None
         # Timestamps are now implicit in the ISCC-ID, so just check updated_at
         assert declaration.updated_at is not None
 

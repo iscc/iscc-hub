@@ -221,7 +221,7 @@ def create_test_declaration(seq=1, **overrides):
         "iscc_code": "ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY",
         "datahash": "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
         "nonce": f"{seq:032x}",  # Generate unique nonce based on seq
-        "actor": "z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",  # Valid Ed25519 public key
+        "pubkey": "z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",  # Valid Ed25519 public key
     }
     defaults.update(overrides)
     return IsccDeclaration.objects.create(**defaults)
@@ -260,7 +260,7 @@ def sample_declaration_data():
         "iscc_code": "ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY",
         "datahash": "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
         "nonce": "fedcba9876543210fedcba9876543210",
-        "actor": "z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",  # Valid Ed25519 public key
+        "pubkey": "z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",  # Valid Ed25519 public key
     }
 
 

@@ -129,7 +129,7 @@ class IsccDeclarationAdmin(ModelAdmin):
     search_fields = [
         "iscc_id",
         "iscc_code",
-        "actor",
+        "pubkey",
         "datahash",
         "nonce",
     ]
@@ -140,7 +140,8 @@ class IsccDeclarationAdmin(ModelAdmin):
         "iscc_code",
         "datahash",
         "nonce",
-        "actor",
+        "pubkey",
+        "controller",
         "gateway",
         "metahash",
         "creation_time",
@@ -149,7 +150,7 @@ class IsccDeclarationAdmin(ModelAdmin):
 
     fieldsets = (
         ("Core Identification", {"fields": ("iscc_id", "iscc_code", "datahash", "nonce")}),
-        ("Actor Information", {"fields": ("actor", "gateway")}),
+        ("Identity Information", {"fields": ("pubkey", "controller", "gateway")}),
         ("Metadata", {"fields": ("metahash", "event_seq")}),
         ("Timestamps", {"fields": ("creation_time", "updated_at"), "classes": ("collapse",)}),
         ("Status", {"fields": ("redacted",)}),
@@ -184,14 +185,14 @@ class IsccDeclarationAdmin(ModelAdmin):
 
     def actor_short(self, obj):
         # type: (IsccDeclaration) -> str
-        """Display truncated actor key with tooltip."""
-        actor_str = str(obj.actor)  # Ensure it's a string (PubkeyField returns string)
-        if len(actor_str) > 20:
-            return format_html('<span title="{}">{}</span>', actor_str, actor_str[:20] + "...")
-        return actor_str
+        """Display truncated pubkey with tooltip."""
+        pubkey_str = str(obj.pubkey)  # Ensure it's a string (PubkeyField returns string)
+        if len(pubkey_str) > 20:
+            return format_html('<span title="{}">{}</span>', pubkey_str, pubkey_str[:20] + "...")
+        return pubkey_str
 
-    actor_short.short_description = "Actor"
-    actor_short.admin_order_field = "actor"
+    actor_short.short_description = "Public Key"
+    actor_short.admin_order_field = "pubkey"
 
     def gateway_domain(self, obj):
         # type: (IsccDeclaration) -> str

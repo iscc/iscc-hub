@@ -198,7 +198,14 @@ class IsccDeclaration(models.Model):
     )
 
     # Actor identity
-    actor = PubkeyField(db_index=True, help_text="Ed25519 public key of the declaring actor")
+    pubkey = PubkeyField(db_index=True, help_text="Ed25519 public key of the declaring actor")
+
+    controller = models.CharField(
+        max_length=2048,
+        blank=True,
+        default="",
+        help_text="DID or W3C CID Document URL identifying the key controller",
+    )
 
     # Optional fields
     gateway = models.URLField(
