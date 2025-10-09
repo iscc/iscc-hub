@@ -421,7 +421,7 @@ def test_iscc_declaration_creation():
     assert declaration.event_seq == 1
     assert declaration.redacted is False
     assert declaration.gateway == ""
-    assert declaration.metahash == ""
+    assert declaration.metahash is None  # HexField returns None for empty values
     assert declaration.updated_at is not None
 
 
@@ -571,6 +571,13 @@ def test_iscc_declaration_indexes():
     """
     Test that indexes work for efficient queries.
     """
+    # Generate test Ed25519 public keys for testing
+    test_actors = [
+        "z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",  # actor 0
+        "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",  # actor 1
+        "z6MkfrVYbLejh9Hv7Qmx4B2P681wBfPFkcHFaLwWDmSj8Kzv",  # actor 2
+    ]
+
     # Create multiple declarations
     for i in range(5):
         IsccDeclaration.objects.create(
@@ -579,7 +586,7 @@ def test_iscc_declaration_indexes():
             iscc_code=f"ISCC:CODE{i % 2}",  # Two different codes
             datahash=f"1e20{'a' * 64}" if i % 2 == 0 else f"1e20{'b' * 64}",
             nonce=f"{i:03d}abcd1234567890abcdef123456789",
-            actor=f"actor{i % 3}",  # Three different actors
+            actor=test_actors[i % 3],  # Three different actors
         )
 
     # Test indexed queries
@@ -592,11 +599,11 @@ def test_iscc_declaration_indexes():
     assert results.count() == 3
 
     # Query by actor
-    results = IsccDeclaration.objects.filter(actor="actor0")
+    results = IsccDeclaration.objects.filter(actor=test_actors[0])
     assert results.count() == 2
 
     # Query by actor and iscc_code
-    results = IsccDeclaration.objects.filter(actor="actor0", iscc_code="ISCC:CODE0")
+    results = IsccDeclaration.objects.filter(actor=test_actors[0], iscc_code="ISCC:CODE0")
     assert results.count() == 1
 
     # Query by event_seq
@@ -617,7 +624,7 @@ def test_iscc_declaration_update():
         iscc_code="ISCC:KACT7BESWDYQXSWQSVBOBQCTBPQGQVJ3WH7XWZLW3IWNT4H5MOBOTPQ",
         datahash="1e208e3ca3f3a5fe9a5e5c8f9e5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c5f5c",
         nonce="000abcd1234567890abcdef123456789",
-        actor="actor1",
+        actor="z6MkhQLS6HMEd8Tc6sBtY1LFutKSt69K69g77asCKXAZsAT1",
         gateway="https://old.gateway.com",
     )
 
@@ -632,7 +639,7 @@ def test_iscc_declaration_update():
     declaration.event_seq = 2
     declaration.iscc_code = "ISCC:NEWCODE"
     declaration.datahash = "1e20ffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-    declaration.actor = "actor2"
+    declaration.actor = "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"  # Different valid Ed25519 key
     declaration.gateway = "https://new.gateway.com"
     declaration.save()
 
@@ -641,7 +648,7 @@ def test_iscc_declaration_update():
     assert declaration.event_seq == 2
     assert declaration.iscc_code == "ISCC:NEWCODE"
     assert declaration.datahash == "1e20ffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-    assert declaration.actor == "actor2"
+    assert declaration.actor == "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"
     assert declaration.gateway == "https://new.gateway.com"
     assert declaration.updated_at > original_updated_at  # auto_now should update
 

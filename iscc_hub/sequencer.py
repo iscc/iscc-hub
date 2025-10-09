@@ -147,7 +147,7 @@ def sequence_iscc_note(iscc_note):
                     iscc_note["nonce"],
                     iscc_note["signature"]["pubkey"],
                     iscc_note.get("gateway", ""),
-                    iscc_note.get("metahash", ""),
+                    iscc_note.get("metahash", None),  # HexField converts empty string to None
                     event_time_str,
                     False,
                 ),

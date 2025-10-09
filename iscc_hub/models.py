@@ -191,26 +191,24 @@ class IsccDeclaration(models.Model):
     # Core declaration data
     iscc_code = models.CharField(max_length=256, db_index=True, help_text="ISCC-CODE identifying the content")
 
-    datahash = models.CharField(
-        max_length=72, db_index=True, help_text="Blake3 multihash of the content (1e20 prefix + hash)"
-    )
+    datahash = HexField(max_length=34, db_index=True, help_text="Blake3 multihash of the content (1e20 prefix + hash)")
 
-    nonce = models.CharField(
-        max_length=32, unique=True, db_index=True, help_text="128-bit hex nonce preventing replay attacks"
+    nonce = HexField(
+        max_length=16, unique=True, db_index=True, help_text="128-bit hex nonce preventing replay attacks"
     )
 
     # Actor identity
-    actor = models.CharField(max_length=128, db_index=True, help_text="Ed25519 public key of the declaring actor")
+    actor = PubkeyField(db_index=True, help_text="Ed25519 public key of the declaring actor")
 
     # Optional fields
     gateway = models.URLField(
         max_length=2048, blank=True, default="", help_text="Gateway URL or URI template for metadata discovery"
     )
 
-    metahash = models.CharField(
-        max_length=72,
+    metahash = HexField(
+        max_length=34,
         blank=True,
-        default="",
+        null=True,
         db_index=True,
         help_text="Blake3 hash of seed metadata (optional commitment)",
     )

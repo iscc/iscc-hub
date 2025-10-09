@@ -209,6 +209,29 @@ class TestIsccDeclarationAdmin:
         assert "redact" in actions
         assert "unredact" in actions
 
+    def test_get_actions_with_delete_selected(self, admin_request, monkeypatch):
+        # type: (HttpRequest, Any) -> None
+        """Test that delete_selected action is removed if present."""
+        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
+
+        # Mock super().get_actions to return a dict with delete_selected
+        original_get_actions = admin.ModelAdmin.get_actions
+
+        def mock_get_actions(self, request):
+            # type: (Any, Any) -> dict
+            actions = original_get_actions(self, request)
+            # Ensure delete_selected is in the dict to test the removal
+            actions["delete_selected"] = "mock_action"
+            return actions
+
+        monkeypatch.setattr(admin.ModelAdmin, "get_actions", mock_get_actions)
+
+        actions = admin_obj.get_actions(admin_request)
+        # Should have removed delete_selected
+        assert "delete_selected" not in actions
+        assert "redact" in actions
+        assert "unredact" in actions
+
     @pytest.mark.django_db
     def test_redact_action(self, admin_request):
         # type: (HttpRequest) -> None
@@ -248,6 +271,13 @@ class TestIsccDeclarationAdmin:
         """Test that adding declarations is prevented."""
         admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
         assert admin_obj.has_add_permission(admin_request) is False
+
+    def test_has_delete_permission(self, admin_request):
+        # type: (HttpRequest) -> None
+        """Test that deleting declarations is prevented."""
+        admin_obj = IsccDeclarationAdmin(IsccDeclaration, site)
+        assert admin_obj.has_delete_permission(admin_request) is False
+        assert admin_obj.has_delete_permission(admin_request, IsccDeclaration()) is False
 
 
 class TestEventAdmin:

@@ -137,6 +137,12 @@ class IsccDeclarationAdmin(ModelAdmin):
     readonly_fields = [
         "iscc_id",
         "event_seq",
+        "iscc_code",
+        "datahash",
+        "nonce",
+        "actor",
+        "gateway",
+        "metahash",
         "creation_time",
         "updated_at",
     ]
@@ -179,9 +185,10 @@ class IsccDeclarationAdmin(ModelAdmin):
     def actor_short(self, obj):
         # type: (IsccDeclaration) -> str
         """Display truncated actor key with tooltip."""
-        if len(obj.actor) > 20:
-            return format_html('<span title="{}">{}</span>', obj.actor, obj.actor[:20] + "...")
-        return obj.actor
+        actor_str = str(obj.actor)  # Ensure it's a string (PubkeyField returns string)
+        if len(actor_str) > 20:
+            return format_html('<span title="{}">{}</span>', actor_str, actor_str[:20] + "...")
+        return actor_str
 
     actor_short.short_description = "Actor"
     actor_short.admin_order_field = "actor"
@@ -243,6 +250,11 @@ class IsccDeclarationAdmin(ModelAdmin):
     def has_add_permission(self, request):
         # type: (HttpRequest) -> bool
         """Prevent adding declarations through admin (materialized from events)."""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        # type: (HttpRequest, IsccDeclaration | None) -> bool
+        """Prevent deleting declarations through admin (use API with DELETE events)."""
         return False
 
 
