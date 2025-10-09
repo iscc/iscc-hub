@@ -36,7 +36,7 @@ ISCC_HUB_DOMAIN = env("ISCC_HUB_DOMAIN", default="localhost" if DEV else env.NOT
 ISCC_HUB_SECKEY = env(
     "ISCC_HUB_SECKEY", default="z3u2RDonZ81AFKiw8QCPKcsyg8Yy2MmYQNxfBn51SS2QmMiw" if DEV else env.NOTSET
 )
-ISCC_HUB_ID = env.int("ISCC_HUB_ID", default=0 if DEV else env.NOTSET)
+ISCC_HUB_ID = env.int("ISCC_HUB_ID", default=1 if DEV else env.NOTSET)
 
 ####################################################################################################
 
