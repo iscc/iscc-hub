@@ -68,10 +68,15 @@ def iscc_id_resolve(request, iscc_id):
     2. ISCC-ID with gateway → 307 redirect to gateway URL
     3. ISCC-ID without gateway → declaration detail page
 
+    Query parameters:
+    - redirect=false: Disable redirects and show declaration details instead
+
     :param request: The incoming HTTP request
     :param iscc_id: The ISCC-ID to resolve (can be in various formats)
     :return: 404, redirect, or detail page
     """
+    # Check if redirects should be disabled
+    should_redirect = request.GET.get("redirect", "true").lower() != "false"
     # Validate and normalize ISCC-ID format using iscc_core
     try:
         # iscc_decode handles various formats (with/without prefix, case-insensitive, etc.)
@@ -98,9 +103,22 @@ def iscc_id_resolve(request, iscc_id):
     local_hub_id = settings.ISCC_HUB_ID
 
     if remote_hub_id != local_hub_id:
-        # ISCC-ID from remote hub - try to forward
+        # ISCC-ID from remote hub
         try:
             hub = Hub.objects.get(hub_id=remote_hub_id, active=True)
+
+            if not should_redirect:
+                # Show info page about remote ISCC-ID instead of redirecting
+                details_url = f"{hub.url.rstrip('/')}/{iscc_id_clean}?redirect=false"
+                context = {
+                    "iscc_id": iscc_id_clean,
+                    "iscc_id_canonical": iscc_id_canonical,
+                    "hub": hub,
+                    "hub_id": remote_hub_id,
+                    "details_url": details_url,
+                }
+                return render(request, "iscc_hub/remote_declaration.html", context)
+
             # Forward to remote hub using same path structure
             redirect_url = f"{hub.url.rstrip('/')}/{iscc_id_clean}"
             # Preserve query parameters from the original request
@@ -109,6 +127,15 @@ def iscc_id_resolve(request, iscc_id):
             return HttpResponseRedirect(redirect_url, status=307)
         except Hub.DoesNotExist:
             # Remote hub not found or not active
+            if not should_redirect:
+                # Show info page even without hub details
+                context = {
+                    "iscc_id": iscc_id_clean,
+                    "iscc_id_canonical": iscc_id_canonical,
+                    "hub_id": remote_hub_id,
+                    "hub": None,
+                }
+                return render(request, "iscc_hub/remote_declaration.html", context)
             return render(request, "iscc_hub/404.html", {"iscc_id": iscc_id}, status=404)
 
     # Query for the declaration using the canonical ISCC-ID
@@ -120,7 +147,7 @@ def iscc_id_resolve(request, iscc_id):
             return render(request, "iscc_hub/404.html", {"iscc_id": iscc_id}, status=404)
 
         # Check for gateway
-        if declaration.gateway:
+        if declaration.gateway and should_redirect:
             # Prepare template variables for expansion
             # Strip "ISCC:" prefix from iscc_code if present for cleaner URLs
             iscc_code_clean = declaration.iscc_code

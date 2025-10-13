@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Remote ISCC-ID - ISCC-HUB{% endblock %}
+
+{% block content %}
+<section class="py-16 md:py-24">
+    <div class="max-w-4xl mx-auto px-6">
+        <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 md:p-12">
+            <!-- Info Icon -->
+            <div class="w-20 h-20 bg-iscc-blue/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-10 h-10 text-iscc-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+
+            <!-- Title -->
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4 text-center">Remote ISCC-ID</h1>
+
+            <!-- ISCC-ID Display -->
+            <div class="mb-6 text-center">
+                <p class="text-gray-600 mb-3">The requested ISCC-ID was issued by a different ISCC-HUB:</p>
+                <div class="inline-block bg-gray-100 rounded-lg px-4 py-2 mb-4">
+                    <code class="font-mono text-sm text-gray-800">{{ iscc_id_canonical }}</code>
+                </div>
+            </div>
+
+            <!-- Hub Information -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Issuing Hub Information</h2>
+
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-medium text-gray-600">Hub ID:</span>
+                        <span class="text-sm text-gray-900 font-mono">{{ hub_id }}</span>
+                    </div>
+
+                    {% if hub %}
+                    <div class="flex justify-between items-start">
+                        <span class="text-sm font-medium text-gray-600">Hub URL:</span>
+                        <a href="{{ hub.url }}" target="_blank" rel="noopener" class="text-sm text-iscc-blue hover:underline break-all text-right ml-4">
+                            {{ hub.url }}
+                        </a>
+                    </div>
+
+                    <div class="flex justify-between items-start">
+                        <span class="text-sm font-medium text-gray-600">Public Key:</span>
+                        <code class="text-xs text-gray-700 bg-white rounded px-2 py-1 break-all max-w-xs text-right ml-4">{{ hub.pubkey }}</code>
+                    </div>
+                    {% else %}
+                    <div class="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                        <p class="text-sm text-yellow-800">
+                            Hub information is not available in this hub's registry. The issuing hub may be inactive or not yet synchronized.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Explanation -->
+            <div class="mb-8 text-center max-w-2xl mx-auto">
+                <p class="text-gray-600 leading-relaxed">
+                    ISCC-IDs are issued by individual hubs in the distributed ISCC network.
+                    This ISCC-ID was issued by Hub {{ hub_id }}, not by this hub.
+                    {% if hub %}
+                    To view the full declaration details, visit the issuing hub.
+                    {% endif %}
+                </p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                {% if hub %}
+                <a href="{{ details_url }}" target="_blank" rel="noopener" class="inline-flex items-center justify-center px-6 py-3 bg-iscc-blue text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 transform hover:scale-[1.02] shadow-lg">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                    </svg>
+                    View on Issuing Hub
+                </a>
+                {% endif %}
+                <a href="/" class="inline-flex items-center justify-center px-6 py-3 text-iscc-blue font-semibold rounded-lg border border-gray-300 hover:bg-gray-50 transition-all duration-200">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    Return Home
+                </a>
+            </div>
+
+            <!-- Help Text -->
+            <div class="mt-12 pt-8 border-t border-gray-200">
+                <p class="text-sm text-gray-500 text-center">
+                    The ISCC ecosystem consists of multiple distributed hubs that issue ISCC-IDs.
+                    <br>
+                    Each hub maintains its own registry of declarations.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

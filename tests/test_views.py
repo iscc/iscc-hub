@@ -498,3 +498,203 @@ def test_iscc_id_resolve_gateway_template_preserves_query_params():
     location = response["Location"]
     assert location.startswith(f"https://registry.com/{iscc_id_path}")
     assert "serviceType=CoreMetadata" in location
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_redirect_false_with_gateway():
+    # type: () -> None
+    """Test redirect=false disables gateway redirect and shows declaration detail page."""
+    # Create a declaration with gateway
+    declaration = create_test_declaration(
+        gateway="https://example.com/metadata",
+        nonce=icr.create_nonce(node_id=1),
+    )
+
+    client = Client()
+    # Strip ISCC: prefix from the ID for the URL path - MUST BE LOWERCASE
+    iscc_id_path = (
+        declaration.iscc_id[5:].lower() if declaration.iscc_id.startswith("ISCC:") else declaration.iscc_id.lower()
+    )
+    response = client.get(f"/{iscc_id_path}?redirect=false")
+
+    # Should show detail page instead of redirecting
+    assert response.status_code == 200
+    assert b"ISCC-CODE" in response.content
+    assert declaration.iscc_code.encode() in response.content
+    assert declaration.datahash.encode() in response.content
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_redirect_false_with_gateway_template():
+    # type: () -> None
+    """Test redirect=false with gateway template shows detail page."""
+    # Create a declaration with gateway template
+    declaration = create_test_declaration(
+        gateway="https://registry.com/{iscc_id}",
+        nonce=icr.create_nonce(node_id=1),
+    )
+
+    client = Client()
+    # Strip ISCC: prefix from the ID for the URL path - MUST BE LOWERCASE
+    iscc_id_path = (
+        declaration.iscc_id[5:].lower() if declaration.iscc_id.startswith("ISCC:") else declaration.iscc_id.lower()
+    )
+    response = client.get(f"/{iscc_id_path}?redirect=false")
+
+    # Should show detail page instead of redirecting
+    assert response.status_code == 200
+    assert b"ISCC-CODE" in response.content
+    assert declaration.iscc_code.encode() in response.content
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_redirect_false_remote_hub_active():
+    # type: () -> None
+    """Test redirect=false with remote hub shows remote info page."""
+    from iscc_hub.models import Hub
+
+    # Create a remote hub entry
+    Hub.objects.create(
+        hub_id=50,
+        pubkey="z6MkqLoZvd5FQbmZMf8amGUBTdqL1c4pWK7NmhxTJBRFXQHc",
+        url="https://hub50.example.com",
+        active=True,
+    )
+
+    # Generate ISCC-ID with hub_id=50
+    remote_iscc_id = generate_test_iscc_id(hub_id=50, seq=100)
+    # Extract just the ID part without ISCC: prefix for URL
+    iscc_id_path = remote_iscc_id[5:].lower() if remote_iscc_id.startswith("ISCC:") else remote_iscc_id.lower()
+
+    client = Client()
+    response = client.get(f"/{iscc_id_path}?redirect=false")
+
+    # Should show remote info page
+    assert response.status_code == 200
+    assert b"Remote ISCC-ID" in response.content
+    assert b"issued by a different ISCC-HUB" in response.content
+    assert b"Hub ID:" in response.content
+    assert b"50" in response.content
+    assert b"https://hub50.example.com" in response.content
+    assert b"View on Issuing Hub" in response.content
+    # Check the link includes redirect=false
+    assert b"?redirect=false" in response.content
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_redirect_false_remote_hub_inactive():
+    # type: () -> None
+    """Test redirect=false with inactive remote hub shows info page."""
+    from iscc_hub.models import Hub
+
+    # Create an inactive hub entry
+    Hub.objects.create(
+        hub_id=51,
+        pubkey="z6Mkr2dAqiRrYBYMzk2U1Fw5wjQoTxbnXsuT9JJT6ZFZyMFY",
+        url="https://hub51.example.com",
+        active=False,
+    )
+
+    # Generate ISCC-ID with hub_id=51
+    remote_iscc_id = generate_test_iscc_id(hub_id=51, seq=200)
+    # Extract just the ID part without ISCC: prefix for URL
+    iscc_id_path = remote_iscc_id[5:].lower() if remote_iscc_id.startswith("ISCC:") else remote_iscc_id.lower()
+
+    client = Client()
+    response = client.get(f"/{iscc_id_path}?redirect=false")
+
+    # Should show remote info page without hub details
+    assert response.status_code == 200
+    assert b"Remote ISCC-ID" in response.content
+    assert b"Hub ID:" in response.content
+    assert b"51" in response.content
+    assert b"Hub information is not available" in response.content
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_redirect_false_remote_hub_nonexistent():
+    # type: () -> None
+    """Test redirect=false with non-existent remote hub shows info page."""
+    # Generate ISCC-ID with hub_id=888 (no Hub record exists)
+    remote_iscc_id = generate_test_iscc_id(hub_id=888, seq=300)
+    # Extract just the ID part without ISCC: prefix for URL
+    iscc_id_path = remote_iscc_id[5:].lower() if remote_iscc_id.startswith("ISCC:") else remote_iscc_id.lower()
+
+    client = Client()
+    response = client.get(f"/{iscc_id_path}?redirect=false")
+
+    # Should show remote info page without hub details
+    assert response.status_code == 200
+    assert b"Remote ISCC-ID" in response.content
+    assert b"Hub ID:" in response.content
+    assert b"888" in response.content
+    assert b"Hub information is not available" in response.content
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_redirect_true_still_redirects():
+    # type: () -> None
+    """Test redirect=true (explicit) still redirects as expected."""
+    # Create a declaration with gateway
+    declaration = create_test_declaration(
+        gateway="https://example.com/metadata",
+        nonce=icr.create_nonce(node_id=1),
+    )
+
+    client = Client()
+    # Strip ISCC: prefix from the ID for the URL path - MUST BE LOWERCASE
+    iscc_id_path = (
+        declaration.iscc_id[5:].lower() if declaration.iscc_id.startswith("ISCC:") else declaration.iscc_id.lower()
+    )
+    response = client.get(f"/{iscc_id_path}?redirect=true")
+
+    # Should still redirect (query params are preserved)
+    assert response.status_code == 307
+    assert "https://example.com/metadata" in response["Location"]
+    assert "redirect=true" in response["Location"]
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_default_behavior_unchanged():
+    # type: () -> None
+    """Test default behavior (no redirect param) still redirects."""
+    # Create a declaration with gateway
+    declaration = create_test_declaration(
+        gateway="https://example.com/metadata",
+        nonce=icr.create_nonce(node_id=1),
+    )
+
+    client = Client()
+    # Strip ISCC: prefix from the ID for the URL path - MUST BE LOWERCASE
+    iscc_id_path = (
+        declaration.iscc_id[5:].lower() if declaration.iscc_id.startswith("ISCC:") else declaration.iscc_id.lower()
+    )
+    response = client.get(f"/{iscc_id_path}")
+
+    # Should redirect (default behavior unchanged)
+    assert response.status_code == 307
+    assert response["Location"] == "https://example.com/metadata"
+
+
+@pytest.mark.django_db
+def test_iscc_id_resolve_redirect_false_case_insensitive():
+    # type: () -> None
+    """Test redirect parameter is case-insensitive."""
+    # Create a declaration with gateway
+    declaration = create_test_declaration(
+        gateway="https://example.com/metadata",
+        nonce=icr.create_nonce(node_id=1),
+    )
+
+    client = Client()
+    # Strip ISCC: prefix from the ID for the URL path - MUST BE LOWERCASE
+    iscc_id_path = (
+        declaration.iscc_id[5:].lower() if declaration.iscc_id.startswith("ISCC:") else declaration.iscc_id.lower()
+    )
+
+    # Test various case combinations
+    for redirect_value in ["false", "False", "FALSE", "FaLsE"]:
+        response = client.get(f"/{iscc_id_path}?redirect={redirect_value}")
+        # Should show detail page for all case variants
+        assert response.status_code == 200
+        assert b"ISCC-CODE" in response.content
