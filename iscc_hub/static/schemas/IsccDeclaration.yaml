@@ -74,28 +74,35 @@ properties:
     description: |
       DID or W3C CID Document URL identifying the key controller
 
-      **Optional:** May be empty string if not provided
+      **Optional:** Omitted from response if not provided by declarer
       **Common formats:** `did:web:`, `did:key:`, `https://` URL
     examples:
       - "did:web:example.com"
       - "did:key:z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
       - "https://example.com/.well-known/controller/123"
-      - ""
   gateway:
     type: string
     minLength: 0
     maxLength: 2048
     pattern: "^(https?://[^\\s]+)?$"
     description: |
-      HTTP(S) URL or RFC 6570 URI Template for metadata discovery
+      Fully expanded HTTP(S) URL for metadata discovery
 
-      **Optional:** May be empty string if not provided
-      - Supported variables: `{iscc_id}`, `{iscc_code}`, `{datahash}`
+      **Important:** This field returns the expanded URL with all variables resolved,
+      not the URI template. If the declaration included a template like
+      `https://example.com/metadata/{iscc_id}`, this field will contain the
+      resolved URL like `https://example.com/metadata/maighfecjmopmiab`.
+
+      **Template variable format:**
+      - `{iscc_id}` → lowercase without prefix (e.g., `maighfecjmopmiab`)
+      - `{iscc_code}` → lowercase without prefix (e.g., `ked572p4a0f5k60...`)
+      - `{datahash}` → lowercase as-is (e.g., `1e205ca7815...`)
+
+      **Optional:** Omitted from response if not provided in the original declaration.
     examples:
-      - "https://example.com/metadata/{iscc_id}"
-      - "https://gateway.iscc.io/iscc_id/{iscc_id}"
-      - "https://{iscc_id}.gw.example.com/cid"
-      - ""
+      - "https://example.com/metadata/maighfecjmopmiab"
+      - "https://gateway.iscc.io/iscc_id/mabxw23fqlcypkiz"
+      - "https://madkz5plnrxgtvqb.gw.example.com/cid"
   metahash:
     type: string
     minLength: 68
@@ -103,13 +110,12 @@ properties:
     description: |
       Blake3 hash of seed metadata (optional commitment)
 
-      **Optional:** Null if not provided
+      **Optional:** Omitted from response if not provided by declarer
       **Format:** 256-bit lowercase hex-encoded multihash
       **Prefix:** `1e20` (Blake3 identifier)
     pattern: "^1e20[0-9a-f]{64}$"
     examples:
       - "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
-      - null
 examples:
   - iscc_id: "ISCC:MAIGHFECJMOPMIAB"
     iscc_code: "ISCC:KED572P4AOF5K6QXQA4T6OJD5UGX7UBPFW2TVQNTHBCKFRFCANCZARQ4K6NSFZQSH4GQ"
@@ -117,13 +123,10 @@ examples:
     timestamp: "2025-01-20T14:32:18.123456Z"
     controller: "did:web:example.com"
     pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
-    gateway: "https://example.com/metadata/{iscc_id}"
+    gateway: "https://example.com/metadata/maighfecjmopmiab"
     metahash: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
   - iscc_id: "ISCC:MABXW23FQLCYPKIZ"
     iscc_code: "ISCC:KACT3NRHBQXWJKXV6OJ7XR7B62NJXMYQDNHCNZQZLW4L2UXBCJIZERA"
     datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
     timestamp: "2025-01-19T09:15:42.789012Z"
     pubkey: "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"
-    controller: ""
-    gateway: ""
-    metahash: null
