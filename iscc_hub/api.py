@@ -1,4 +1,5 @@
 import json
+import re
 
 import iscc_crypto as icr
 from constance import config
@@ -9,10 +10,12 @@ from ninja.responses import codes_4xx
 
 import iscc_hub
 from iscc_hub.exceptions import BaseApiException, DuplicateDeclarationError, NotFoundError, UnauthorizedError
+from iscc_hub.gateway import expand_gateway_url
 from iscc_hub.iscc_id import IsccID
-from iscc_hub.models import Event, PubKey
+from iscc_hub.models import Event, IsccDeclaration, PubKey
 from iscc_hub.receipt import build_iscc_receipt
 from iscc_hub.schema import ErrorResponse, IsccReceipt
+from iscc_hub.schema import IsccDeclaration as IsccDeclarationSchema
 from iscc_hub.sequencer import sequence_iscc_delete, sequence_iscc_note
 from iscc_hub.validators import validate_iscc_note, validate_iscc_note_delete
 
@@ -38,6 +41,88 @@ def handle_api_exception(request, exc):
         exc.to_error_response(),
         status=exc.status_code,
     )
+
+
+@api.get("/search")
+def search(request: HttpRequest):
+    # type: (HttpRequest) -> list[dict]
+    """
+    Search for ISCC declarations by datahash or ISCC-CODE.
+
+    Exactly one search parameter must be provided (mutually exclusive).
+
+    Query Parameters:
+    - datahash: Blake3 multihash (format: 1e20 + 64 hex chars)
+    - iscc_code: ISCC-CODE (format: ISCC: + 29-68 alphanumeric)
+
+    :param request: The incoming HTTP request
+    :return: List of matching IsccDeclaration objects (may be empty)
+    """
+    # Parse query parameters directly from request
+    datahash = request.GET.get("datahash", None)
+    iscc_code = request.GET.get("iscc_code", None)
+
+    # Validate mutual exclusivity
+    if not datahash and not iscc_code:
+        raise BaseApiException("Exactly one search parameter required: datahash or iscc_code")
+
+    if datahash and iscc_code:
+        raise BaseApiException("Only one search parameter allowed: datahash or iscc_code (not both)")
+
+    # Validate format and query database
+    if datahash:
+        if not re.match(r"^1e20[0-9a-f]{64}$", datahash):
+            raise BaseApiException("Invalid datahash format. Expected: 1e20 followed by 64 hex characters")
+        results = IsccDeclaration.objects.filter(datahash=datahash, redacted=False)
+    elif iscc_code:
+        if not re.match(r"^ISCC:[A-Z0-9]{29,68}$", iscc_code):
+            raise BaseApiException(
+                "Invalid iscc_code format. Expected: ISCC: followed by 29-68 alphanumeric characters"
+            )
+        results = IsccDeclaration.objects.filter(iscc_code=iscc_code, redacted=False)
+
+    # Build response list
+    declarations = []
+    for decl in results:
+        # Get timestamp from ISCC-ID
+        iscc_id_obj = IsccID(decl.iscc_id)
+        timestamp_iso = iscc_id_obj.timestamp_iso
+        iscc_id_canonical = str(iscc_id_obj)
+
+        # Prepare clean versions for template variable substitution (lowercase without prefix)
+        iscc_id_clean = (
+            iscc_id_canonical[5:].lower() if iscc_id_canonical.startswith("ISCC:") else iscc_id_canonical.lower()
+        )
+        iscc_code_clean = decl.iscc_code[5:].lower() if decl.iscc_code.startswith("ISCC:") else decl.iscc_code.lower()
+
+        template_vars = {
+            "iscc_id": iscc_id_clean,
+            "iscc_code": iscc_code_clean,
+            "datahash": decl.datahash,
+        }
+
+        # Build declaration dict with required fields
+        declaration = {
+            "iscc_id": iscc_id_canonical,
+            "iscc_code": decl.iscc_code,
+            "datahash": decl.datahash,
+            "timestamp": timestamp_iso,
+            "pubkey": decl.pubkey,
+        }
+
+        # Add optional fields only if present and non-empty
+        if decl.controller:
+            declaration["controller"] = decl.controller
+        if decl.gateway:
+            # Expand gateway URL with template variables
+            expanded_gateway = expand_gateway_url(decl.gateway, template_vars)
+            declaration["gateway"] = expanded_gateway
+        if decl.metahash:
+            declaration["metahash"] = decl.metahash
+
+        declarations.append(declaration)
+
+    return declarations
 
 
 @api.post("/declaration", response={201: IsccReceipt, codes_4xx: ErrorResponse})
