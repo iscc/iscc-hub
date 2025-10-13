@@ -146,9 +146,9 @@ def iscc_id_resolve(request, iscc_id):
         if declaration.redacted:
             return render(request, "iscc_hub/404.html", {"iscc_id": iscc_id}, status=404)
 
-        # Check for gateway
-        if declaration.gateway and should_redirect:
-            # Prepare template variables for expansion
+        # Prepare template variables for gateway URL expansion
+        expanded_gateway_url = None
+        if declaration.gateway:
             # Strip "ISCC:" prefix from iscc_code if present for cleaner URLs
             iscc_code_clean = declaration.iscc_code
             if iscc_code_clean.startswith("ISCC:"):
@@ -164,15 +164,18 @@ def iscc_id_resolve(request, iscc_id):
             request_url = request.build_absolute_uri()
 
             # Expand gateway URL with template substitution and query params
-            redirect_url = expand_gateway_url(declaration.gateway, template_vars, request_url)
+            expanded_gateway_url = expand_gateway_url(declaration.gateway, template_vars, request_url)
 
-            # 307 Temporary Redirect (preserves method and body)
-            return HttpResponseRedirect(redirect_url, status=307)
+            # Check if we should redirect to gateway
+            if should_redirect:
+                # 307 Temporary Redirect (preserves method and body)
+                return HttpResponseRedirect(expanded_gateway_url, status=307)
 
-        # No gateway - render detail view
+        # Render detail view
         context = {
             "declaration": declaration,
             "iscc_id": iscc_id_canonical,  # Use canonical version for display
+            "expanded_gateway_url": expanded_gateway_url,  # Pass expanded URL to template
         }
         return render(request, "iscc_hub/declaration_detail.html", context)
 

@@ -9,12 +9,34 @@
         <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-8">
             <!-- Header with gradient background -->
             <div class="bg-gradient-to-r from-iscc-blue to-iscc-light-blue h-32 relative" style="background-image: url('/img/grain.png'); background-size: 256px 256px; background-blend-mode: overlay;">
-                <!-- ISCC-ID Badge -->
-                <div class="absolute bottom-0 left-0 transform translate-y-1/2 ml-8">
-                    <div class="bg-gray-800 text-white px-6 py-3 rounded-lg shadow-xl">
-                        <div class="text-xs font-medium uppercase tracking-wider text-gray-300 mb-1">ISCC-ID</div>
-                        <div class="font-mono text-lg tracking-tight">{{ iscc_id }}</div>
+                <div class="absolute bottom-0 left-0 right-0 transform translate-y-1/2 mx-8 flex gap-4">
+                    <!-- ISCC-ID Badge -->
+                    <div class="flex-shrink-0">
+                        <div class="bg-gray-800 text-white px-6 py-3 rounded-lg shadow-xl h-full flex flex-col justify-center">
+                            <div class="text-xs font-medium uppercase tracking-wider text-gray-300 mb-1">ISCC-ID</div>
+                            <div class="font-mono text-lg tracking-tight">{{ iscc_id }}</div>
+                        </div>
                     </div>
+
+                    <!-- Gateway URL Badge (if present) -->
+                    {% if expanded_gateway_url %}
+                    <div class="flex-1 min-w-0">
+                        <a href="{{ expanded_gateway_url }}" target="_blank" rel="noopener" class="block bg-blue-50 border border-blue-200 px-6 py-3 rounded-lg shadow-xl hover:bg-blue-100 transition-colors group h-full">
+                            <div class="flex items-center gap-3 h-full">
+                                <svg class="h-5 w-5 text-iscc-blue flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                                </svg>
+                                <div class="flex-1 min-w-0 flex flex-col justify-center">
+                                    <div class="text-xs font-medium uppercase tracking-wider text-gray-600 mb-1">Gateway</div>
+                                    <div class="font-mono text-sm text-gray-800 truncate group-hover:text-iscc-blue">{{ expanded_gateway_url }}</div>
+                                </div>
+                                <svg class="w-5 h-5 text-gray-400 group-hover:text-iscc-blue flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                </svg>
+                            </div>
+                        </a>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -72,50 +94,6 @@
                     </div>
                     {% endif %}
                 </div>
-
-                <!-- Gateway Section -->
-                {% if declaration.gateway %}
-                <div class="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
-                    <div class="flex items-start">
-                        <div class="flex-shrink-0">
-                            <svg class="h-6 w-6 text-iscc-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
-                            </svg>
-                        </div>
-                        <div class="ml-4 flex-1">
-                            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-2">Gateway URL</h3>
-                            <p class="text-sm text-gray-700 mb-3">
-                                This declaration is linked to an external metadata discovery endpoint.
-                            </p>
-                            <div class="bg-white rounded-lg border border-gray-200 p-3 mb-3">
-                                <code class="font-mono text-xs text-gray-700 break-all">{{ declaration.gateway }}</code>
-                            </div>
-                            <a href="{{ declaration.gateway }}" target="_blank" rel="noopener" class="inline-flex items-center text-sm font-medium text-iscc-blue hover:text-blue-700 transition-colors">
-                                <span>Visit Gateway</span>
-                                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                                </svg>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                {% else %}
-                <div class="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div class="flex">
-                        <div class="flex-shrink-0">
-                            <svg class="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        </div>
-                        <div class="ml-3">
-                            <p class="text-sm text-blue-800">
-                                No gateway URL is configured for this declaration.
-                                The declaring party has not specified an external metadata discovery endpoint.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
             </div>
         </div>
 
