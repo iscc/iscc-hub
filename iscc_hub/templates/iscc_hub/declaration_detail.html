@@ -56,7 +56,7 @@
                     <div class="md:col-span-2">
                         <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">Data Hash</h3>
                         <div class="bg-gray-50 rounded-lg border border-gray-200 p-3">
-                            <code class="font-mono text-xs text-gray-700 break-all">{{ declaration.datahash }}</code>
+                            <code class="font-mono text-sm text-gray-800 break-all">{{ declaration.datahash }}</code>
                         </div>
                     </div>
 
@@ -64,7 +64,7 @@
                     <div class="md:col-span-1">
                         <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">Declared</h3>
                         <div class="bg-gray-50 rounded-lg border border-gray-200 p-3">
-                            <span class="text-gray-800">{{ declaration.updated_at|date:"Y-m-d H:i:s" }} UTC</span>
+                            <span class="font-mono text-sm text-gray-800">{{ declaration.updated_at|date:"Y-m-d H:i:s" }} UTC</span>
                         </div>
                     </div>
 
@@ -72,7 +72,7 @@
                     <div class="md:col-span-2">
                         <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">Declared By</h3>
                         <div class="bg-gray-50 rounded-lg border border-gray-200 p-3">
-                            <code class="font-mono text-xs text-gray-700 break-all">{{ declaration.pubkey }}</code>
+                            <code class="font-mono text-sm text-gray-800 break-all">{{ declaration.pubkey }}</code>
                         </div>
                     </div>
 
@@ -80,7 +80,7 @@
                     <div class="md:col-span-1">
                         <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">Event Sequence</h3>
                         <div class="bg-gray-50 rounded-lg border border-gray-200 p-3">
-                            <span class="text-gray-800">#{{ declaration.event_seq }}</span>
+                            <span class="font-mono text-sm text-gray-800">#{{ declaration.event_seq }}</span>
                         </div>
                     </div>
 
@@ -89,7 +89,7 @@
                     <div class="md:col-span-3">
                         <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">Metadata Hash</h3>
                         <div class="bg-gray-50 rounded-lg border border-gray-200 p-3">
-                            <code class="font-mono text-xs text-gray-700 break-all">{{ declaration.metahash }}</code>
+                            <code class="font-mono text-sm text-gray-800 break-all">{{ declaration.metahash }}</code>
                         </div>
                     </div>
                     {% endif %}
