@@ -124,6 +124,33 @@ def create_full_note(timestamp, nonce=None, keypair=None):
     return icr.sign_json(full_note, keypair)
 
 
+def create_note_with_real_iscc_data(timestamp, nonce=None, keypair=None):
+    # type: (str, str|None, icr.KeyPair|None) -> dict
+    """Create a signed IsccNote using real ISCC data from an epub file for testing."""
+    nonce = nonce or icr.create_nonce(1)
+    keypair = keypair or icr.key_generate()
+
+    # Use real ISCC data from 9788827513026.epub for frontend search testing
+    # This ensures all components are cryptographically valid
+    # Note: units array excludes the Instance-Code (last unit) as per ISCC protocol
+    note = {
+        "iscc_code": "ISCC:KADVSJDC3F7ITO4RKCUBWAO7P4IKQHI6I5LCIW6YMSXXVBPQLKVZA3R3PA5GCATBBITQ",
+        "datahash": "1e203b783a6102610a276ef438f5311a0f8f7f49849a477be62371b174c0c2929bc9",
+        "nonce": nonce,
+        "timestamp": timestamp,
+        "gateway": "https://example.com/iscc_id/{iscc_id}/metadata",
+        "units": [
+            "ISCC:AADVSJDC3F7ITO4RQPZE7KMEYJHLFEIZ4N3GI6EIJLLZC27V3PSAHNQ",
+            "ISCC:CADVBKA3AHPX6EFIU6APJL7XRBCTTIUN532PV3C3O3GGUZ7YCCNCQZY",
+            "ISCC:EADR2HSHKYSFXWDEGBW5EHJ7Y7TTV2JAG4ACJJ7GCBDM444AXY5QLUY",
+            "ISCC:GAD266UF6BNKXEDOR3XEMRTXU36QCDNYRYMCTPWIOTHB3NZHDTBKOPQ",
+        ],
+        "metahash": "1e20e0ba22a1a31b255ae31c6d24ad1803270e5f033027805e31c827ff81f22207fd",
+    }
+
+    return icr.sign_json(note, keypair)
+
+
 def create_note_with_units(timestamp, nonce=None, keypair=None):
     # type: (str, str|None, icr.KeyPair|None) -> dict
     """Create a signed IsccNote with units field."""
@@ -299,7 +326,16 @@ def generate_fixtures():
     seq5, iscc_id5 = process_iscc_note(note5)
     print("  - Created fifth declaration")
 
-    # 6. Delete the fourth declaration (created by keypair1)
+    # 6. Create declaration with real ISCC data from epub for frontend search testing
+    note6 = create_note_with_real_iscc_data(
+        timestamp=create_timestamp(base_time, 270),  # 4.5 minutes later
+        keypair=keypair3,
+    )
+    seq6, iscc_id6 = process_iscc_note(note6)
+    datahash = "1e203b783a6102610a276ef438f5311a0f8f7f49849a477be62371b174c0c2929bc9"
+    print(f"  - Created declaration with real ISCC data (datahash: {datahash})")
+
+    # 7. Delete the fourth declaration (created by keypair1)
     iscc_id4_str = str(IsccID(iscc_id4))
     delete_note = create_delete_note(
         iscc_id=iscc_id4_str,
