@@ -1,8 +1,6 @@
 {% extends "base.html" %}
 
 {% block extra_head %}
-        <!-- Uppy CSS -->
-        <link href="https://releases.transloadit.com/uppy/v4.3.0/uppy.min.css" rel="stylesheet">
         <style>
             @keyframes stripes {
                 0% {
@@ -430,105 +428,148 @@
             </div>
         </section>
 
-        <!-- Uppy JS -->
-        <script src="https://releases.transloadit.com/uppy/v4.3.0/uppy.min.js"></script>
+        <!-- hash-wasm for blake3 -->
+        <script type="module">
+            import { createBLAKE3 } from 'https://cdn.jsdelivr.net/npm/hash-wasm@4.11.0/dist/index.esm.min.js';
 
-        <script>
-            // ISCC API Configuration
-            const ISCC_API_BASE = 'https://demo.iscc.io/api/v1';
+            // ISCC Instance Code constants
+            const IC_PREFIX = new Uint8Array([0x40, 0x07]); // ISCC header for 256-bit Instance Code
 
-            // Uppy-based Upload functionality
+            // RFC4648 base32 alphabet (uppercase, no padding)
+            const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+            /**
+             * Encode bytes to RFC4648 base32 (uppercase, no padding)
+             */
+            function encodeBase32(bytes) {
+                let bits = 0;
+                let value = 0;
+                let output = '';
+
+                for (let i = 0; i < bytes.length; i++) {
+                    value = (value << 8) | bytes[i];
+                    bits += 8;
+
+                    while (bits >= 5) {
+                        output += BASE32_ALPHABET[(value >>> (bits - 5)) & 31];
+                        bits -= 5;
+                    }
+                }
+
+                if (bits > 0) {
+                    output += BASE32_ALPHABET[(value << (5 - bits)) & 31];
+                }
+
+                return output;
+            }
+
+            /**
+             * Calculate blake3 hash and convert to ISCC Instance Code
+             */
+            async function calculateInstanceCode(file, progressCallback) {
+                const hasher = await createBLAKE3();
+                hasher.init();
+
+                const chunkSize = 64 * 1024; // 64KB chunks
+                let offset = 0;
+
+                while (offset < file.size) {
+                    const chunk = file.slice(offset, offset + chunkSize);
+                    const buffer = await chunk.arrayBuffer();
+                    hasher.update(new Uint8Array(buffer));
+
+                    offset += chunk.size;
+                    const percentage = Math.round((offset / file.size) * 100);
+                    if (progressCallback) {
+                        progressCallback(percentage);
+                    }
+                }
+
+                // Get blake3 hash as bytes
+                const hashHex = hasher.digest('hex');
+                const hashBytes = new Uint8Array(hashHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+
+                // Construct ISCC Instance Code: IC_PREFIX + blake3_hash
+                const isccBytes = new Uint8Array(IC_PREFIX.length + hashBytes.length);
+                isccBytes.set(IC_PREFIX, 0);
+                isccBytes.set(hashBytes, IC_PREFIX.length);
+
+                // Encode to base32 and prepend "ISCC:"
+                const base32 = encodeBase32(isccBytes);
+                return 'ISCC:' + base32;
+            }
+
+            // File handling functionality
             document.addEventListener('DOMContentLoaded', function() {
                 const isccInput = document.getElementById('iscc-input');
                 const browseButton = document.getElementById('browse-files');
                 const fileInfo = document.getElementById('file-info');
                 const fileName = document.getElementById('file-name');
                 const clearFile = document.getElementById('clear-file');
-                const buttonText = document.getElementById('button-text');
                 const buttonContent = document.getElementById('button-content');
                 const resolveButton = document.getElementById('resolve-button');
-                const uppyDropArea = document.getElementById('uppy-drop-area');
+                const dropArea = document.getElementById('uppy-drop-area');
+                const inputWrapper = isccInput.parentNode;
 
                 let currentFile = null;
                 let isGenerating = false;
-                let currentUppy = null;
 
-                // Initialize Uppy
-                function initializeUppy() {
-                    if (currentUppy) {
-                        currentUppy.close();
-                    }
+                // Setup drag and drop handlers
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    inputWrapper.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
 
-                    currentUppy = new Uppy.Uppy({
-                        debug: false,
-                        autoProceed: false,
-                        restrictions: {
-                            maxNumberOfFiles: 1,
-                            allowedFileTypes: ['image/*', 'video/*', 'audio/*', 'text/*', '.pdf', '.epub', '.doc', '.docx']
-                        }
-                    });
-
-                    // Use DropTarget plugin for drag & drop - target only the input area
-                    currentUppy.use(Uppy.DropTarget, {
-                        target: '#iscc-input',
-                        onDragOver: (event) => {
-                            uppyDropArea.innerHTML = `
-                                <div class="absolute inset-0 bg-iscc-coral border-2 border-dashed border-white rounded-xl flex items-center justify-center pointer-events-none">
-                                    <div class="flex items-center gap-2 text-white">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="flex-shrink-0">
-                                            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                        <span class="font-medium">Drop your file here</span>
-                                    </div>
+                        // Show coral background overlay
+                        dropArea.innerHTML = `
+                            <div class="absolute inset-0 bg-iscc-coral border-2 border-dashed border-white rounded-xl flex items-center justify-center pointer-events-none">
+                                <div class="flex items-center gap-2 text-white">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="flex-shrink-0">
+                                        <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    <span class="font-medium">Drop your file here</span>
                                 </div>
-                            `;
-                            isccInput.classList.add('border-iscc-coral/50', 'bg-white/15');
-                        },
-                        onDragLeave: (event) => {
-                            uppyDropArea.innerHTML = '';
-                            isccInput.classList.remove('border-iscc-coral/50', 'bg-white/15');
-                        },
-                        onDrop: (event) => {
-                            uppyDropArea.innerHTML = '';
-                            isccInput.classList.remove('border-iscc-coral/50', 'bg-white/15');
-                        }
+                            </div>
+                        `;
+                        isccInput.classList.add('border-iscc-coral/50', 'bg-white/15');
                     });
+                });
 
-                    // Handle file added
-                    currentUppy.on('file-added', (file) => {
-                        handleUppyFile(file);
+                ['dragleave', 'drop'].forEach(eventName => {
+                    inputWrapper.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        // Clear coral background overlay
+                        dropArea.innerHTML = '';
+                        isccInput.classList.remove('border-iscc-coral/50', 'bg-white/15');
                     });
+                });
 
-                    // Handle browse button click
-                    if (browseButton) {
-                        browseButton.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/*,video/*,audio/*,text/*,.pdf,.epub,.doc,.docx';
-                            input.onchange = (e) => {
-                                const files = Array.from(e.target.files);
-                                files.forEach(file => {
-                                    try {
-                                        currentUppy.addFile({
-                                            name: file.name,
-                                            type: file.type,
-                                            data: file
-                                        });
-                                    } catch (err) {
-                                        console.error('Error adding file:', err);
-                                    }
-                                });
-                            };
-                            input.click();
-                        });
+                // Handle file drop
+                inputWrapper.addEventListener('drop', (e) => {
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        handleFile(files[0]);
                     }
-                }
+                });
 
-                // Initialize Uppy on load
-                initializeUppy();
+                // Handle browse button click
+                if (browseButton) {
+                    browseButton.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.onchange = (e) => {
+                            if (e.target.files.length > 0) {
+                                handleFile(e.target.files[0]);
+                            }
+                        };
+                        input.click();
+                    });
+                }
 
                 // Show error message
                 function showError(message) {
@@ -541,40 +582,48 @@
                     }, 5000);
                 }
 
-                // Show loading state with infinite progress bar
+                // Update progress bar
+                function updateProgress(percentage) {
+                    let progressOverlay = document.getElementById('progress-overlay');
+                    if (!progressOverlay) {
+                        progressOverlay = document.createElement('div');
+                        progressOverlay.id = 'progress-overlay';
+                        progressOverlay.className = 'absolute top-0 left-0 bottom-0 rounded-l-lg overflow-hidden pointer-events-none z-10';
+                        progressOverlay.style.right = resolveButton.offsetWidth + 'px';
+                        inputWrapper.style.position = 'relative';
+                        inputWrapper.appendChild(progressOverlay);
+                    }
+
+                    progressOverlay.innerHTML = `
+                        <div class="absolute inset-0 bg-iscc-green/20"></div>
+                        <div class="absolute inset-0 bg-gradient-to-r from-iscc-green/40 via-iscc-green/60 to-iscc-green/40"
+                             style="width: ${percentage}%; transition: width 0.3s ease;"></div>
+                        <div class="absolute inset-0"
+                             style="background-image: repeating-linear-gradient(
+                               45deg,
+                               transparent,
+                               transparent 10px,
+                               rgba(166, 219, 80, 0.1) 10px,
+                               rgba(166, 219, 80, 0.1) 20px
+                             ); animation: stripes 1s linear infinite;"></div>
+                    `;
+                    progressOverlay.style.display = 'block';
+                }
+
+                // Clear progress bar
+                function clearProgress() {
+                    const progressOverlay = document.getElementById('progress-overlay');
+                    if (progressOverlay) {
+                        progressOverlay.style.display = 'none';
+                    }
+                }
+
+                // Set loading state
                 function setLoading(loading) {
                     isGenerating = loading;
                     resolveButton.disabled = loading;
 
                     if (loading) {
-                        // Create progress overlay on top of input field only
-                        let progressOverlay = document.getElementById('progress-overlay');
-                        if (!progressOverlay) {
-                            progressOverlay = document.createElement('div');
-                            progressOverlay.id = 'progress-overlay';
-                            progressOverlay.className = 'absolute top-0 left-0 bottom-0 rounded-l-lg overflow-hidden pointer-events-none z-10';
-                            progressOverlay.style.right = resolveButton.offsetWidth + 'px'; // Leave space for button
-                            progressOverlay.innerHTML = `
-                                <div class="absolute inset-0 bg-iscc-green/20"></div>
-                                <div class="absolute inset-0 bg-gradient-to-r from-iscc-green/40 via-iscc-green/60 to-iscc-green/40 animate-[shimmer_2s_infinite]"
-                                     style="background-size: 200% 100%; background-position: -100% 0;"></div>
-                                <div class="absolute inset-0"
-                                     style="background-image: repeating-linear-gradient(
-                                       45deg,
-                                       transparent,
-                                       transparent 10px,
-                                       rgba(166, 219, 80, 0.1) 10px,
-                                       rgba(166, 219, 80, 0.1) 20px
-                                     ); animation: stripes 1s linear infinite;"></div>
-                            `;
-                            // Insert the overlay inside the parent div that contains the input
-                            isccInput.parentNode.style.position = 'relative';
-                            isccInput.parentNode.appendChild(progressOverlay);
-                        }
-                        progressOverlay.style.display = 'block';
-                        progressOverlay.style.right = resolveButton.offsetWidth + 'px'; // Update in case button size changed
-
-                        // Update button
                         buttonContent.innerHTML = `
                             <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -583,13 +632,6 @@
                         `;
                         resolveButton.classList.add('opacity-75', 'cursor-not-allowed');
                     } else {
-                        // Hide progress overlay
-                        const progressOverlay = document.getElementById('progress-overlay');
-                        if (progressOverlay) {
-                            progressOverlay.style.display = 'none';
-                        }
-
-                        // Reset button
                         buttonContent.innerHTML = `
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
@@ -601,75 +643,41 @@
                     }
                 }
 
-                // Generate ISCC directly from file using /iscc endpoint
-                async function generateISCCFromFile(file) {
-                    try {
-                        // Base64 encode filename for X-Upload-Filename header
-                        const encodedFilename = btoa(file.name);
-
-                        const response = await fetch(`${ISCC_API_BASE}/iscc`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/octet-stream',
-                                'X-Upload-Filename': encodedFilename
-                            },
-                            body: file
-                        });
-
-                        if (!response.ok) {
-                            throw new Error(`ISCC generation failed: ${response.status} ${response.statusText}`);
-                        }
-
-                        const data = await response.json();
-                        return data.iscc;
-                    } catch (error) {
-                        console.error('ISCC generation error:', error);
-                        if (error.message.includes('Failed to fetch')) {
-                            throw new Error('CORS error: API not accessible. Please configure CORS on demo.iscc.io');
-                        }
-                        throw error;
-                    }
-                }
-
-                async function handleUppyFile(uppyFile) {
-                    const file = uppyFile.data;
+                // Handle file selection/drop
+                async function handleFile(file) {
                     currentFile = file;
 
                     // Show file info
                     fileName.textContent = file.name;
                     fileInfo.classList.remove('hidden');
 
-                    // Button is now icon-only, no text update needed
-
                     // Clear any existing value
                     isccInput.value = '';
 
-                    // Start loading with progress bar
+                    // Start loading
                     setLoading(true);
 
                     try {
-                        // Generate ISCC directly from file
-                        const iscc = await generateISCCFromFile(file);
-                        console.log('ISCC generated:', iscc);
+                        // Calculate ISCC Instance Code with progress
+                        const isccCode = await calculateInstanceCode(file, (percentage) => {
+                            updateProgress(percentage);
+                        });
 
-                        // Update input with ISCC
-                        isccInput.value = iscc;
-                        // Button is now icon-only, no text update needed
+                        console.log('ISCC Instance Code:', isccCode);
 
-                        // Automatically trigger search to show results
-                        showResults();
+                        // Update input with ISCC Instance Code
+                        isccInput.value = isccCode;
 
                     } catch (error) {
                         console.error('Error processing file:', error);
-                        showError(error.message);
+                        showError(error.message || 'Failed to process file');
 
                         // Clear file on error
                         currentFile = null;
-                        currentUppy.removeFile(uppyFile.id);
                         fileInfo.classList.add('hidden');
-                        // Button is now icon-only, no text update needed
                     } finally {
                         setLoading(false);
+                        clearProgress();
                     }
                 }
 
@@ -680,18 +688,9 @@
                         e.stopPropagation();
 
                         currentFile = null;
-                        if (currentUppy) {
-                            currentUppy.cancelAll();
-                            // Clear all Uppy files
-                            const files = currentUppy.getFiles();
-                            files.forEach(file => {
-                                currentUppy.removeFile(file.id);
-                            });
-                        }
                         isccInput.value = '';
                         fileInfo.classList.add('hidden');
                         isccInput.placeholder = 'ISCC:KED572P4A0F5K60... or drop a file';
-                        // Button is now icon-only, no text update needed
                     });
                 }
 
@@ -700,78 +699,42 @@
                     e.preventDefault();
 
                     if (isGenerating) {
-                        // Still generating ISCC, prevent submission
+                        // Still generating, prevent submission
                         return;
                     }
 
                     const isccValue = isccInput.value.trim();
                     if (isccValue) {
-                        setLoading(true);
-
-                        try {
-                            // For now, just show the dummy results section
-                            // In a real implementation, this would query the API
-                            showResults();
-
-                            // Simulate API call
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-
-                        } catch (error) {
-                            console.error('Lookup error:', error);
-                            showError('Failed to resolve ISCC');
-                        } finally {
-                            setLoading(false);
-                        }
+                        // For now, just log the value
+                        // In later steps, this will lookup declarations
+                        console.log('Would lookup:', isccValue);
                     }
                 });
 
-                // Show results section with dramatic fade-in
-                function showResults() {
-                    const resultsSection = document.getElementById('results-section');
-                    const resultCards = resultsSection.querySelectorAll('#results-container > div');
+                // Clear results functionality
+                const clearResultsBtn = document.getElementById('clear-results');
+                if (clearResultsBtn) {
+                    clearResultsBtn.addEventListener('click', function() {
+                        const resultsSection = document.getElementById('results-section');
 
-                    // First make section visible but keep cards hidden
-                    resultsSection.classList.remove('hidden');
-                    resultsSection.style.opacity = '1';
-                    resultsSection.style.transform = 'translateY(0)';
+                        // Fade out animation
+                        resultsSection.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+                        resultsSection.style.opacity = '0';
+                        resultsSection.style.transform = 'translateY(10px)';
 
-                    // Hide all cards initially
-                    resultCards.forEach(card => {
-                        card.style.opacity = '0';
-                        card.style.transform = 'translateY(30px)';
-                        card.style.transition = 'opacity 0.8s ease-out, transform 0.8s ease-out';
-                    });
-
-                    // Fade in cards one by one with staggered delay
-                    resultCards.forEach((card, index) => {
+                        // Hide after animation completes
                         setTimeout(() => {
-                            card.style.opacity = '1';
-                            card.style.transform = 'translateY(0)';
-                        }, 300 + (index * 400)); // 300ms initial delay, then 400ms between each card
+                            resultsSection.classList.add('hidden');
+                            resultsSection.style.opacity = '';
+                            resultsSection.style.transform = '';
+                            resultsSection.style.transition = '';
+                        }, 300);
+
+                        isccInput.value = '';
+                        currentFile = null;
+                        fileInfo.classList.add('hidden');
                     });
                 }
-
-                // Clear results functionality
-                document.getElementById('clear-results').addEventListener('click', function() {
-                    const resultsSection = document.getElementById('results-section');
-
-                    // Fade out animation
-                    resultsSection.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
-                    resultsSection.style.opacity = '0';
-                    resultsSection.style.transform = 'translateY(10px)';
-
-                    // Hide after animation completes
-                    setTimeout(() => {
-                        resultsSection.classList.add('hidden');
-                        resultsSection.style.opacity = '';
-                        resultsSection.style.transform = '';
-                        resultsSection.style.transition = '';
-                    }, 300);
-
-                    isccInput.value = '';
-                    currentFile = null;
-                    fileInfo.classList.add('hidden');
-                });
             });
         </script>
 {% endblock %}
