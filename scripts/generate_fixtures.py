@@ -128,7 +128,8 @@ def create_note_with_real_iscc_data(timestamp, nonce=None, keypair=None):
     # type: (str, str|None, icr.KeyPair|None) -> dict
     """Create a signed IsccNote using real ISCC data from an epub file for testing."""
     nonce = nonce or icr.create_nonce(1)
-    keypair = keypair or icr.key_generate()
+    # Generate keypair with controller for this specific test entry
+    keypair = keypair or icr.key_generate(controller="https://example.com/publisher/123")
 
     # Use real ISCC data from 9788827513026.epub for frontend search testing
     # This ensures all components are cryptographically valid
@@ -327,9 +328,9 @@ def generate_fixtures():
     print("  - Created fifth declaration")
 
     # 6. Create declaration with real ISCC data from epub for frontend search testing
+    # Don't pass keypair so the function generates one with a controller
     note6 = create_note_with_real_iscc_data(
         timestamp=create_timestamp(base_time, 270),  # 4.5 minutes later
-        keypair=keypair3,
     )
     seq6, iscc_id6 = process_iscc_note(note6)
     datahash = "1e203b783a6102610a276ef438f5311a0f8f7f49849a477be62371b174c0c2929bc9"
