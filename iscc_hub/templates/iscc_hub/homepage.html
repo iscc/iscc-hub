@@ -668,6 +668,12 @@
                         // Update input with ISCC Instance Code
                         isccInput.value = isccCode;
 
+                        // Clear progress before searching
+                        clearProgress();
+
+                        // Automatically trigger search after successful generation
+                        await performSearch(isccCode);
+
                     } catch (error) {
                         console.error('Error processing file:', error);
                         showError(error.message || 'Failed to process file');
@@ -675,7 +681,6 @@
                         // Clear file on error
                         currentFile = null;
                         fileInfo.classList.add('hidden');
-                    } finally {
                         setLoading(false);
                         clearProgress();
                     }
@@ -694,6 +699,292 @@
                     });
                 }
 
+                // Extract datahash from ISCC Instance Code
+                function extractDatahash(isccCode) {
+                    // ISCC Instance Code format: ISCC:IAXXXXXX... (starts with IA after ISCC:)
+                    // We need to decode base32 and extract the blake3 hash (after the 2-byte header)
+                    if (!isccCode.startsWith('ISCC:')) {
+                        return null;
+                    }
+
+                    const base32 = isccCode.substring(5); // Remove "ISCC:" prefix
+
+                    // Decode base32 to bytes
+                    try {
+                        const bytes = decodeBase32(base32);
+
+                        // Skip the 2-byte ISCC header (0x40, 0x07)
+                        const hashBytes = bytes.slice(2);
+
+                        // Convert to hex string and prepend multihash prefix 1e20 (blake3, 32 bytes)
+                        const hexHash = Array.from(hashBytes)
+                            .map(b => b.toString(16).padStart(2, '0'))
+                            .join('');
+
+                        return '1e20' + hexHash;
+                    } catch (error) {
+                        console.error('Failed to decode ISCC:', error);
+                        return null;
+                    }
+                }
+
+                // Decode RFC4648 base32
+                function decodeBase32(base32String) {
+                    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+                    let bits = 0;
+                    let value = 0;
+                    const output = [];
+
+                    for (let i = 0; i < base32String.length; i++) {
+                        const char = base32String[i];
+                        const index = alphabet.indexOf(char);
+
+                        if (index === -1) {
+                            throw new Error(`Invalid base32 character: ${char}`);
+                        }
+
+                        value = (value << 5) | index;
+                        bits += 5;
+
+                        if (bits >= 8) {
+                            output.push((value >>> (bits - 8)) & 255);
+                            bits -= 8;
+                        }
+                    }
+
+                    return new Uint8Array(output);
+                }
+
+                // Render search results
+                function renderResults(declarations) {
+                    const resultsContainer = document.getElementById('results-container');
+                    const resultsSection = document.getElementById('results-section');
+
+                    if (declarations.length === 0) {
+                        resultsContainer.innerHTML = `
+                            <div class="text-center py-12">
+                                <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <p class="text-gray-600 text-lg">No declarations found</p>
+                                <p class="text-gray-500 text-sm mt-2">Try a different ISCC code or file</p>
+                            </div>
+                        `;
+                        resultsSection.classList.remove('hidden');
+                        return;
+                    }
+
+                    // Build result cards HTML
+                    const cardsHTML = declarations.map(decl => {
+                        // Determine verification status
+                        const hasController = decl.controller && decl.controller.length > 0;
+                        const hasGateway = decl.gateway && decl.gateway.length > 0;
+
+                        let badgeColor, badgeText, badgeTitle;
+                        if (hasController && hasGateway) {
+                            badgeColor = 'iscc-yellow';
+                            badgeText = 'Verified with Resolver';
+                            badgeTitle = 'Verified with Controller and Resolver';
+                        } else if (hasController) {
+                            badgeColor = 'iscc-green';
+                            badgeText = 'Verified';
+                            badgeTitle = 'Verified with Controller';
+                        } else {
+                            badgeColor = 'iscc-coral';
+                            badgeText = 'Basic Signature';
+                            badgeTitle = 'Basic Signature';
+                        }
+
+                        // Format timestamp
+                        const timestamp = new Date(decl.timestamp).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            timeZone: 'UTC',
+                            hour12: false
+                        }).replace(',', '') + ' UTC';
+
+                        // Build controller/pubkey row
+                        let identityHTML;
+                        if (hasController) {
+                            identityHTML = `
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Controller</h4>
+                                    <p class="text-sm text-gray-800 font-mono break-all">${decl.controller}</p>
+                                </div>
+                            `;
+                        } else {
+                            // Truncate pubkey for display
+                            const pubkeyShort = decl.pubkey.length > 20
+                                ? decl.pubkey.substring(0, 12) + '...' + decl.pubkey.substring(decl.pubkey.length - 8)
+                                : decl.pubkey;
+                            identityHTML = `
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Public Key</h4>
+                                    <p class="text-sm text-gray-800 font-mono break-all" title="${decl.pubkey}">${pubkeyShort}</p>
+                                </div>
+                            `;
+                        }
+
+                        // Build gateway row
+                        let gatewayHTML;
+                        if (hasGateway) {
+                            // Extract domain from gateway URL for display
+                            let gatewayDisplay;
+                            try {
+                                const url = new URL(decl.gateway);
+                                gatewayDisplay = url.hostname + url.pathname.split('/').slice(0, 2).join('/');
+                            } catch {
+                                gatewayDisplay = decl.gateway;
+                            }
+
+                            gatewayHTML = `
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Resolver</h4>
+                                    <a href="${decl.gateway}"
+                                       class="text-sm text-iscc-blue hover:text-blue-700 transition-colors inline-flex items-center gap-1"
+                                       target="_blank"
+                                       rel="noopener noreferrer">
+                                        ${gatewayDisplay}
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M15 3H21V9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </a>
+                                </div>
+                            `;
+                        } else {
+                            gatewayHTML = `
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Resolver</h4>
+                                    <p class="text-sm text-gray-500">Not specified</p>
+                                </div>
+                            `;
+                        }
+
+                        return `
+                            <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 overflow-hidden relative group">
+                                <!-- Top Section with Blue Background -->
+                                <div class="bg-iscc-light-blue h-20 relative" style="background-image: url('/img/grain.png'); background-size: 256px 256px; background-blend-mode: overlay;">
+                                    <!-- Certificate Icon -->
+                                    <div class="absolute top-1/2 -translate-y-1/2 right-4 z-10">
+                                        <div class="w-10 h-10 bg-${badgeColor}/20 rounded-lg flex items-center justify-center" title="${badgeTitle}">
+                                            <svg class="w-6 h-6 text-${badgeColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                            </svg>
+                                        </div>
+                                    </div>
+
+                                    <!-- ISCC-ID Tab -->
+                                    <div class="absolute top-1/2 -translate-y-1/2 -left-1 z-10">
+                                        <div class="bg-gray-700 text-gray-100 px-4 py-2 rounded-r-lg shadow-lg">
+                                            <span class="font-mono text-xs tracking-tight">${decl.iscc_id}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Card Content -->
+                                <div class="p-6">
+                                    <!-- ISCC-CODE Section - Full Width -->
+                                    <div class="mb-4">
+                                        <h4 class="text-sm font-medium text-gray-600 mb-1">ISCC-CODE</h4>
+                                        <p class="font-mono text-xs text-gray-700 bg-gray-50 px-3 py-2 rounded border border-gray-200 break-all">${decl.iscc_code}</p>
+                                    </div>
+
+                                    <!-- Meta Information Grid -->
+                                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                        <!-- Timestamp -->
+                                        <div>
+                                            <h4 class="text-sm font-medium text-gray-600 mb-1">Registered</h4>
+                                            <p class="text-sm text-gray-800">${timestamp}</p>
+                                        </div>
+
+                                        <!-- Controller/Signature -->
+                                        ${identityHTML}
+
+                                        <!-- Resolver -->
+                                        ${gatewayHTML}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    resultsContainer.innerHTML = cardsHTML;
+                    resultsSection.classList.remove('hidden');
+
+                    // Scroll to results
+                    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+
+                // Perform search (extracted for reuse)
+                async function performSearch(isccValue) {
+                    if (!isccValue) {
+                        return;
+                    }
+
+                    console.log('Searching for:', isccValue);
+
+                    // Determine if this is an ISCC Instance Code or another ISCC code type
+                    // ISCC Instance Code starts with ISCC:IA... (after decoding the header 0x40, 0x07)
+                    const isInstanceCode = isccValue.match(/^ISCC:IA[A-Z0-9]/i);
+
+                    console.log('Is Instance Code:', !!isInstanceCode);
+
+                    let searchUrl;
+                    if (isInstanceCode) {
+                        // Extract datahash from ISCC Instance Code
+                        const datahash = extractDatahash(isccValue);
+                        console.log('Extracted datahash:', datahash);
+                        if (!datahash) {
+                            showError('Failed to extract datahash from ISCC Instance Code');
+                            setLoading(false);
+                            return;
+                        }
+                        searchUrl = `/search?datahash=${datahash}`;
+                    } else {
+                        // Search by ISCC-CODE directly
+                        searchUrl = `/search?iscc_code=${encodeURIComponent(isccValue)}`;
+                    }
+
+                    console.log('Search URL:', searchUrl);
+
+                    // Set loading state
+                    setLoading(true);
+
+                    try {
+                        const response = await fetch(searchUrl, {
+                            headers: {
+                                'Accept': 'application/json'
+                            }
+                        });
+
+                        console.log('Response status:', response.status);
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            console.error('Search error response:', errorData);
+                            const errorMessage = errorData.error?.message || 'Search failed';
+                            showError(errorMessage);
+                            return;
+                        }
+
+                        const declarations = await response.json();
+                        console.log('Found declarations:', declarations);
+                        renderResults(declarations);
+
+                    } catch (error) {
+                        console.error('Search error:', error);
+                        showError('Failed to search declarations');
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+
                 // Handle form submission
                 document.getElementById('iscc-lookup-form').addEventListener('submit', async function(e) {
                     e.preventDefault();
@@ -704,11 +995,7 @@
                     }
 
                     const isccValue = isccInput.value.trim();
-                    if (isccValue) {
-                        // For now, just log the value
-                        // In later steps, this will lookup declarations
-                        console.log('Would lookup:', isccValue);
-                    }
+                    await performSearch(isccValue);
                 });
 
                 // Clear results functionality
