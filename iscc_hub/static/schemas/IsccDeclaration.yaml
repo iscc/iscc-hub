@@ -1,0 +1,129 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "http://purl.org/iscc/schema/iscc-declaration.json"
+title: "IsccDeclaration"
+type: object
+description: |
+  ISCC declaration record representing the current state of a declared ISCC-ID.
+
+  Contains the ISCC-CODE, cryptographic hashes, actor identity, and optional
+  metadata for a timestamped content declaration.
+required:
+  - iscc_id
+  - iscc_code
+  - datahash
+  - timestamp
+  - pubkey
+properties:
+  iscc_id:
+    $ref: "./CommonProperties.yaml#/properties/iscc_id"
+  iscc_code:
+    type: string
+    description: |
+      The declared ISCC-CODE identifying the content
+
+      **Format:** `ISCC:` followed by alphanumeric characters
+      **Length:** 34-73 characters total
+    pattern: "^ISCC:[A-Z0-9]{29,68}$"
+    minLength: 34
+    maxLength: 73
+    examples:
+      - "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
+      - "ISCC:KACT3NRHBQXWJKXV6OJ7XR7B62NJXMYQDNHCNZQZLW4L2UXBCJIZERA"
+  datahash:
+    type: string
+    minLength: 68
+    maxLength: 68
+    description: |
+      Blake3 hash of the declared content
+
+      **Format:** 256-bit lowercase hex-encoded multihash
+      **Prefix:** `1e20` (Blake3 identifier)
+      **Length:** Exactly 68 characters
+    pattern: "^1e20[0-9a-f]{64}$"
+    examples:
+      - "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+  timestamp:
+    type: string
+    format: date-time
+    description: |
+      Hub timestamp when the declaration was created
+
+      **Precision:** Microseconds (6 decimal places)
+      **Source:** Derived from the 52-bit timestamp field in the ISCC-ID
+      **Format:** ISO 8601 with Z suffix
+    examples:
+      - "2025-01-20T14:32:18.123456Z"
+      - "2025-01-19T09:15:42.789012Z"
+  pubkey:
+    type: string
+    minLength: 48
+    maxLength: 48
+    description: |
+      Ed25519 public key of the declaring actor
+
+      **Format:** Multibase z-base58-btc encoded (starts with 'z6Mk')
+      **Length:** Exactly 48 characters
+    pattern: "^z6Mk[1-9A-HJ-NP-Za-km-z]{44}$"
+    examples:
+      - "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+      - "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"
+  controller:
+    type: string
+    minLength: 0
+    maxLength: 2048
+    description: |
+      DID or W3C CID Document URL identifying the key controller
+
+      **Optional:** May be empty string if not provided
+      **Common formats:** `did:web:`, `did:key:`, `https://` URL
+    examples:
+      - "did:web:example.com"
+      - "did:key:z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+      - "https://example.com/.well-known/controller/123"
+      - ""
+  gateway:
+    type: string
+    minLength: 0
+    maxLength: 2048
+    pattern: "^(https?://[^\\s]+)?$"
+    description: |
+      HTTP(S) URL or RFC 6570 URI Template for metadata discovery
+
+      **Optional:** May be empty string if not provided
+      - Supported variables: `{iscc_id}`, `{iscc_code}`, `{datahash}`
+    examples:
+      - "https://example.com/metadata/{iscc_id}"
+      - "https://gateway.iscc.io/iscc_id/{iscc_id}"
+      - "https://{iscc_id}.gw.example.com/cid"
+      - ""
+  metahash:
+    type: string
+    minLength: 68
+    maxLength: 68
+    description: |
+      Blake3 hash of seed metadata (optional commitment)
+
+      **Optional:** Null if not provided
+      **Format:** 256-bit lowercase hex-encoded multihash
+      **Prefix:** `1e20` (Blake3 identifier)
+    pattern: "^1e20[0-9a-f]{64}$"
+    examples:
+      - "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
+      - null
+examples:
+  - iscc_id: "ISCC:MAIGHFECJMOPMIAB"
+    iscc_code: "ISCC:KED572P4AOF5K6QXQA4T6OJD5UGX7UBPFW2TVQNTHBCKFRFCANCZARQ4K6NSFZQSH4GQ"
+    datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+    timestamp: "2025-01-20T14:32:18.123456Z"
+    controller: "did:web:example.com"
+    pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+    gateway: "https://example.com/metadata/{iscc_id}"
+    metahash: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
+  - iscc_id: "ISCC:MABXW23FQLCYPKIZ"
+    iscc_code: "ISCC:KACT3NRHBQXWJKXV6OJ7XR7B62NJXMYQDNHCNZQZLW4L2UXBCJIZERA"
+    datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+    timestamp: "2025-01-19T09:15:42.789012Z"
+    pubkey: "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"
+    controller: ""
+    gateway: ""
+    metahash: null

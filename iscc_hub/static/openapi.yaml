@@ -8,6 +8,121 @@ info:
     backgroundColor: "#0054b2"
     altText: "International Standard Content Code (ISCC) - Logo"
 paths:
+  /search:
+    get:
+      summary: Search ISCC Declarations
+      description: |
+        Search for ISCC declarations by datahash or ISCC-CODE.
+
+        **Search Parameters:** Provide exactly ONE of the following parameters:
+        - `datahash` - Find all declarations for specific content (by blake3 hash)
+        - `iscc_code` - Find all declarations with a specific ISCC-CODE
+
+        **Important:** Providing both parameters or neither will return a 400 error.
+
+        **Use Cases:**
+        - After calculating a file's blake3 hash client-side, construct the datahash
+          (`1e20` + blake3_hex) and query for existing declarations
+        - Search by ISCC-CODE to find all timestamped instances of that code
+
+        **Note:** Multiple declarations (ISCC-IDs) may exist for the same datahash or
+        ISCC-CODE if content was declared multiple times.
+      operationId: search
+      parameters:
+        - name: datahash
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: "^1e20[0-9a-f]{64}$"
+            minLength: 68
+            maxLength: 68
+          description: |
+            Blake3 multihash of the content to search for.
+
+            **Format:** `1e20` (blake3 prefix) + 64 hex characters
+            **Mutually exclusive with:** `iscc_code`
+          example: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+        - name: iscc_code
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: "^ISCC:[A-Z0-9]{29,68}$"
+            minLength: 34
+            maxLength: 73
+          description: |
+            ISCC-CODE to search for.
+
+            **Format:** `ISCC:` followed by 29-68 alphanumeric characters
+            **Mutually exclusive with:** `datahash`
+          example: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
+      responses:
+        '200':
+          description: Successful search - returns matching declarations (may be empty array)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IsccDeclaration'
+              examples:
+                search_by_datahash:
+                  summary: Search by datahash - multiple declarations for same content
+                  value:
+                    - iscc_id: "ISCC:MAIGHFECJMOPMIAB"
+                      iscc_code: "ISCC:KED572P4AOF5K6QXQA4T6OJD5UGX7UBPFW2TVQNTHBCKFRFCANCZARQ4K6NSFZQSH4GQ"
+                      datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+                      timestamp: "2025-01-20T14:32:18.123456Z"
+                      controller: "did:web:example.com"
+                      pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+                      gateway: "https://example.com/metadata/{iscc_id}"
+                      metahash: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
+                    - iscc_id: "ISCC:MABXW23FQLCYPKIZ"
+                      iscc_code: "ISCC:KACT3NRHBQXWJKXV6OJ7XR7B62NJXMYQDNHCNZQZLW4L2UXBCJIZERA"
+                      datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+                      timestamp: "2025-01-19T09:15:42.789012Z"
+                      pubkey: "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"
+                      controller: ""
+                      gateway: ""
+                      metahash: null
+                search_by_iscc_code:
+                  summary: Search by ISCC-CODE - single declaration
+                  value:
+                    - iscc_id: "ISCC:MADKZ5PLNRXGTVQB"
+                      iscc_code: "ISCC:KACTXL7PSZSWDVMQ2DPDF6FXHTKLM3Y5WNRQZQAJDKQRTXHIZXMIRJI"
+                      datahash: "1e20abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+                      timestamp: "2025-01-18T21:47:33.456789Z"
+                      controller: "did:ipfs:QmX9dhRp..."
+                      pubkey: "z6MkfrQkTJTQzDNVbj7gPYGZvL89vVBEFfK4zePNKhRMPYBk"
+                      gateway: "https://ipfs.io/ipfs/{iscc_id}"
+                      metahash: null
+                no_results:
+                  summary: No declarations found
+                  value: []
+        '400':
+          description: Bad Request - Invalid parameter or mutual exclusivity violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                no_parameters:
+                  summary: No search parameter provided
+                  value:
+                    detail: "Exactly one search parameter required: datahash or iscc_code"
+                both_parameters:
+                  summary: Multiple search parameters provided
+                  value:
+                    detail: "Only one search parameter allowed: datahash or iscc_code (not both)"
+                invalid_datahash:
+                  summary: Invalid datahash format
+                  value:
+                    detail: "Invalid datahash format. Expected: 1e20 followed by 64 hex characters"
+                invalid_iscc_code:
+                  summary: Invalid ISCC-CODE format
+                  value:
+                    detail: "Invalid iscc_code format. Expected: ISCC: followed by 29-68 alphanumeric characters"
   /declaration:
     post:
       summary: Declare ISCC-CODE
@@ -166,6 +281,8 @@ components:
   schemas:
     ErrorResponse:
       $ref: './schemas/ErrorResponse.yaml'
+    IsccDeclaration:
+      $ref: './schemas/IsccDeclaration.yaml'
     IsccReceipt:
       $ref: './schemas/IsccReceipt.yaml'
     IsccSignature:
