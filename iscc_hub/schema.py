@@ -263,7 +263,7 @@ class IsccNote(Schema):
     iscc_code: Annotated[
         str,
         Field(
-            description="The ISCC-CODE to be declared\n\n**Format:** `ISCC:` followed by alphanumeric characters\n**Note:** Must be a composite ISCC-CODE, not an individual ISCC-UNIT\n**Length:** 34-73 characters total (minimum: Data-Code + Instance-Code 64-bit each)\n",
+            description="The ISCC-CODE to be declared\n\n**Format:** `ISCC:` followed by alphanumeric characters\\\n**Note:** Must be a composite ISCC-CODE, not an individual ISCC-UNIT\\\n**Length:** 34-73 characters total (minimum: Data-Code + Instance-Code 64-bit each)\\\n",
             examples=[
                 "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
                 "ISCC:KACXGDR3R7NA44D6RTDMPXW7FBNJS6MYMHYM6JIK7THYC6D2P6KUPCI",

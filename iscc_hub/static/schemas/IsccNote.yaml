@@ -18,9 +18,9 @@ properties:
     description: |
       The ISCC-CODE to be declared
 
-      **Format:** `ISCC:` followed by alphanumeric characters
-      **Note:** Must be a composite ISCC-CODE, not an individual ISCC-UNIT
-      **Length:** 34-73 characters total (minimum: Data-Code + Instance-Code 64-bit each)
+      **Format:** `ISCC:` followed by alphanumeric characters\
+      **Note:** Must be a composite ISCC-CODE, not an individual ISCC-UNIT\
+      **Length:** 34-73 characters total (minimum: Data-Code + Instance-Code 64-bit each)\
     pattern: "^ISCC:[A-Z0-9]{29,68}$"
     minLength: 34
     maxLength: 73
