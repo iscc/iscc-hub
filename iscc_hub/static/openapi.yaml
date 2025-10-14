@@ -10,7 +10,7 @@ info:
 paths:
   /search:
     get:
-      summary: Search ISCC Declarations
+      summary: Search Declarations
       description: |
         Search for ISCC declarations by datahash or ISCC-CODE.
 
@@ -123,8 +123,8 @@ paths:
     post:
       summary: Declare ISCC-CODE
       description: |
-        Submit an IsccNote for declaration. The server validates the submission,
-        sequences it in the declaration log, and returns an IsccReceipt as a verifiable credential.
+        Submit an `IsccNote` to declare an ISCC-CODE. The server validates the submission,
+        sequences it in the declaration log, and returns an `IsccReceipt` as a verifiable credential.
 
         **Duplicate Protection:** By default, the server rejects duplicate declarations
         (same datahash) with a 409 Conflict error. To force a duplicate declaration,

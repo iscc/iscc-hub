@@ -20,7 +20,7 @@ properties:
 
       **Format:** `ISCC:` followed by alphanumeric characters\
       **Note:** Must be a composite ISCC-CODE, not an individual ISCC-UNIT\
-      **Length:** 34-73 characters total (minimum: Data-Code + Instance-Code 64-bit each)\
+      **Length:** 34-73 characters total (minimum: Data-Code + Instance-Code 64-bit each)
     pattern: "^ISCC:[A-Z0-9]{29,68}$"
     minLength: 34
     maxLength: 73
@@ -35,8 +35,8 @@ properties:
     description: |
       Blake3 hash of the declared asset
 
-      **Format:** 256-bit lowercase hex-encoded multihash
-      **Prefix:** `1e20` (Blake3 identifier)
+      **Format:** 256-bit lowercase hex-encoded multihash\
+      **Prefix:** `1e20` (Blake3 identifier)\
       **Length:** Exactly 68 characters
     pattern: "^1e20[0-9a-f]{64}$"
     examples:
@@ -68,7 +68,7 @@ properties:
       minLength: 21
       maxLength: 73
       description: |
-        Individual ISCC-UNIT (Meta, Content, Data, Instance, or Semantic)
+        Individual ISCC-UNIT (Meta, Content, Data, Instance, or Semantic)\
         **Length:** 21 characters (64-bit) or 60+ characters (256-bit)
     maxItems: 4
     example:
@@ -87,7 +87,7 @@ properties:
       **Use case:** Allows external registries to store mutable or deletable metadata
       while maintaining temporal integrity.
 
-      **Format:** 256-bit lowercase hex-encoded multihash
+      **Format:** 256-bit lowercase hex-encoded multihash\
       **Prefix:** `1e20` (Blake3 identifier)
     pattern: "^1e20[0-9a-f]{64}$"
     examples:

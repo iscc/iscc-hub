@@ -4,14 +4,14 @@ title: "CommonProperties"
 type: object
 description: |
   Shared properties used across ISCC schema definitions.
-  
+
   These properties provide common fields for ISCC declarations and receipts.
 properties:
   iscc_id:
     type: string
     description: |
       Unique ISCC-ID assigned by the ISCC-HUB
-      
+
       **Format:** `ISCC:` followed by 16 characters encoding timestamp and hub ID
       **Structure:** 64-bit identifier (52-bit timestamp + 12-bit hub ID)
     pattern: "^ISCC:[A-Z0-9]{16}$"
@@ -25,10 +25,10 @@ properties:
     format: date-time
     description: |
       RFC 3339 formatted timestamp of IsccNote creation time in UTC with millisecond precision
-      
-      **Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`
+
+      **Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`\
       **Example:** `2025-08-04T12:34:56.789Z`
-      
+
       **Requirements:**
       - The `Z` suffix MUST be used to indicate UTC
       - Indicates when the IsccNote was created and signed
@@ -42,8 +42,8 @@ properties:
     maxLength: 32
     description: |
       Unique 128-bit random value for replay protection
-      
-      **Format:** 32 lowercase hex characters
+
+      **Format:** 32 lowercase hex characters\
       **Structure:** First 12 bits encode the target hub_id (0-4095)
     pattern: "^[0-9a-f]{32}$"
     examples:
