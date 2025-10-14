@@ -87,7 +87,7 @@ class Unit(RootModel[str]):
     root: Annotated[
         str,
         Field(
-            description="Individual ISCC-UNIT (Meta, Content, Data, Instance, or Semantic)\n**Length:** 21 characters (64-bit) or 60+ characters (256-bit)\n",
+            description="Individual ISCC-UNIT (Meta, Content, Data, Instance, or Semantic)\\\n**Length:** 21 characters (64-bit) or 60+ characters (256-bit)\n",
             max_length=73,
             min_length=21,
             pattern="^ISCC:[A-Z0-9]{16,68}$",
@@ -99,7 +99,7 @@ class Timestamp(RootModel[AwareDatetime]):
     root: Annotated[
         AwareDatetime,
         Field(
-            description="RFC 3339 formatted timestamp of IsccNote creation time in UTC with millisecond precision\n\n**Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`\n**Example:** `2025-08-04T12:34:56.789Z`\n\n**Requirements:**\n- The `Z` suffix MUST be used to indicate UTC\n- Indicates when the IsccNote was created and signed\n- HUBs MUST reject timestamps outside ±10 minutes from current time\n",
+            description="RFC 3339 formatted timestamp of IsccNote creation time in UTC with millisecond precision\n\n**Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`\\\n**Example:** `2025-08-04T12:34:56.789Z`\n\n**Requirements:**\n- The `Z` suffix MUST be used to indicate UTC\n- Indicates when the IsccNote was created and signed\n- HUBs MUST reject timestamps outside ±10 minutes from current time\n",
             examples=["2025-01-15T12:00:00.000Z", "2025-08-12T14:30:00.123Z"],
         ),
     ]
@@ -109,7 +109,7 @@ class Nonce(RootModel[str]):
     root: Annotated[
         str,
         Field(
-            description="Unique 128-bit random value for replay protection\n\n**Format:** 32 lowercase hex characters\n**Structure:** First 12 bits encode the target hub_id (0-4095)\n",
+            description="Unique 128-bit random value for replay protection\n\n**Format:** 32 lowercase hex characters\\\n**Structure:** First 12 bits encode the target hub_id (0-4095)\n",
             examples=[
                 "000faa3f18c7b9407a48536a9b00c4cb",
                 "001234567890abcdef1234567890abcd",
@@ -263,7 +263,7 @@ class IsccNote(Schema):
     iscc_code: Annotated[
         str,
         Field(
-            description="The ISCC-CODE to be declared\n\n**Format:** `ISCC:` followed by alphanumeric characters\\\n**Note:** Must be a composite ISCC-CODE, not an individual ISCC-UNIT\\\n**Length:** 34-73 characters total (minimum: Data-Code + Instance-Code 64-bit each)\\\n",
+            description="The ISCC-CODE to be declared\n\n**Format:** `ISCC:` followed by alphanumeric characters\\\n**Note:** Must be a composite ISCC-CODE, not an individual ISCC-UNIT\\\n**Length:** 34-73 characters total (minimum: Data-Code + Instance-Code 64-bit each)\n",
             examples=[
                 "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
                 "ISCC:KACXGDR3R7NA44D6RTDMPXW7FBNJS6MYMHYM6JIK7THYC6D2P6KUPCI",
@@ -277,7 +277,7 @@ class IsccNote(Schema):
     datahash: Annotated[
         str,
         Field(
-            description="Blake3 hash of the declared asset\n\n**Format:** 256-bit lowercase hex-encoded multihash\n**Prefix:** `1e20` (Blake3 identifier)\n**Length:** Exactly 68 characters\n",
+            description="Blake3 hash of the declared asset\n\n**Format:** 256-bit lowercase hex-encoded multihash\\\n**Prefix:** `1e20` (Blake3 identifier)\\\n**Length:** Exactly 68 characters\n",
             examples=[
                 "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
                 "1e201234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
@@ -308,7 +308,7 @@ class IsccNote(Schema):
     metahash: Annotated[
         str | None,
         Field(
-            description="Blake3 hash of seed metadata (optional)\n\nCreates a cryptographic commitment to the exact metadata state at declaration time.\n\n**Use case:** Allows external registries to store mutable or deletable metadata\nwhile maintaining temporal integrity.\n\n**Format:** 256-bit lowercase hex-encoded multihash\n**Prefix:** `1e20` (Blake3 identifier)\n",
+            description="Blake3 hash of seed metadata (optional)\n\nCreates a cryptographic commitment to the exact metadata state at declaration time.\n\n**Use case:** Allows external registries to store mutable or deletable metadata\nwhile maintaining temporal integrity.\n\n**Format:** 256-bit lowercase hex-encoded multihash\\\n**Prefix:** `1e20` (Blake3 identifier)\n",
             examples=[
                 "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598",
                 "1e20abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
