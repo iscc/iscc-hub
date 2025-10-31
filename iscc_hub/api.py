@@ -59,8 +59,9 @@ def search(request: HttpRequest):
     :return: List of matching IsccDeclaration objects (may be empty)
     """
     # Parse query parameters directly from request
-    datahash = request.GET.get("datahash", None)
-    iscc_code = request.GET.get("iscc_code", None)
+    # Normalize empty strings to None to ensure validation logic works correctly
+    datahash = request.GET.get("datahash", None) or None
+    iscc_code = request.GET.get("iscc_code", None) or None
 
     # Validate mutual exclusivity
     if not datahash and not iscc_code:
