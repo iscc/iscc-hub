@@ -226,7 +226,7 @@ The ISCC-ID is an ISCC-encoded 64-bit content identifier constructed from a time
     - MAINTYPE = "0110" (ISCC-ID)
     - SUBTYPE = "0000" (REALM)
     - VERSION = "0001" (V1)
-    - LENGTH = "0001" (64-bit)
+    - LENGTH = "0000" (64-bit, no counter)
   - 64-bit ISCC-BODY:
     - 52-bit timestamp: Microseconds since epoch (1970-01-01T00:00:00Z)
     - 12-bit server-id: Server-ID (0–4095) of the issuing ISCC-HUB

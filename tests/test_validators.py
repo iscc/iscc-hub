@@ -1396,7 +1396,7 @@ def test_validate_iscc_id_valid():
     # type: () -> None
     """Test validates a valid ISCC-ID."""
     # Valid ISCC-ID with hub_id=1
-    iscc_id = "ISCC:MAIWFKM3UDDAAEAB"
+    iscc_id = "ISCC:MAIGFKM3UDDAAEAB"
     validators.validate_iscc_id(iscc_id)  # Should not raise
 
 
@@ -1424,7 +1424,7 @@ def test_validate_iscc_id_with_hub_id_match():
     # type: () -> None
     """Test validates ISCC-ID when hub_id matches."""
     # ISCC-ID with hub_id=1
-    iscc_id = "ISCC:MAIWFKM3UDDAAEAB"
+    iscc_id = "ISCC:MAIGFKM3UDDAAEAB"
     validators.validate_iscc_id(iscc_id, hub_id=1)  # Should not raise
 
 
@@ -1434,7 +1434,7 @@ def test_validate_iscc_id_with_hub_id_mismatch():
     from iscc_hub.exceptions import IsccIdError
 
     # ISCC-ID with hub_id=1, but we'll check for hub_id=2
-    iscc_id = "ISCC:MAIWFKM3UDDAAEAB"
+    iscc_id = "ISCC:MAIGFKM3UDDAAEAB"
     with pytest.raises(IsccIdError, match="ISCC-ID with invalid hub_id 1"):
         validators.validate_iscc_id(iscc_id, hub_id=2)
 
@@ -1446,7 +1446,7 @@ def test_validate_iscc_note_delete_valid(example_nonce, example_keypair):
 
     # Create a valid delete note
     delete_note = {
-        "iscc_id": "ISCC:MAIWFKM3UDDAAEAB",
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
         "nonce": example_nonce,
         "timestamp": "2025-01-15T12:00:00.000Z",
     }
@@ -1496,7 +1496,7 @@ def test_validate_iscc_note_delete_with_hub_id():
     # type: () -> None
     """Test validate_iscc_note_delete with hub ID verification."""
     delete_note = {
-        "iscc_id": "ISCC:MAIWFKM3UDDAAEAB",  # hub_id=1
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",  # hub_id=1
         "nonce": "001faa3f18c7b9407a48536a9b00c4cb",  # hub_id=1
         "timestamp": "2025-01-15T12:00:00.000Z",
         "signature": {
@@ -1516,7 +1516,7 @@ def test_validate_iscc_note_delete_hub_id_mismatch():
     from iscc_hub.exceptions import IsccIdError
 
     delete_note = {
-        "iscc_id": "ISCC:MAIWFKM3UDDAAEAB",  # hub_id=1
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",  # hub_id=1
         "nonce": "000faa3f18c7b9407a48536a9b00c4cb",  # hub_id=0
         "timestamp": "2025-01-15T12:00:00.000Z",
         "signature": {
@@ -1536,7 +1536,7 @@ def test_validate_iscc_note_delete_unknown_fields():
     # type: () -> None
     """Test validate_iscc_note_delete rejects unknown fields."""
     delete_note = {
-        "iscc_id": "ISCC:MAIWFKM3UDDAAEAB",
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
         "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
         "timestamp": "2025-01-15T12:00:00.000Z",
         "unknown_field": "should_cause_error",
@@ -1622,7 +1622,7 @@ def test_validate_input_size_delete_exceeds_limit():
     # Create data that actually exceeds MAX_JSON_SIZE (8192 bytes)
     large_string = "x" * 2000  # Each string is 2000 chars (under individual limit)
     oversized_data = {
-        "iscc_id": "ISCC:MAIWFKM3UDDAAEAB",
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
         "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
         "timestamp": "2025-01-15T12:00:00.000Z",
         "signature": {

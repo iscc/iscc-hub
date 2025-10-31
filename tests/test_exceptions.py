@@ -250,10 +250,10 @@ def test_duplicate_declaration_error_with_context():
     """Test DuplicateDeclarationError with existing declaration details."""
     error = DuplicateDeclarationError(
         "Datahash already declared",
-        existing_iscc_id="ISCC:MAIWFKM3UDDAAEAB",
+        existing_iscc_id="ISCC:MAIGFKM3UDDAAEAB",
         existing_actor="did:key:z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
     )
-    assert error.existing_iscc_id == "ISCC:MAIWFKM3UDDAAEAB"
+    assert error.existing_iscc_id == "ISCC:MAIGFKM3UDDAAEAB"
     assert error.existing_actor == "did:key:z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"
 
     response = error.to_error_response()
@@ -262,7 +262,7 @@ def test_duplicate_declaration_error_with_context():
             "message": "Datahash already declared",
             "code": "duplicate_declaration",
             "field": "datahash",
-            "existing_iscc_id": "ISCC:MAIWFKM3UDDAAEAB",
+            "existing_iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
             "existing_actor": "did:key:z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
         }
     }
@@ -271,8 +271,8 @@ def test_duplicate_declaration_error_with_context():
 def test_duplicate_declaration_error_partial_context():
     # type: () -> None
     """Test DuplicateDeclarationError with only ISCC-ID context."""
-    error = DuplicateDeclarationError("Datahash already declared", existing_iscc_id="ISCC:MAIWFKM3UDDAAEAB")
-    assert error.existing_iscc_id == "ISCC:MAIWFKM3UDDAAEAB"
+    error = DuplicateDeclarationError("Datahash already declared", existing_iscc_id="ISCC:MAIGFKM3UDDAAEAB")
+    assert error.existing_iscc_id == "ISCC:MAIGFKM3UDDAAEAB"
     assert error.existing_actor is None
 
     response = error.to_error_response()
@@ -281,7 +281,7 @@ def test_duplicate_declaration_error_partial_context():
             "message": "Datahash already declared",
             "code": "duplicate_declaration",
             "field": "datahash",
-            "existing_iscc_id": "ISCC:MAIWFKM3UDDAAEAB",
+            "existing_iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
         }
     }
 

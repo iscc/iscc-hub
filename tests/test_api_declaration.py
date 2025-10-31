@@ -3,6 +3,7 @@
 import json
 
 import httpx
+import iscc_core as ic
 import pytest
 from constance.test import override_config
 from django.db import connection
@@ -516,3 +517,60 @@ def test_did_document_endpoint(live_server):
         assert "authentication" in data
         assert "assertionMethod" in data
         assert data["id"] == "did:web:testserver"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_issued_iscc_id_passes_iscc_core_validation(
+    live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
+):
+    # type: (object, str, str, object, dict) -> None
+    """End-to-end test: ISCC-ID issued by hub passes iscc_core.iscc_validate.
+
+    This test verifies that ISCC-IDs actually issued by the hub through the
+    API are valid according to the iscc_core library's strict validation.
+    """
+    import iscc_crypto as icr
+
+    # Create a minimal note with current timestamp
+    minimal_note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+
+    # Sign the note
+    signed_note = icr.sign_json(minimal_note, example_keypair)
+
+    with httpx.Client() as client:
+        # Submit declaration to hub API
+        response = client.post(
+            f"{live_server.url}/declaration",
+            json=signed_note,
+            headers={"Accept": "application/json"},
+        )
+
+        # Verify successful response
+        assert response.status_code == 201
+        data = response.json()
+
+        # Extract ISCC-ID from receipt (it's in credentialSubject.declaration)
+        assert "credentialSubject" in data
+        assert "declaration" in data["credentialSubject"]
+        assert "iscc_id" in data["credentialSubject"]["declaration"]
+
+        iscc_id = data["credentialSubject"]["declaration"]["iscc_id"]
+
+        # Validate format
+        assert isinstance(iscc_id, str)
+        assert iscc_id.startswith("ISCC:")
+
+        # Validate with iscc_core library (strict mode)
+        assert ic.iscc_validate(iscc_id, strict=True) is True
+
+        # Also verify it decodes correctly
+        mt, st, vs, ln, body = ic.iscc_decode(iscc_id)
+        assert mt == 6  # MAINTYPE = ISCC-ID
+        assert vs == 1  # VERSION = 1
+        assert ln == 0  # LENGTH = 0 (64-bit, no counter)
+        assert len(body) == 8  # Body is 8 bytes

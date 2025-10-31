@@ -19,7 +19,7 @@ The ISCC-IDv1 has the following format:
     - MAINTYPE = "0110" (ISCC-ID)
     - SUBTYPE  = "0000" (REALM 0 - Sandbox) or "0001" (REALM 1 - Operational)
     - VERSION  = "0001" (V1)
-    - LENGTH   = "0001" (64-bit)
+    - LENGTH   = "0000" (64-bit, no counter)
   - 64-bit ISCC-BODY:
     - 52-bit timestamp: Microseconds since 1970-01-01T00:00:00Z
     - 12-bit server-id: The Time Server ID (0-4095)
@@ -38,10 +38,10 @@ def _get_header():
     """Get ISCC-ID header bytes based on REALM configuration."""
     if settings.ISCC_HUB_REALM == 0:
         # Sandbox network (SUBTYPE="0000")
-        return 0b0110000000010001.to_bytes(2, "big")
+        return 0b0110000000010000.to_bytes(2, "big")
     elif settings.ISCC_HUB_REALM == 1:
         # Operational network (SUBTYPE="0001")
-        return 0b0110000100010001.to_bytes(2, "big")
+        return 0b0110000100010000.to_bytes(2, "big")
     else:
         raise ImproperlyConfigured(f"Invalid ISCC_HUB_REALM: {settings.ISCC_HUB_REALM}")
 
@@ -212,7 +212,7 @@ class IsccID:
 
 
 if __name__ == "__main__":  # pragma: no cover
-    iid = IsccID("ISCC:MAIWGQRD43YZQUAA")
+    iid = IsccID("ISCC:MAIGGQRD43YZQUAA")
     print("Canonical: ", iid)
     print("Body Bytes:", iid.bytes_body)
     print("Body UINT: ", iid.uint_body)
@@ -226,9 +226,9 @@ if __name__ == "__main__":  # pragma: no cover
     print("Hashable:  ", hash(iid))
 
     # Equality
-    iid2 = IsccID("ISCC:MAIWGQRD43YZQUAA")
+    iid2 = IsccID("ISCC:MAIGGQRD43YZQUAA")
     print("Equal:     ", iid == iid2)
-    print("Equal str: ", iid == "ISCC:MAIWGQRD43YZQUAA")
+    print("Equal str: ", iid == "ISCC:MAIGGQRD43YZQUAA")
 
     # Ordering
     iid3 = IsccID.from_timestamp(1746171541264773 + 1000000, 0)

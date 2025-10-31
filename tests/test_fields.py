@@ -18,7 +18,7 @@ from iscc_hub.iscc_id import IsccID
     [
         (None, None, False, None),
         ("", None, False, None),
-        ("ISCC:MAIWGQRD43YZQUAA", "ISCC:MAIWGQRD43YZQUAA", False, None),
+        ("ISCC:MAIGGQRD43YZQUAA", "ISCC:MAIGGQRD43YZQUAA", False, None),
         ("INVALID:FORMAT", None, True, "invalid_iscc_format"),
         ("ISCC:INVALID", None, True, "invalid_iscc"),
         (b"SHORT", None, True, "invalid_length"),
@@ -32,9 +32,9 @@ def test_isccid_field_to_python_parameterized(input_value, expected_output, shou
 
     if input_value is not None and isinstance(input_value, bytes) and len(input_value) == 8:
         # Special case for valid 8-byte input
-        iscc_id = IsccID("ISCC:MAIWGQRD43YZQUAA")
+        iscc_id = IsccID("ISCC:MAIGGQRD43YZQUAA")
         input_value = bytes(iscc_id)
-        expected_output = "ISCC:MAIWGQRD43YZQUAA"
+        expected_output = "ISCC:MAIGGQRD43YZQUAA"
         should_raise = False
         error_code = None
 
@@ -53,7 +53,7 @@ def test_isccid_field_to_python_parameterized(input_value, expected_output, shou
     [
         (None, type(None), False, None),
         ("", type(None), False, None),
-        ("ISCC:MAIWGQRD43YZQUAA", bytes, False, None),
+        ("ISCC:MAIGGQRD43YZQUAA", bytes, False, None),
         (b"TOOLONG!!", None, True, "invalid_length"),
         ("INVALID", None, True, None),
     ],
@@ -141,7 +141,7 @@ def test_isccid_field_to_python_valid_string():
     # type: () -> None
     """Test to_python with valid ISCC-ID string."""
     field = IsccIDField()
-    valid_iscc = "ISCC:MAIWGQRD43YZQUAA"
+    valid_iscc = "ISCC:MAIGGQRD43YZQUAA"
     result = field.to_python(valid_iscc)
     assert result == valid_iscc
 
@@ -171,10 +171,10 @@ def test_isccid_field_to_python_valid_bytes():
     """Test to_python with valid 8-byte input."""
     field = IsccIDField()
     # Create a valid ISCC-ID and get its bytes representation
-    iscc_id = IsccID("ISCC:MAIWGQRD43YZQUAA")
+    iscc_id = IsccID("ISCC:MAIGGQRD43YZQUAA")
     bytes_value = bytes(iscc_id)
     result = field.to_python(bytes_value)
-    assert result == "ISCC:MAIWGQRD43YZQUAA"
+    assert result == "ISCC:MAIGGQRD43YZQUAA"
 
 
 def test_isccid_field_to_python_invalid_bytes_length():
@@ -209,10 +209,10 @@ def test_isccid_field_from_db_value_bytes():
     # type: () -> None
     """Test from_db_value with valid bytes."""
     field = IsccIDField()
-    iscc_id = IsccID("ISCC:MAIWGQRD43YZQUAA")
+    iscc_id = IsccID("ISCC:MAIGGQRD43YZQUAA")
     bytes_value = bytes(iscc_id)
     result = field.from_db_value(bytes_value, None, None)
-    assert result == "ISCC:MAIWGQRD43YZQUAA"
+    assert result == "ISCC:MAIGGQRD43YZQUAA"
 
 
 def test_isccid_field_get_prep_value_none():
@@ -233,7 +233,7 @@ def test_isccid_field_get_prep_value_valid_string():
     # type: () -> None
     """Test get_prep_value with valid ISCC-ID string."""
     field = IsccIDField()
-    valid_iscc = "ISCC:MAIWGQRD43YZQUAA"
+    valid_iscc = "ISCC:MAIGGQRD43YZQUAA"
     result = field.get_prep_value(valid_iscc)
     assert isinstance(result, bytes)
     assert len(result) == 8
@@ -245,7 +245,7 @@ def test_isccid_field_get_prep_value_valid_bytes():
     # type: () -> None
     """Test get_prep_value with valid bytes input."""
     field = IsccIDField()
-    iscc_id = IsccID("ISCC:MAIWGQRD43YZQUAA")
+    iscc_id = IsccID("ISCC:MAIGGQRD43YZQUAA")
     bytes_value = bytes(iscc_id)
     result = field.get_prep_value(bytes_value)
     assert result == bytes_value
@@ -345,7 +345,7 @@ def test_isccid_field_icontains_process_rhs():
     assert params == [None]
 
     # Test with valid ISCC-ID with prefix
-    lookup.rhs = "ISCC:MAIWGQRD43YZQUAA"
+    lookup.rhs = "ISCC:MAIGGQRD43YZQUAA"
     sql, params = lookup.process_rhs(None, None)
     assert sql == "%s"
     assert isinstance(params[0], bytes)
@@ -366,7 +366,7 @@ def test_isccid_field_icontains_process_rhs():
     assert len(params[0]) == 8
 
     # Test with whitespace (should be stripped)
-    lookup.rhs = "  ISCC:MAIWGQRD43YZQUAA  "
+    lookup.rhs = "  ISCC:MAIGGQRD43YZQUAA  "
     sql, params = lookup.process_rhs(None, None)
     assert sql == "%s"
     assert isinstance(params[0], bytes)
@@ -405,7 +405,7 @@ def test_isccid_field_icontains_as_sql():
     lookup.process_lhs = MagicMock(return_value=("field_name", []))
 
     # Test with valid ISCC-ID
-    lookup.rhs = "ISCC:MAIWGQRD43YZQUAA"
+    lookup.rhs = "ISCC:MAIGGQRD43YZQUAA"
     lookup.process_rhs = MagicMock(return_value=("%s", [b"\x19h\xb9%\x16\x10\xd0\x00"]))
 
     sql, params = lookup.as_sql(None, None)
@@ -442,7 +442,7 @@ def test_iscc_id_field_value_to_string():
     # Test with valid value
     field.attname = "iscc_id"
     result = field.value_to_string(obj)
-    assert result == "ISCC:MAIRS2FZEULBBUAA"
+    assert result == "ISCC:MAIBS2FZEULBBUAA"
 
     # Test with None value
     obj.iscc_id = None

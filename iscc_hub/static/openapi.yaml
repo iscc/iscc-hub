@@ -235,7 +235,7 @@ paths:
             type: string
             pattern: "^ISCC:[A-Z2-7]{16}$"
           description: The ISCC-ID of the declaration to delete
-          example: "ISCC:MAIWIEGXNGY664AB"
+          example: "ISCC:MAIGIEGXNGY664AB"
       requestBody:
         required: true
         content:
@@ -246,7 +246,7 @@ paths:
               delete_example:
                 summary: Delete declaration request
                 value:
-                  iscc_id: "ISCC:MAIWIEGXNGY664AB"
+                  iscc_id: "ISCC:MAIGIEGXNGY664AB"
                   timestamp: "2025-01-15T12:00:00.000Z"
                   nonce: "001d17437f53f6899ed01ecb8659118b"
                   signature:

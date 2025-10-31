@@ -23,7 +23,7 @@ properties:
   signature:
     $ref: "./CommonProperties.yaml#/properties/signature"
 examples:
-  - iscc_id: "ISCC:MAIWIEGXNGY664AB"
+  - iscc_id: "ISCC:MAIGIEGXNGY664AB"
     timestamp: "2025-01-15T12:00:00.000Z"
     nonce: "001d17437f53f6899ed01ecb8659118b"
     signature:

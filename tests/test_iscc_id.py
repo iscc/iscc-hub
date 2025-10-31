@@ -1,5 +1,6 @@
 """Tests for the IsccID class."""
 
+import iscc_core as ic
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
@@ -11,7 +12,7 @@ from iscc_hub.iscc_id import IsccID, _get_header
 @pytest.mark.parametrize(
     "input_value,expected_length,should_pass",
     [
-        ("ISCC:MAIWGQRD43YZQUAA", 8, True),
+        ("ISCC:MAIGGQRD43YZQUAA", 8, True),
         (b"\x12\x34\x56\x78\x9a\xbc\xde\xf0", 8, True),
         (IsccID.HEADER + b"\x12\x34\x56\x78\x9a\xbc\xde\xf0", 8, True),
         (12345, None, False),
@@ -62,9 +63,9 @@ def test_from_timestamp_parameterized(timestamp, hub_id, should_pass, error_matc
 @pytest.mark.parametrize(
     "value1,value2,expected_equal",
     [
-        ("ISCC:MAIWGQRD43YZQUAA", "ISCC:MAIWGQRD43YZQUAA", True),
-        ("ISCC:MAIWGQRD43YZQUAA", "ISCC:MAIZGUNTY2V446HQ", False),
-        ("ISCC:MAIWGQRD43YZQUAA", "invalid", False),
+        ("ISCC:MAIGGQRD43YZQUAA", "ISCC:MAIGGQRD43YZQUAA", True),
+        ("ISCC:MAIGGQRD43YZQUAA", "ISCC:MAIJGUNTY2V446HQ", False),
+        ("ISCC:MAIGGQRD43YZQUAA", "invalid", False),
         (b"\x12\x34\x56\x78\x9a\xbc\xde\xf0", b"\x12\x34\x56\x78\x9a\xbc\xde\xf0", True),
         (b"\x12\x34\x56\x78\x9a\xbc\xde\xf0", b"\x00\x00\x00\x00\x00\x00\x00\x00", False),
     ],
@@ -92,7 +93,7 @@ class TestIsccIDInitialization:
     def test_init_from_string(self):
         # type: () -> None
         """Test initializing from canonical string representation."""
-        iscc_str = "ISCC:MAIWGQRD43YZQUAA"
+        iscc_str = "ISCC:MAIGGQRD43YZQUAA"
         iid = IsccID(iscc_str)
         assert str(iid) == iscc_str
         assert len(bytes(iid)) == 8
@@ -118,7 +119,7 @@ class TestIsccIDInitialization:
     def test_init_from_another_iscc_id(self):
         # type: () -> None
         """Test initializing from another IsccID instance."""
-        iid1 = IsccID("ISCC:MAIWGQRD43YZQUAA")
+        iid1 = IsccID("ISCC:MAIGGQRD43YZQUAA")
         iid2 = IsccID(iid1)
         assert iid1 == iid2
         assert bytes(iid1) == bytes(iid2)
@@ -239,36 +240,36 @@ class TestIsccIDEquality:
     def test_eq_same_instance(self):
         # type: () -> None
         """Test equality with same instance."""
-        iid = IsccID("ISCC:MAIWGQRD43YZQUAA")
+        iid = IsccID("ISCC:MAIGGQRD43YZQUAA")
         assert iid == iid
 
     def test_eq_same_value(self):
         # type: () -> None
         """Test equality with same value."""
-        iid1 = IsccID("ISCC:MAIWGQRD43YZQUAA")
-        iid2 = IsccID("ISCC:MAIWGQRD43YZQUAA")
+        iid1 = IsccID("ISCC:MAIGGQRD43YZQUAA")
+        iid2 = IsccID("ISCC:MAIGGQRD43YZQUAA")
         assert iid1 == iid2
 
     def test_eq_different_value(self):
         # type: () -> None
         """Test inequality with different value."""
-        iid1 = IsccID("ISCC:MAIWGQRD43YZQUAA")
-        iid2 = IsccID("ISCC:MAIZGUNTY2V446HQ")
+        iid1 = IsccID("ISCC:MAIGGQRD43YZQUAA")
+        iid2 = IsccID("ISCC:MAIJGUNTY2V446HQ")
         assert iid1 != iid2
 
     def test_eq_with_string(self):
         # type: () -> None
         """Test equality comparison with string."""
-        iid = IsccID("ISCC:MAIWGQRD43YZQUAA")
-        assert iid == "ISCC:MAIWGQRD43YZQUAA"
-        assert iid != "ISCC:MAIZGUNTY2V446HQ"
+        iid = IsccID("ISCC:MAIGGQRD43YZQUAA")
+        assert iid == "ISCC:MAIGGQRD43YZQUAA"
+        assert iid != "ISCC:MAIJGUNTY2V446HQ"
 
     def test_eq_with_invalid_string(self):
         # type: () -> None
         """Test equality with invalid string returns False."""
-        iid = IsccID("ISCC:MAIWGQRD43YZQUAA")
+        iid = IsccID("ISCC:MAIGGQRD43YZQUAA")
         assert iid != "invalid"
-        assert iid != "NOTISCC:MAIWGQRD43YZQUAA"
+        assert iid != "NOTISCC:MAIGGQRD43YZQUAA"
 
     def test_eq_with_bytes_8(self):
         # type: () -> None
@@ -289,14 +290,14 @@ class TestIsccIDEquality:
     def test_eq_with_wrong_length_bytes(self):
         # type: () -> None
         """Test equality with wrong length bytes returns False."""
-        iid = IsccID("ISCC:MAIWGQRD43YZQUAA")
+        iid = IsccID("ISCC:MAIGGQRD43YZQUAA")
         assert iid != b"short"
         assert iid != b"way too long bytes here"
 
     def test_eq_with_other_types(self):
         # type: () -> None
         """Test equality with other types returns NotImplemented."""
-        iid = IsccID("ISCC:MAIWGQRD43YZQUAA")
+        iid = IsccID("ISCC:MAIGGQRD43YZQUAA")
         assert iid.__eq__(12345) == NotImplemented
         assert iid.__eq__([1, 2, 3]) == NotImplemented
 
@@ -307,23 +308,23 @@ class TestIsccIDHashing:
     def test_hash_consistent(self):
         # type: () -> None
         """Test hash is consistent for same value."""
-        iid1 = IsccID("ISCC:MAIWGQRD43YZQUAA")
-        iid2 = IsccID("ISCC:MAIWGQRD43YZQUAA")
+        iid1 = IsccID("ISCC:MAIGGQRD43YZQUAA")
+        iid2 = IsccID("ISCC:MAIGGQRD43YZQUAA")
         assert hash(iid1) == hash(iid2)
 
     def test_hash_different_for_different_values(self):
         # type: () -> None
         """Test hash is different for different values."""
-        iid1 = IsccID("ISCC:MAIWGQRD43YZQUAA")
-        iid2 = IsccID("ISCC:MAIZGUNTY2V446HQ")
+        iid1 = IsccID("ISCC:MAIGGQRD43YZQUAA")
+        iid2 = IsccID("ISCC:MAIJGUNTY2V446HQ")
         assert hash(iid1) != hash(iid2)
 
     def test_use_in_set(self):
         # type: () -> None
         """Test IsccID can be used in sets."""
-        iid1 = IsccID("ISCC:MAIWGQRD43YZQUAA")
-        iid2 = IsccID("ISCC:MAIWGQRD43YZQUAA")  # Same value
-        iid3 = IsccID("ISCC:MAIZGUNTY2V446HQ")
+        iid1 = IsccID("ISCC:MAIGGQRD43YZQUAA")
+        iid2 = IsccID("ISCC:MAIGGQRD43YZQUAA")  # Same value
+        iid3 = IsccID("ISCC:MAIJGUNTY2V446HQ")
 
         id_set = {iid1, iid2, iid3}
         assert len(id_set) == 2  # iid1 and iid2 are the same
@@ -331,15 +332,15 @@ class TestIsccIDHashing:
     def test_use_as_dict_key(self):
         # type: () -> None
         """Test IsccID can be used as dictionary key."""
-        iid1 = IsccID("ISCC:MAIWGQRD43YZQUAA")
-        iid2 = IsccID("ISCC:MAIZGUNTY2V446HQ")
+        iid1 = IsccID("ISCC:MAIGGQRD43YZQUAA")
+        iid2 = IsccID("ISCC:MAIJGUNTY2V446HQ")
 
         d = {iid1: "value1", iid2: "value2"}
         assert d[iid1] == "value1"
         assert d[iid2] == "value2"
 
         # Same ID should access same value
-        iid1_copy = IsccID("ISCC:MAIWGQRD43YZQUAA")
+        iid1_copy = IsccID("ISCC:MAIGGQRD43YZQUAA")
         assert d[iid1_copy] == "value1"
 
 
@@ -349,14 +350,14 @@ class TestIsccIDRepr:
     def test_str(self):
         # type: () -> None
         """Test __str__ returns canonical representation."""
-        iscc_str = "ISCC:MAIWGQRD43YZQUAA"
+        iscc_str = "ISCC:MAIGGQRD43YZQUAA"
         iid = IsccID(iscc_str)
         assert str(iid) == iscc_str
 
     def test_repr(self):
         # type: () -> None
         """Test __repr__ returns debug representation."""
-        iscc_str = "ISCC:MAIWGQRD43YZQUAA"
+        iscc_str = "ISCC:MAIGGQRD43YZQUAA"
         iid = IsccID(iscc_str)
         assert repr(iid) == f"IsccID('{iscc_str}')"
 
@@ -489,7 +490,7 @@ class TestIsccIDRoundtrip:
     def test_roundtrip_string(self):
         # type: () -> None
         """Test roundtrip from string."""
-        original = "ISCC:MAIWGQRD43YZQUAA"
+        original = "ISCC:MAIGGQRD43YZQUAA"
         iid = IsccID(original)
         assert str(iid) == original
 
@@ -525,7 +526,7 @@ class TestHeaderGeneration:
         # type: () -> None
         """Test header generation for REALM 0 (sandbox)."""
         header = _get_header()
-        expected = 0b0110000000010001.to_bytes(2, "big")
+        expected = 0b0110000000010000.to_bytes(2, "big")
         assert header == expected
 
     @override_settings(ISCC_HUB_REALM=1)
@@ -533,7 +534,7 @@ class TestHeaderGeneration:
         # type: () -> None
         """Test header generation for REALM 1 (operational)."""
         header = _get_header()
-        expected = 0b0110000100010001.to_bytes(2, "big")
+        expected = 0b0110000100010000.to_bytes(2, "big")
         assert header == expected
 
     @override_settings(ISCC_HUB_REALM=2)
@@ -542,3 +543,89 @@ class TestHeaderGeneration:
         """Test header generation with invalid REALM raises ImproperlyConfigured."""
         with pytest.raises(ImproperlyConfigured, match="Invalid ISCC_HUB_REALM: 2"):
             _get_header()
+
+
+@override_settings(ISCC_HUB_REALM=0)
+def test_realm_0_iscc_id_passes_validation():
+    # type: () -> None
+    """Test REALM 0 ISCC-ID passes iscc_core validation."""
+    # Create ISCC-ID using hub's method
+    ts_us = 1234567890123456
+    hub_id = 0
+    iscc_id = IsccID.from_timestamp(ts_us, hub_id)
+
+    # Validate with iscc_core
+    assert ic.iscc_validate(str(iscc_id)) is True
+
+
+@override_settings(ISCC_HUB_REALM=1)
+def test_realm_1_iscc_id_passes_validation():
+    # type: () -> None
+    """Test REALM 1 ISCC-ID passes iscc_core validation."""
+    # Create ISCC-ID using hub's method
+    ts_us = 1234567890123456
+    hub_id = 42
+    iscc_id = IsccID.from_timestamp(ts_us, hub_id)
+
+    # Validate with iscc_core
+    assert ic.iscc_validate(str(iscc_id)) is True
+
+
+@override_settings(ISCC_HUB_REALM=0)
+def test_multiple_hub_ids_pass_validation():
+    # type: () -> None
+    """Test ISCC-IDs with various hub IDs all pass validation."""
+    ts_us = 1700000000000000
+
+    # Test boundary values and some random hub IDs
+    hub_ids = [0, 1, 42, 100, 1000, 4095]
+
+    for hub_id in hub_ids:
+        iscc_id = IsccID.from_timestamp(ts_us, hub_id)
+        assert ic.iscc_validate(str(iscc_id)) is True, f"Failed for hub_id={hub_id}"
+
+
+@override_settings(ISCC_HUB_REALM=0)
+def test_various_timestamps_pass_validation():
+    # type: () -> None
+    """Test ISCC-IDs with various timestamps all pass validation."""
+    hub_id = 0
+
+    # Test various timestamps
+    timestamps = [
+        0,  # Epoch
+        1000000000000,  # Year 2001
+        1700000000000000,  # Year 2023
+        1746171541264773,  # Specific test timestamp
+        (1 << 52) - 1,  # Maximum valid timestamp
+    ]
+
+    for ts_us in timestamps:
+        iscc_id = IsccID.from_timestamp(ts_us, hub_id)
+        assert ic.iscc_validate(str(iscc_id)) is True, f"Failed for ts={ts_us}"
+
+
+@override_settings(ISCC_HUB_REALM=0)
+def test_old_length_field_would_fail_validation():
+    # type: () -> None
+    """Test that old LENGTH=1 encoding would fail strict validation.
+
+    This test documents that the bug fix was necessary - ISCC-IDs with
+    LENGTH=1 (the old incorrect value) do not pass strict validation.
+    """
+    # Create a valid ISCC-ID
+    ts_us = 1234567890123456
+    hub_id = 0
+    iscc_id = IsccID.from_timestamp(ts_us, hub_id)
+    body = bytes(iscc_id)
+
+    # Manually construct with old (incorrect) LENGTH=1 header
+    old_header = 0b0110000000010001.to_bytes(2, "big")
+    old_iscc_string = "ISCC:" + ic.encode_base32(old_header + body)
+
+    # In non-strict mode, it should return False
+    assert ic.iscc_validate(old_iscc_string, strict=False) is False
+
+    # In strict mode, it should raise ValueError
+    with pytest.raises(ValueError):
+        ic.iscc_validate(old_iscc_string, strict=True)

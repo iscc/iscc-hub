@@ -3,7 +3,7 @@
   "model": "iscc_hub.event",
   "pk": 1,
   "fields": {
-    "iscc_id": "ISCC:MAIWIEGXNGX7XAAB",
+    "iscc_id": "ISCC:MAIGIEGXNGX7XAAB",
     "nonce": "0013a3c214c05796673503e6e549446d",
     "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
     "pubkey": "z6MkuSJeT2VjdrDuBYSwm4r6PvC5EEiPPwat4UCkcmbrGpCt",
@@ -17,7 +17,7 @@
   "model": "iscc_hub.event",
   "pk": 2,
   "fields": {
-    "iscc_id": "ISCC:MAIWIEGXNGYLOIAB",
+    "iscc_id": "ISCC:MAIGIEGXNGYLOIAB",
     "nonce": "00197932bfe2d31f11d8709be50f84bd",
     "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
     "pubkey": "z6MktZEVMk4Y4VgQNW4cq5maUmNBUCbFNPQJe5Dpz9Yorm1H",
@@ -31,7 +31,7 @@
   "model": "iscc_hub.event",
   "pk": 3,
   "fields": {
-    "iscc_id": "ISCC:MAIWIEGXNGYTIAAB",
+    "iscc_id": "ISCC:MAIGIEGXNGYTIAAB",
     "nonce": "00185d8a8509cfd09eb7232265d589eb",
     "datahash": "1e206588bd7020f7dbb3c5621d021a0ef1823862fc31f270e1016fa0dc0ded97ec64",
     "pubkey": "z6MkepNtaAzYWZyUKZFbbiWiNKkLBUdZoCZiezVKGcLMSHfn",
@@ -45,7 +45,7 @@
   "model": "iscc_hub.event",
   "pk": 4,
   "fields": {
-    "iscc_id": "ISCC:MAIWIEGXNGY664AB",
+    "iscc_id": "ISCC:MAIGIEGXNGY664AB",
     "nonce": "0014876760ba21a27e6092204c3d20b0",
     "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
     "pubkey": "z6MkuSJeT2VjdrDuBYSwm4r6PvC5EEiPPwat4UCkcmbrGpCt",
@@ -59,7 +59,7 @@
   "model": "iscc_hub.event",
   "pk": 5,
   "fields": {
-    "iscc_id": "ISCC:MAIWIEGXNGZGY4AB",
+    "iscc_id": "ISCC:MAIGIEGXNGZGY4AB",
     "nonce": "001e83d018dad849161685e325296572",
     "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
     "pubkey": "z6MktZEVMk4Y4VgQNW4cq5maUmNBUCbFNPQJe5Dpz9Yorm1H",
@@ -73,7 +73,7 @@
   "model": "iscc_hub.event",
   "pk": 6,
   "fields": {
-    "iscc_id": "ISCC:MAIWIEGXNGZOS4AB",
+    "iscc_id": "ISCC:MAIGIEGXNGZOS4AB",
     "nonce": "001a2a32455cc60d714fcc3a35fe0d7b",
     "datahash": "1e203b783a6102610a276ef438f5311a0f8f7f49849a477be62371b174c0c2929bc9",
     "pubkey": "z6MkuAwjePQ6EJQ5wbJXVjE5YU2zZfmctxJz6zhDV2NEyJiA",
@@ -87,7 +87,7 @@
   "model": "iscc_hub.event",
   "pk": 7,
   "fields": {
-    "iscc_id": "ISCC:MAIWIEGXNGY664AB",
+    "iscc_id": "ISCC:MAIGIEGXNGY664AB",
     "nonce": "001d17437f53f6899ed01ecb8659118b",
     "datahash": "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
     "pubkey": "z6MkuSJeT2VjdrDuBYSwm4r6PvC5EEiPPwat4UCkcmbrGpCt",
@@ -99,7 +99,7 @@
 },
 {
   "model": "iscc_hub.isccdeclaration",
-  "pk": "ISCC:MAIWIEGXNGX7XAAB",
+  "pk": "ISCC:MAIGIEGXNGX7XAAB",
   "fields": {
     "event_seq": 1,
     "iscc_code": "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
@@ -115,7 +115,7 @@
 },
 {
   "model": "iscc_hub.isccdeclaration",
-  "pk": "ISCC:MAIWIEGXNGYLOIAB",
+  "pk": "ISCC:MAIGIEGXNGYLOIAB",
   "fields": {
     "event_seq": 2,
     "iscc_code": "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
@@ -131,7 +131,7 @@
 },
 {
   "model": "iscc_hub.isccdeclaration",
-  "pk": "ISCC:MAIWIEGXNGYTIAAB",
+  "pk": "ISCC:MAIGIEGXNGYTIAAB",
   "fields": {
     "event_seq": 3,
     "iscc_code": "ISCC:KAC36KWRJXNA44D6IJ27ODRTEWP5WJ62JNAMS6M2TVSYRPLQED35XMY",
@@ -147,7 +147,7 @@
 },
 {
   "model": "iscc_hub.isccdeclaration",
-  "pk": "ISCC:MAIWIEGXNGZGY4AB",
+  "pk": "ISCC:MAIGIEGXNGZGY4AB",
   "fields": {
     "event_seq": 5,
     "iscc_code": "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
@@ -163,7 +163,7 @@
 },
 {
   "model": "iscc_hub.isccdeclaration",
-  "pk": "ISCC:MAIWIEGXNGZOS4AB",
+  "pk": "ISCC:MAIGIEGXNGZOS4AB",
   "fields": {
     "event_seq": 6,
     "iscc_code": "ISCC:KADVSJDC3F7ITO4RKCUBWAO7P4IKQHI6I5LCIW6YMSXXVBPQLKVZA3R3PA5GCATBBITQ",
