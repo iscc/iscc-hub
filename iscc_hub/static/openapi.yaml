@@ -1,12 +1,20 @@
 openapi: 3.1.0
 info:
   title: ISCC-HUB API
-  description: Sign, timestamp, and discover content with ISCC-IDs
+  description: |
+    Sign, timestamp, and discover content with ISCC-IDs
+
+    **Important**: This API uses content negotiation. All requests must include the
+    `Accept: application/json` header to receive JSON responses. Requests without this
+    header will be routed to HTML views instead of the JSON API.
   version: 0.1.0
   x-logo:
     url: "/img/iscc-logo-white.png"
     backgroundColor: "#0054b2"
     altText: "International Standard Content Code (ISCC) - Logo"
+servers:
+  - url: http://localhost:8000
+    description: Development server (requires Accept application/json header)
 paths:
   /search:
     get:
@@ -153,7 +161,7 @@ paths:
                   iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
                   datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
                   metahash: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
-                  nonce: "000faa3f18c7b9407a48536a9b00c4cb"
+                  nonce: "0013a3c214c05796673503e6e549446d"
                   timestamp: "2025-01-15T12:00:00.000Z"
                   gateway: "https://example.com/iscc_id/{iscc_id}/metadata"
                   units:
@@ -170,7 +178,7 @@ paths:
                 value:
                   iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
                   datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
-                  nonce: "000faa3f18c7b9407a48536a9b00c4cb"
+                  nonce: "00197932bfe2d31f11d8709be50f84bd"
                   timestamp: "2025-01-15T12:00:00.000Z"
                   signature:
                     version: "ISCC-SIG v1.0"
@@ -227,7 +235,7 @@ paths:
             type: string
             pattern: "^ISCC:[A-Z2-7]{16}$"
           description: The ISCC-ID of the declaration to delete
-          example: "ISCC:MAACCD3C6YZJ4IQM"
+          example: "ISCC:MAIWIEGXNGY664AB"
       requestBody:
         required: true
         content:
@@ -238,9 +246,9 @@ paths:
               delete_example:
                 summary: Delete declaration request
                 value:
-                  iscc_id: "ISCC:MAACCD3C6YZJ4IQM"
+                  iscc_id: "ISCC:MAIWIEGXNGY664AB"
                   timestamp: "2025-01-15T12:00:00.000Z"
-                  nonce: "000faa3f18c7b9407a48536a9b00c4cb"
+                  nonce: "001d17437f53f6899ed01ecb8659118b"
                   signature:
                     version: "ISCC-SIG v1.0"
                     controller: "did:web:example.com"
