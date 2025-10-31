@@ -138,7 +138,8 @@ format-python = { cmd = "uv run ruff format .", help = "Format python code"}
 format-markdown = { cmd = "uv run mdformat .", help = "Format markdown"}
 test-python = {cmd = "uv run pytest -m 'not slow'", help = "Run python tests (excluding slow tests)"}
 test-all = {cmd = "uv run pytest", help = "Run all python tests including slow ones"}
-test-api = {cmd = "uv run schemathesis run iscc_hub/static/openapi.yaml --url http://localhost:8000", help = "Run API property-based fuzz tests with Schemathesis"}
+test-api = {cmd = "uv run schemathesis run iscc_hub/static/openapi.yaml --url http://localhost:8000 -H 'Accept: application/json'", help = "Run API property-based fuzz tests with Schemathesis"}
+test-api-smoke = {cmd = "uv run python scripts/test_api_smoke.py", help = "Run basic API smoke tests for CI"}
 
 # Development tasks
 init = { cmd = "uv run python scripts/db_management.py init", help = "Initialize dev database (skips if exists)" }
