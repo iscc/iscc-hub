@@ -17,7 +17,7 @@ schema = schemathesis.openapi.from_path(OPENAPI_PATH.as_posix())
 
 @pytest.mark.slow
 @schema.parametrize()
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_api_fuzz(case):
     # type: (schemathesis.Case) -> None
     """
@@ -31,6 +31,11 @@ def test_api_fuzz(case):
     was well-formed but contained semantic errors, and 400 indicates
     malformed requests.
     """
+    # Ensure Accept: application/json header for proper content negotiation
+    # This routes requests to the API instead of HTML views
+    case.headers = case.headers or {}
+    case.headers["Accept"] = "application/json"
+
     # Test against the WSGI application
     response = case.call(app=application)
 
