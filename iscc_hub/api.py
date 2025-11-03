@@ -58,17 +58,26 @@ def search(request: HttpRequest):
     :param request: The incoming HTTP request
     :return: List of matching IsccDeclaration objects (may be empty)
     """
-    # Parse query parameters directly from request
-    # Normalize empty strings to None to ensure validation logic works correctly
+    # Check if parameters are provided in the query string (regardless of their values)
+    datahash_provided = "datahash" in request.GET
+    iscc_code_provided = "iscc_code" in request.GET
+
+    # Validate mutual exclusivity based on parameter presence
+    if not datahash_provided and not iscc_code_provided:
+        raise BaseApiException("Exactly one search parameter required: datahash or iscc_code")
+
+    if datahash_provided and iscc_code_provided:
+        raise BaseApiException("Only one search parameter allowed: datahash or iscc_code (not both)")
+
+    # Parse and normalize query parameters (empty strings become None)
     datahash = request.GET.get("datahash", None) or None
     iscc_code = request.GET.get("iscc_code", None) or None
 
-    # Validate mutual exclusivity
-    if not datahash and not iscc_code:
-        raise BaseApiException("Exactly one search parameter required: datahash or iscc_code")
-
-    if datahash and iscc_code:
-        raise BaseApiException("Only one search parameter allowed: datahash or iscc_code (not both)")
+    # Validate that the provided parameter is not empty
+    if datahash_provided and not datahash:
+        raise BaseApiException("datahash parameter cannot be empty")
+    if iscc_code_provided and not iscc_code:
+        raise BaseApiException("iscc_code parameter cannot be empty")
 
     # Validate format and query database
     if datahash:
