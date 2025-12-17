@@ -237,3 +237,25 @@ def test_search_iscc_code_missing_prefix(api_client):
     data = response.json()
     assert "error" in data
     assert "Invalid iscc_code format" in data["error"]["message"]
+
+
+@pytest.mark.django_db
+def test_search_error_empty_datahash(api_client):
+    """Test search returns 400 when datahash parameter is empty."""
+    response = api_client.get("/search?datahash=")
+
+    assert response.status_code == 400
+    data = response.json()
+    assert "error" in data
+    assert "datahash parameter cannot be empty" in data["error"]["message"]
+
+
+@pytest.mark.django_db
+def test_search_error_empty_iscc_code(api_client):
+    """Test search returns 400 when iscc_code parameter is empty."""
+    response = api_client.get("/search?iscc_code=")
+
+    assert response.status_code == 400
+    data = response.json()
+    assert "error" in data
+    assert "iscc_code parameter cannot be empty" in data["error"]["message"]
