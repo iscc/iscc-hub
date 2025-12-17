@@ -295,7 +295,8 @@ class Checkpoint(models.Model):
         verbose_name = "Checkpoint"
         verbose_name_plural = "Checkpoints"
         constraints = [
-            models.CheckConstraint(check=models.Q(end__gte=models.F("start")), name="checkpoint_end_gte_start"),
+            # Django 6.0 renamed 'check' to 'condition' - ignore until django-types is updated
+            models.CheckConstraint(condition=models.Q(end__gte=models.F("start")), name="checkpoint_end_gte_start"),  # pyright: ignore[reportCallIssue]
         ]
 
     def __str__(self):
