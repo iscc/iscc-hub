@@ -1,7 +1,8 @@
 # ISCC Hub
 
 A Django-based timestamping service implementing the
-[ISCC Discovery Protocol](docs/specification.md) for signed content declarations.
+[ISCC Discovery Protocol](https://docs.google.com/document/d/1JdQrrBDfDPnQ08kM-onf4s0DwcntRLQVRBmbw1JImGo/)
+for signed content declarations.
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Django 5.2+](https://img.shields.io/badge/django-5.2+-green.svg)](https://www.djangoproject.com/)
@@ -97,7 +98,9 @@ The ISCC Discovery Protocol implements a three-layer architecture:
 2. **GATEWAY**: Routing and service discovery layer
 3. **REGISTRY**: Metadata and service layer
 
-See [specification.md](docs/specification.md) for draft protocol details.
+See
+[ISCC Discovery Protocol](https://docs.google.com/document/d/1JdQrrBDfDPnQ08kM-onf4s0DwcntRLQVRBmbw1JImGo/)
+for draft protocol concept.
 
 ## Related Projects
 
