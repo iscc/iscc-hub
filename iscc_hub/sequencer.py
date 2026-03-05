@@ -132,6 +132,11 @@ def sequence_iscc_note(iscc_note):
             )
 
             # Insert into materialized view within the same transaction
+            # Use bytes for BinaryField columns (HexField, PubkeyField) to match
+            # Django ORM storage format. Raw SQL bypasses field.get_prep_value(),
+            # so we must convert explicitly.
+            metahash = iscc_note.get("metahash", None)
+            metahash_bytes = unhexlify(metahash) if metahash else None
             cursor.execute(
                 """
                 INSERT INTO iscc_declaration (
@@ -144,12 +149,12 @@ def sequence_iscc_note(iscc_note):
                     iscc_id_bytes,
                     new_seq,
                     iscc_note["iscc_code"],
-                    iscc_note["datahash"],
-                    iscc_note["nonce"],
-                    iscc_note["signature"]["pubkey"],
+                    datahash_bytes,
+                    nonce_bytes,
+                    pubkey_bytes,
                     iscc_note.get("signature", {}).get("controller", ""),
                     iscc_note.get("gateway", ""),
-                    iscc_note.get("metahash", None),  # HexField converts empty string to None
+                    metahash_bytes,
                     event_time_str,
                     False,
                 ),

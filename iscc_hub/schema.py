@@ -13,10 +13,7 @@ class ErrorDetail(Schema):
     model_config = ConfigDict(
         extra="forbid",
     )
-    message: Annotated[
-        str,
-        Field(description="Human-readable error message describing the error encountered\n"),
-    ]
+    message: Annotated[str, Field(description="Human-readable error message describing the error encountered\n")]
     code: Annotated[
         str | None,
         Field(
@@ -110,10 +107,7 @@ class Nonce(RootModel[str]):
         str,
         Field(
             description="Unique 128-bit random value for replay protection\n\n**Format:** 32 lowercase hex characters\\\n**Structure:** First 12 bits encode the target hub_id (0-4095)\n",
-            examples=[
-                "000faa3f18c7b9407a48536a9b00c4cb",
-                "001234567890abcdef1234567890abcd",
-            ],
+            examples=["000faa3f18c7b9407a48536a9b00c4cb", "001234567890abcdef1234567890abcd"],
             max_length=32,
             min_length=32,
             pattern="^[0-9a-f]{32}$",
@@ -135,10 +129,7 @@ class IsccSignature(Schema):
             description="URI that identifies the key controller\n\n**Examples:**\n- DID: `did:web:example.com`\n- W3C CID Document URL: `https://controller.example/101`\n\n**Note:** CID refers to W3C Controlled Identifier Document, not IPFS CID.\n"
         ),
     ] = None
-    keyid: Annotated[
-        str | None,
-        Field(description="Specific key identifier within the controller document\n"),
-    ] = None
+    keyid: Annotated[str | None, Field(description="Specific key identifier within the controller document\n")] = None
     pubkey: Annotated[
         str,
         Field(
@@ -362,8 +353,7 @@ class CredentialSubject(Schema):
         ),
     ]
     declaration: Annotated[
-        Declaration,
-        Field(description="Declaration details including sequence number and ISCC-ID\n"),
+        Declaration, Field(description="Declaration details including sequence number and ISCC-ID\n")
     ]
 
 
@@ -390,15 +380,9 @@ class IsccReceipt(Schema):
     ]
     issuer: Annotated[
         AnyUrl,
-        Field(
-            description="DID of the ISCC-HUB issuing this credential\n",
-            examples=["did:web:hub.example.com"],
-        ),
+        Field(description="DID of the ISCC-HUB issuing this credential\n", examples=["did:web:hub.example.com"]),
     ]
-    credentialSubject: Annotated[
-        CredentialSubject,
-        Field(description="Claims about the subject of the credential\n"),
-    ]
+    credentialSubject: Annotated[CredentialSubject, Field(description="Claims about the subject of the credential\n")]
     proof: Annotated[
         Proof,
         Field(

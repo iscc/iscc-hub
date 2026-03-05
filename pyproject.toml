@@ -124,6 +124,7 @@ use-union-operator = true
 extra-fields = "forbid"
 strict-nullable = true
 use-title-as-name = true
+formatters = ["ruff-format", "ruff-check"]
 
 [tool.poe.tasks]
 # Code quality tasks

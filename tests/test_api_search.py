@@ -2,9 +2,13 @@
 Tests for /search endpoint.
 """
 
+import os
+
+import iscc_crypto as icr
 import pytest
 
-from tests.conftest import create_test_declaration, generate_test_iscc_id
+from iscc_hub.sequencer import sequence_iscc_note
+from tests.conftest import create_iscc_from_text, create_test_declaration, generate_test_iscc_id
 
 
 @pytest.mark.django_db
@@ -259,3 +263,55 @@ def test_search_error_empty_iscc_code(api_client):
     data = response.json()
     assert "error" in data
     assert "iscc_code parameter cannot be empty" in data["error"]["message"]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_search_by_datahash_after_sequencer(api_client):
+    """Test that declarations created via the sequencer are findable by datahash search.
+
+    The sequencer uses raw SQL to insert declarations. This test verifies that
+    the datahash is stored as binary (BLOB) so that HexField filtering works.
+    """
+    iscc_data = create_iscc_from_text("Searchable content")
+    nonce_bytes = os.urandom(16)
+    nonce_bytes = bytes([0x00, 0x10]) + nonce_bytes[2:]
+    note = {
+        "iscc_code": iscc_data["iscc"],
+        "datahash": iscc_data["datahash"],
+        "nonce": nonce_bytes.hex(),
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    keypair = icr.key_generate(controller="did:web:example.com")
+    signed_note = icr.sign_json(note, keypair)
+    seq, iscc_id_bytes = sequence_iscc_note(signed_note)
+
+    response = api_client.get(f"/search?datahash={iscc_data['datahash']}")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["datahash"] == iscc_data["datahash"]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_search_by_iscc_code_after_sequencer(api_client):
+    """Test that declarations created via the sequencer are findable by iscc_code search."""
+    iscc_data = create_iscc_from_text("Another searchable content")
+    nonce_bytes = os.urandom(16)
+    nonce_bytes = bytes([0x00, 0x10]) + nonce_bytes[2:]
+    note = {
+        "iscc_code": iscc_data["iscc"],
+        "datahash": iscc_data["datahash"],
+        "nonce": nonce_bytes.hex(),
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    keypair = icr.key_generate(controller="did:web:example.com")
+    signed_note = icr.sign_json(note, keypair)
+    seq, iscc_id_bytes = sequence_iscc_note(signed_note)
+
+    response = api_client.get(f"/search?iscc_code={iscc_data['iscc']}")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["iscc_code"] == iscc_data["iscc"]
