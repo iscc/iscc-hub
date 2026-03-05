@@ -29,9 +29,8 @@ dependencies = [
 [dependency-groups]
 dev = [
     "django-types>=0.22.0",
-    "mdformat>=0.7.22",
-    "mdformat-frontmatter>=2.0.8",
-    "mdformat-gfm>=0.4.1",
+    "mdformat>=1.0.0",
+    "mdformat-mkdocs[recommended]>=5.1.4",
     "poethepoet>=0.36.0",
     "pre-commit>=4.2.0",
     "pytest>=8.4.1",
@@ -85,9 +84,6 @@ exclude = [
     ".pytest_cache",
 ]
 
-[tool.mdformat]
-wrap = 120
-end_of_line = "lf"
 
 [tool.pytest.ini_options]
 addopts = "-q --tb=short -x --cov=iscc_hub --cov-report=term-missing:skip-covered"
@@ -135,7 +131,7 @@ build-schema = { cmd = "uv run datamodel-codegen", help = "Build pydantic models
 check-python = { cmd = "uv run ruff check --fix --unsafe-fixes .", help = "Check python code"}
 check-types = { cmd = "uv run pyright", help = "Run Pyright type checking"}
 format-python = { cmd = "uv run ruff format .", help = "Format python code"}
-format-markdown = { cmd = "uv run mdformat .", help = "Format markdown"}
+format-markdown = { cmd = "uv run mdformat README.md docs/", help = "Format markdown"}
 test-python = {cmd = "uv run pytest -m 'not slow'", help = "Run python tests (excluding slow tests)"}
 test-all = {cmd = "uv run pytest", help = "Run all python tests including slow ones"}
 test-api = {cmd = "uv run schemathesis run iscc_hub/static/openapi.yaml --url http://localhost:8000 -H 'Accept: application/json'", help = "Run API property-based fuzz tests with Schemathesis"}

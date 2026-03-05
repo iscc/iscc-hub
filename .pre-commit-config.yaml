@@ -5,11 +5,13 @@ repos:
       - id: ruff-check
         args: [ --fix ]
       - id: ruff-format
-  - repo: https://github.com/hukkin/mdformat
-    rev: 0.7.22
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 1.0.0
     hooks:
       - id: mdformat
-        additional_dependencies: [mdformat-gfm, mdformat-frontmatter]
+        files: (^README\.md$|^docs/)
+        additional_dependencies:
+          - "mdformat-mkdocs[recommended]"
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:

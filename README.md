@@ -1,8 +1,8 @@
 # ISCC Hub
 
 A Django-based timestamping service implementing the
-[ISCC Discovery Protocol](https://docs.google.com/document/d/1JdQrrBDfDPnQ08kM-onf4s0DwcntRLQVRBmbw1JImGo/)
-for signed content declarations.
+[ISCC Discovery Protocol](https://docs.google.com/document/d/1JdQrrBDfDPnQ08kM-onf4s0DwcntRLQVRBmbw1JImGo/) for signed
+content declarations.
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Django 5.2+](https://img.shields.io/badge/django-5.2+-green.svg)](https://www.djangoproject.com/)
@@ -11,10 +11,9 @@ for signed content declarations.
 
 ## Overview
 
-ISCC-HUBs accept cryptographically signed ISCC declarations, assign globally unique ISCC-IDs with
-precise timestamps, and issue verifiable credentials of ISCC-ID ownership. They also resolve
-ISCC-IDs to owner-controlled metdata and service endpoints and support interoperable cross-registry
-search and discovery by ISCC-CODEs.
+ISCC-HUBs accept cryptographically signed ISCC declarations, assign globally unique ISCC-IDs with precise timestamps,
+and issue verifiable credentials of ISCC-ID ownership. They also resolve ISCC-IDs to owner-controlled metdata and
+service endpoints and support interoperable cross-registry search and discovery by ISCC-CODEs.
 
 **Key Features:**
 
@@ -39,8 +38,7 @@ uv run poe reset
 uv run poe serve
 ```
 
-Visit http://localhost:8000 for the web interface or http://localhost:8000/docs for API
-documentation.
+Visit http://localhost:8000 for the web interface or http://localhost:8000/docs for API documentation.
 
 ## Development
 
@@ -98,9 +96,8 @@ The ISCC Discovery Protocol implements a three-layer architecture:
 2. **GATEWAY**: Routing and service discovery layer
 3. **REGISTRY**: Metadata and service layer
 
-See
-[ISCC Discovery Protocol](https://docs.google.com/document/d/1JdQrrBDfDPnQ08kM-onf4s0DwcntRLQVRBmbw1JImGo/)
-for draft protocol concept.
+See [ISCC Discovery Protocol](https://docs.google.com/document/d/1JdQrrBDfDPnQ08kM-onf4s0DwcntRLQVRBmbw1JImGo/) for
+draft protocol concept.
 
 ## Related Projects
 
@@ -110,8 +107,8 @@ for draft protocol concept.
 
 ## Funding
 
-This work was supported through the Open Science Clusters’ Action for Research and Society (OSCARS)
-European project under grant agreement Nº101129751.
+This work was supported through the Open Science Clusters’ Action for Research and Society (OSCARS) European project
+under grant agreement Nº101129751.
 
 See:
 [BIO-CODES](https://oscars-project.eu/projects/bio-codes-enhancing-ai-readiness-bioimaging-data-content-based-identifiers)
