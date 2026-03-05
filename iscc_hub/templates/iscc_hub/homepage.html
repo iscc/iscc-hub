@@ -66,7 +66,7 @@
                                             type="text"
                                             id="iscc-input"
                                             name="iscc"
-                                            placeholder="ISCC:KED572P4A0F5K60... or drop a file"
+                                            placeholder="ISCC:KACWN77F73NA44D... or drop a file"
                                             class="flex-1 px-4 py-4 text-[15px] border-0 rounded-l-lg outline-none font-mono font-thin tracking-tighter text-white bg-white/10 placeholder-gray-400 transition-all duration-300"
                                             required
                                         />
@@ -106,9 +106,9 @@
                                     <button
                                         type="button"
                                         class="text-sm text-iscc-cyan hover:text-white underline font-mono transition-colors"
-                                        onclick="document.getElementById('iscc-input').value='ISCC:KED572P4A0F5K60XQA4T60JD5UGX7UBPFW2TVQNTHBCKFRFCANCZARQ4K6NSFZQSH4GQ'"
+                                        onclick="document.getElementById('iscc-input').value='ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I'; document.getElementById('iscc-lookup-form').requestSubmit()"
                                     >
-                                        ISCC:KED572P4A0F5K60...
+                                        ISCC:KACWN77F73NA44D...
                                     </button>
                                     <span class="text-sm text-white/40">or</span>
                                     <button
@@ -796,16 +796,8 @@
                         }
 
                         // Format timestamp
-                        const timestamp = new Date(decl.timestamp).toLocaleString('en-US', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            timeZone: 'UTC',
-                            hour12: false
-                        }).replace(',', '') + ' UTC';
+                        const d = new Date(decl.timestamp);
+                        const timestamp = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}:${String(d.getUTCSeconds()).padStart(2, '0')} UTC`;
 
                         // Build controller/pubkey row
                         let identityHTML;
