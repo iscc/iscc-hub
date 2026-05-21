@@ -7,7 +7,7 @@ from constance import config
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
 from ninja import NinjaAPI
-from ninja.responses import codes_4xx
+from ninja.responses import Status, codes_4xx
 
 import iscc_hub
 from iscc_hub.exceptions import BaseApiException, DuplicateDeclarationError, NotFoundError, UnauthorizedError
@@ -224,7 +224,7 @@ def delete_declaration(request, iscc_id: str):
     sequence_iscc_delete(valid_data, original_event.datahash)
 
     # Return 204 No Content with empty body
-    return 204, None
+    return Status(204, None)
 
 
 @api.get("/health")
