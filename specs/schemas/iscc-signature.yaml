@@ -1,0 +1,56 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://schema.iscc.codes/idp/iscc-signature.yaml"
+title: "IsccSignature"
+type: object
+description: |
+  Ed25519 signature object per the ISCC Signature Specification v1.0.
+
+  See §5.2 and §8 of the IDP Declaration Profile.
+required:
+  - version
+  - pubkey
+  - proof
+additionalProperties: false
+properties:
+  version:
+    type: string
+    const: "ISCC-SIG v1.0"
+    description: |
+      Signature format version. Must be exactly `ISCC-SIG v1.0`.
+  pubkey:
+    $ref: "./common.yaml#/properties/multibase_z"
+    description: |
+      Ed25519 public key in multibase z-base58-btc form with multicodec
+      prefix 0xed01.
+  proof:
+    $ref: "./common.yaml#/properties/multibase_z"
+    description: |
+      Ed25519 signature value in multibase z-base58-btc form.
+
+      Computed over the JCS-canonicalized signed object with this proof
+      field set to the literal string `PROOF_PLACEHOLDER` during
+      canonicalization.
+  controller:
+    type: string
+    description: |
+      URI identifying the key controller.
+
+      MAY be a DID (`did:key:...`, `did:web:...`) or an HTTPS URL
+      resolving to a W3C Controlled Identifier Document.
+    examples:
+      - "did:web:example.com"
+      - "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+      - "https://controller.example/101"
+  keyid:
+    type: string
+    description: |
+      Identifier of a specific verification method within the controller
+      document.
+examples:
+  - version: "ISCC-SIG v1.0"
+    pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+    proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
+  - version: "ISCC-SIG v1.0"
+    controller: "did:web:example.com"
+    pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+    proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"

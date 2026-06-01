@@ -1,0 +1,63 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://schema.iscc.codes/idp/log-entry.yaml"
+title: "LogEntry"
+type: object
+description: |
+  Canonical JSON envelope for an entry in the ISCC transparency log.
+
+  See §5.4 of the IDP Declaration Profile. The byte framing of log entries
+  within the transparency-log byte stream is defined by the ISCC-Log
+  specification.
+required:
+  - v
+  - type
+  - iscc_id
+  - note
+additionalProperties: false
+properties:
+  v:
+    type: integer
+    const: 1
+    description: |
+      Entry-format version. MUST equal 1 in this profile.
+  type:
+    type: string
+    enum:
+      - declaration
+      - deletion
+    description: |
+      Entry type discriminator.
+  iscc_id:
+    $ref: "./common.yaml#/properties/iscc_id"
+  note:
+    oneOf:
+      - $ref: "./iscc-note.yaml"
+      - $ref: "./iscc-note-delete.yaml"
+    description: |
+      The verbatim signed object that the declarer submitted.
+
+      For `type` = `"declaration"`, MUST be an IsccNote.
+      For `type` = `"deletion"`, MUST be an IsccNoteDelete.
+examples:
+  - v: 1
+    type: "declaration"
+    iscc_id: "ISCC:MAEK2NC3Y5VZ4XQM"
+    note:
+      iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
+      datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
+      nonce: "0013a3c214c05796673503e6e549446d"
+      signature:
+        version: "ISCC-SIG v1.0"
+        pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+        proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
+  - v: 1
+    type: "deletion"
+    iscc_id: "ISCC:MAEK2NC3Y5VZ4XQM"
+    note:
+      iscc_id: "ISCC:MAEK2NC3Y5VZ4XQM"
+      timestamp: "2026-05-22T08:15:00.000Z"
+      nonce: "001d17437f53f6899ed01ecb8659118b"
+      signature:
+        version: "ISCC-SIG v1.0"
+        pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+        proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"

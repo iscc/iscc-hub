@@ -1,0 +1,111 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://schema.iscc.codes/idp/iscc-receipt.yaml"
+title: "IsccReceipt"
+type: object
+description: |
+  W3C Verifiable Credential issued by an ISCC-HUB as proof that a
+  declaration has been accepted and committed to the transparency log.
+
+  Uses the eddsa-jcs-2022 cryptosuite (W3C Data Integrity).
+
+  See §5.3 and §8.5 of the IDP Declaration Profile.
+required:
+  - "@context"
+  - type
+  - issuer
+  - credentialSubject
+  - proof
+properties:
+  "@context":
+    type: array
+    minItems: 1
+    items:
+      type: string
+    description: |
+      JSON-LD context. MUST include the W3C VC v2 context.
+    examples:
+      - ["https://www.w3.org/ns/credentials/v2"]
+  type:
+    type: array
+    minItems: 2
+    items:
+      type: string
+    description: |
+      Credential types. MUST include `VerifiableCredential` and
+      `IsccReceipt`.
+    examples:
+      - ["VerifiableCredential", "IsccReceipt"]
+  issuer:
+    type: string
+    format: uri
+    description: |
+      DID of the issuing Hub.
+    examples:
+      - "did:web:hub.example.com"
+  credentialSubject:
+    type: object
+    required:
+      - id
+      - declaration
+    properties:
+      id:
+        type: string
+        format: uri
+        description: |
+          DID or controller URI of the declarer (signer of the IsccNote).
+      declaration:
+        type: object
+        required:
+          - seq
+          - iscc_id
+          - iscc_note
+        properties:
+          seq:
+            type: integer
+            minimum: 0
+            description: |
+              Gapless sequence number of the log entry within the Hub's
+              log.
+          iscc_id:
+            $ref: "./common.yaml#/properties/iscc_id"
+          iscc_note:
+            $ref: "./iscc-note.yaml"
+  proof:
+    type: object
+    required:
+      - "@context"
+      - type
+      - cryptosuite
+      - verificationMethod
+      - proofPurpose
+      - proofValue
+    properties:
+      "@context":
+        type: array
+        minItems: 1
+        items:
+          type: string
+        description: |
+          Copy of the credential's @context (W3C VC Data Integrity
+          requirement).
+      type:
+        type: string
+        const: "DataIntegrityProof"
+      cryptosuite:
+        type: string
+        const: "eddsa-jcs-2022"
+      verificationMethod:
+        type: string
+        format: uri
+        description: |
+          DID URL of the Hub's signing key.
+        examples:
+          - "did:web:hub.example.com#z6MkkRXoNEjqGNKHrPh8a54g6B2kqLp5M6HyA7odbCh1mDwX"
+      proofPurpose:
+        type: string
+        const: "assertionMethod"
+      proofValue:
+        $ref: "./common.yaml#/properties/multibase_z"
+        description: |
+          Hub's Ed25519 signature value over the JCS-canonicalized
+          credential (with proofValue itself excluded during signing).

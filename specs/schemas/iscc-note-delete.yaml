@@ -1,0 +1,37 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://schema.iscc.codes/idp/iscc-note-delete.yaml"
+title: "IsccNoteDelete"
+type: object
+description: |
+  Signed deletion request for a previously committed ISCC declaration.
+
+  See §5.5 and §10 of the IDP Declaration Profile.
+
+  Authorization: the signing key (`signature.pubkey`) MUST equal the
+  signing key of the original IsccNote that produced `iscc_id`.
+required:
+  - iscc_id
+  - timestamp
+  - nonce
+  - signature
+additionalProperties: false
+properties:
+  iscc_id:
+    $ref: "./common.yaml#/properties/iscc_id"
+  timestamp:
+    $ref: "./common.yaml#/properties/timestamp_ms"
+    description: |
+      Declarer-supplied timestamp of the deletion request.
+  nonce:
+    $ref: "./common.yaml#/properties/nonce"
+  signature:
+    $ref: "./iscc-signature.yaml"
+examples:
+  - iscc_id: "ISCC:MAEK2NC3Y5VZ4XQM"
+    timestamp: "2026-05-22T08:15:00.000Z"
+    nonce: "001d17437f53f6899ed01ecb8659118b"
+    signature:
+      version: "ISCC-SIG v1.0"
+      controller: "did:web:example.com"
+      pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
+      proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
