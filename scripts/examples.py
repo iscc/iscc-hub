@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "iscc_hub.settings")
 django.setup()
 
+ISCC_NOTE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
 EXAMPLE_PRIVATE_KEY = "z3u2RDonZ81AFKiw8QCPKcsyg8Yy2MmYQNxfBn51SS2QmMiw"
 
 
@@ -46,6 +47,7 @@ def create_note_min(nonce=None, timestamp=None, keypair=None):
     keypair = keypair or icr.key_generate()
     data = create_iscc()
     minimal_iscc_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": data["iscc"],
         "datahash": data["datahash"],
         "nonce": nonce,
@@ -66,6 +68,7 @@ def create_note_full(nonce=None, timestamp=None, keypair=None, controller=None):
     keypair = keypair or icr.key_generate(controller=controller)
     data = create_iscc()
     full_iscc_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": data["iscc"],
         "datahash": data["datahash"],
         "nonce": nonce,

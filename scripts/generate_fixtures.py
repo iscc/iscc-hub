@@ -62,6 +62,10 @@ def patched_default(self, o):
 DjangoJSONEncoder.default = patched_default
 ####################################################################################################
 
+# Published schema URIs carried in the `$schema` wire field (required on every message)
+ISCC_NOTE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+ISCC_NOTE_DELETE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"
+
 
 def create_iscc_from_text(text="Hello World!"):
     # type: (str) -> dict
@@ -95,6 +99,7 @@ def create_minimal_note(timestamp, nonce=None, keypair=None):
     data = create_iscc_from_text()
 
     minimal_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": data["iscc"],
         "datahash": data["datahash"],
         "nonce": nonce,
@@ -112,6 +117,7 @@ def create_full_note(timestamp, nonce=None, keypair=None):
     data = create_iscc_from_text()
 
     full_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": data["iscc"],
         "datahash": data["datahash"],
         "nonce": nonce,
@@ -135,6 +141,7 @@ def create_note_with_real_iscc_data(timestamp, nonce=None, keypair=None):
     # This ensures all components are cryptographically valid
     # Note: units array excludes the Instance-Code (last unit) as per ISCC protocol
     note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": "ISCC:KADVSJDC3F7ITO4RKCUBWAO7P4IKQHI6I5LCIW6YMSXXVBPQLKVZA3R3PA5GCATBBITQ",
         "datahash": "1e203b783a6102610a276ef438f5311a0f8f7f49849a477be62371b174c0c2929bc9",
         "nonce": nonce,
@@ -160,6 +167,7 @@ def create_note_with_units(timestamp, nonce=None, keypair=None):
     data = create_iscc_from_text("Different content for variety")
 
     note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": data["iscc"],
         "datahash": data["datahash"],
         "nonce": nonce,
@@ -191,6 +199,7 @@ def create_delete_note(iscc_id, timestamp, nonce=None, keypair=None):
     keypair = keypair or icr.key_generate()
 
     delete_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
         "iscc_id": iscc_id,
         "nonce": nonce,
         "timestamp": timestamp,
@@ -214,7 +223,8 @@ def process_iscc_note(iscc_note):
         iscc_note_bytes,
         verify_signature=True,
         verify_hub_id=1,  # Using hub_id=1 from environment
-        verify_timestamp=True,
+        require_timestamp=False,
+        timestamp_tolerance_seconds=0,
     )
 
     # Sequence the validated note (now includes IsccDeclaration creation atomically)
@@ -238,7 +248,8 @@ def process_iscc_delete(iscc_delete_note):
         iscc_delete_bytes,
         verify_signature=True,
         verify_hub_id=1,  # Using hub_id=1 from environment
-        verify_timestamp=True,
+        require_timestamp=True,
+        timestamp_tolerance_seconds=0,
     )
 
     # Get the ISCC-ID from the delete request

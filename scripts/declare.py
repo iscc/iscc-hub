@@ -13,6 +13,8 @@ import iscc_core as ic
 import iscc_crypto as icr
 import requests
 
+ISCC_NOTE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+
 
 def generate_random_iscc_note():
     # type: () -> dict
@@ -40,6 +42,7 @@ def generate_random_iscc_note():
 
     # Create the IsccNote
     note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": iscc_code,
         "datahash": icode["datahash"],
         "nonce": nonce,

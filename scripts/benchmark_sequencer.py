@@ -48,6 +48,8 @@ from django.db import connection  # noqa: E402
 
 from iscc_hub.sequencer import sequence_iscc_note  # noqa: E402
 
+ISCC_NOTE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+
 # Create tables if they don't exist
 try:
     call_command("migrate", "--run-syncdb", verbosity=0, interactive=False)
@@ -79,6 +81,7 @@ def generate_test_note(index, worker_id):
 
     # Create IsccNote
     note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": iscc_code,
         "datahash": icode["datahash"],  # datahash comes from instance code
         "nonce": nonce,

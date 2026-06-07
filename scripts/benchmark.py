@@ -33,6 +33,8 @@ sys.path.insert(0, str(BASE_DIR))
 import iscc_core as ic  # noqa: E402
 import iscc_crypto as icr  # noqa: E402
 
+ISCC_NOTE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+
 # Note: Could alternatively import from demo_declare:
 # from scripts.demo_declare import generate_random_iscc_note
 # But we use a modified version here that supports indexing for benchmarks
@@ -81,6 +83,7 @@ def generate_random_iscc_note(index=None):
 
     # Create the IsccNote
     note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": iscc_code,
         "datahash": icode["datahash"],
         "nonce": nonce,
