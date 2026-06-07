@@ -1298,9 +1298,9 @@ def test_validate_iscc_note_explicit_null_timestamp_rejected(example_nonce, exam
         validators.validate_iscc_note(to_bytes(signed_note))
 
 
-def test_validate_iscc_note_delete_missing_timestamp(example_nonce, example_keypair):
+def test_validate_iscc_note_delete_without_timestamp_default_policy(example_nonce, example_keypair):
     # type: (str, Any) -> None
-    """A deletion without a timestamp is rejected (timestamp is mandatory for deletions)."""
+    """A deletion without a timestamp is accepted under the default policy (timestamp not required)."""
     import iscc_crypto as icr
 
     delete_note = {
@@ -1310,8 +1310,27 @@ def test_validate_iscc_note_delete_missing_timestamp(example_nonce, example_keyp
     }
     signed_delete = icr.sign_json(delete_note, example_keypair)
 
-    with pytest.raises(ValueError, match="Missing required field: timestamp"):
-        validators.validate_iscc_note_delete(to_bytes(signed_delete), verify_signature=False)
+    # Tolerance is ignored entirely when no timestamp is provided and none is required
+    validated = validators.validate_iscc_note_delete(
+        to_bytes(signed_delete), verify_signature=False, timestamp_tolerance_seconds=600
+    )
+    assert "timestamp" not in validated
+
+
+def test_validate_iscc_note_delete_without_timestamp_required(example_nonce, example_keypair):
+    # type: (str, Any) -> None
+    """A deletion without a timestamp is rejected when the server policy requires one."""
+    import iscc_crypto as icr
+
+    delete_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
+        "nonce": example_nonce,
+    }
+    signed_delete = icr.sign_json(delete_note, example_keypair)
+
+    with pytest.raises(ValueError, match="timestamp is required by server policy"):
+        validators.validate_iscc_note_delete(to_bytes(signed_delete), verify_signature=False, require_timestamp=True)
 
 
 def test_validate_iscc_note_delete_timestamp_out_of_tolerance(example_nonce, example_keypair):

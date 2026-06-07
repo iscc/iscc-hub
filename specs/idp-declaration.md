@@ -329,13 +329,16 @@ An **IsccNoteDelete** is the object a declarer signs to request deletion of a pr
 | ----------- | -------- | ------------------ | ----------------------------------------------------------------------------------------------- |
 | `$schema`   | **MUST** | URI                | Published schema URI; **MUST** equal `http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json`. |
 | `iscc_id`   | **MUST** | ISCC-ID            | The ISCC-ID being deleted.                                                                      |
-| `timestamp` | **MUST** | RFC 3339 timestamp | Declarer-supplied UTC timestamp with strict millisecond precision.                              |
+| `timestamp` | **MAY**  | RFC 3339 timestamp | Declarer-supplied UTC timestamp with strict millisecond precision.                              |
 | `nonce`     | **MUST** | 128-bit hex        | Random value; first 12 bits equal target `hub_id`.                                              |
 | `signature` | **MUST** | IsccSignature      | Declarer's signature over the canonical IsccNoteDelete.                                         |
 
 The IsccNoteDelete object **MUST NOT** contain fields beyond those listed above. `$schema` is part of the signature
-scope ([§8.2](#82-signing-scope)). Unlike IsccNote, `timestamp` is **REQUIRED** on a deletion (a deletion is a
-deliberate, signed act); a provided value is still range-checked against the configurable tolerance.
+scope ([§8.2](#82-signing-scope)). As with IsccNote, `timestamp` is governed by configurable Hub policy: under default
+policy a Hub **MUST NOT** reject a deletion solely because `timestamp` is absent; a Hub **MAY** require a declarer
+timestamp (`REQUIRE_CLIENT_TIMESTAMP`). When `timestamp` is present it **MUST** use the strict RFC 3339 form and is
+range-checked against the configurable tolerance (`TIMESTAMP_TOLERANCE_SECONDS`). The Hub assigns its own authoritative
+microsecond timestamp to the deletion at sequencing time regardless of any declarer value.
 
 Authorization rule: the `signature.pubkey` of an IsccNoteDelete **MUST** equal the `signature.pubkey` of the original
 IsccNote that produced the `iscc_id` being deleted. A Hub **MUST** reject any deletion request whose signing key does
@@ -574,11 +577,12 @@ step that fails determines the error response per [§9.5](#95-error-responses).
     with error code `INVALID_NOTE` and a `field` identifier.
 4. **Validate `nonce` hub binding.** Confirm that the top 12 bits of the `nonce` (the first 3 hex characters) equal the
     receiving Hub's `hub_id`. If not, return HTTP 422 with error code `NONCE_HUB_MISMATCH`.
-5. **Validate timestamp policy.** If `timestamp` is absent, reject with HTTP 422 (error code `TIMESTAMP_OUT_OF_RANGE`)
-    only when the Hub's `REQUIRE_CLIENT_TIMESTAMP` policy is enabled; otherwise accept and let the Hub assign its own
-    timestamp at sequencing. If `timestamp` is present it **MUST** use the strict RFC 3339 form (`Z`, 3-digit ms); a
-    Hub **MAY** range-check it against `TIMESTAMP_TOLERANCE_SECONDS` (default ±600 s; `0` disables) and return HTTP
-    422 with error code `TIMESTAMP_OUT_OF_RANGE` if the value is outside the tolerance.
+5. **Validate timestamp policy.** If `timestamp` is absent, reject with HTTP 422 (error code `INVALID_NOTE`, with a
+    `field` identifier of `timestamp`) only when the Hub's `REQUIRE_CLIENT_TIMESTAMP` policy is enabled; otherwise
+    accept and let the Hub assign its own timestamp at sequencing. If `timestamp` is present it **MUST** use the
+    strict RFC 3339 form (`Z`, 3-digit ms); a Hub **MAY** range-check it against `TIMESTAMP_TOLERANCE_SECONDS`
+    (default ±600 s; `0` disables) and return HTTP 422 with error code `TIMESTAMP_OUT_OF_RANGE` if the value is
+    outside the tolerance.
 6. **Verify declarer signature.** Run the verification procedure from [§8.3](#83-verification-procedure). If the
     signature does not verify, return HTTP 401 with error code `INVALID_SIGNATURE`.
 7. **Verify controller (optional).** If `signature.controller` is present and the Hub performs controller resolution
@@ -684,21 +688,26 @@ A conforming Hub **MUST** perform the following steps in order.
 2. **Validate IsccNoteDelete structure.** Confirm all required fields are present, no unknown fields are present, and
     the body's `iscc_id` equals the path parameter. On failure return HTTP 422, `INVALID_DELETION`.
 3. **Validate `nonce` hub binding.** As in [§9.3](#93-validation-procedure) step 4.
-4. **Resolve original declaration.** Look up the existing declaration by `iscc_id`. If not found or already deleted,
+4. **Validate timestamp policy.** As in [§9.3](#93-validation-procedure) step 5: reject an absent `timestamp` only when
+    the Hub's `REQUIRE_CLIENT_TIMESTAMP` policy is enabled (HTTP 422, error code `INVALID_DELETION`, with a `field`
+    identifier of `timestamp`); when `timestamp` is present it **MUST** use the strict RFC 3339 form and a Hub **MAY**
+    range-check it against `TIMESTAMP_TOLERANCE_SECONDS`, returning HTTP 422 with error code `TIMESTAMP_OUT_OF_RANGE`
+    if the value is outside the tolerance.
+5. **Resolve original declaration.** Look up the existing declaration by `iscc_id`. If not found or already deleted,
     return HTTP 404, `DECLARATION_NOT_FOUND`.
-5. **Verify declarer signature.** Run the verification procedure from [§8.3](#83-verification-procedure) over the
+6. **Verify declarer signature.** Run the verification procedure from [§8.3](#83-verification-procedure) over the
     IsccNoteDelete.
-6. **Verify deletion authorization.** Confirm that the `signature.pubkey` of the IsccNoteDelete equals the
+7. **Verify deletion authorization.** Confirm that the `signature.pubkey` of the IsccNoteDelete equals the
     `signature.pubkey` of the original IsccNote that produced the `iscc_id`. On mismatch, return HTTP 401,
     `NOT_AUTHORIZED_TO_DELETE`.
-7. **Check nonce uniqueness.** As in [§9.3](#93-validation-procedure) step 9.
-8. **Atomically commit.** Within a single atomic transaction:
+8. **Check nonce uniqueness.** As in [§9.3](#93-validation-procedure) step 9.
+9. **Atomically commit.** Within a single atomic transaction:
     - Assign a microsecond-precision Hub timestamp strictly greater than the most recent prior Hub timestamp.
     - Compose the deletion log entry per [§5.4](#54-log-entry) with `type` = `"deletion"`.
     - Append the entry to the Hub's transparency log.
     - Remove or mark redacted the materialized declaration record so that subsequent lookups by `iscc_id` reflect the
         deletion.
-9. **Return success.** HTTP 204 No Content, with no response body.
+10. **Return success.** HTTP 204 No Content, with no response body.
 
 ### 10.3 Log effects of deletion
 

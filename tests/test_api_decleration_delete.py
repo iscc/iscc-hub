@@ -90,6 +90,50 @@ def test_delete_declaration_success(api_client, example_keypair, example_iscc_da
 
 
 @pytest.mark.django_db(transaction=True)
+def test_delete_declaration_without_timestamp(api_client, example_keypair, example_iscc_data, current_timestamp):
+    # type: (object, icr.KeyPair, dict, str) -> None
+    """
+    A deletion that omits `timestamp` is accepted under the default policy.
+
+    Under default policy (REQUIRE_CLIENT_TIMESTAMP disabled) the Hub assigns its own
+    authoritative timestamp, so a declarer-supplied deletion timestamp is optional.
+    """
+    # Create a declaration to delete
+    declaration_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": icr.create_nonce(1),
+        "timestamp": current_timestamp,
+    }
+    signed_declaration = icr.sign_json(declaration_note, example_keypair)
+    response = api_client.post(
+        "/declaration",
+        data=json.dumps(signed_declaration).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 201, f"POST failed: {response.json()}"
+    iscc_id = response.json()["credentialSubject"]["declaration"]["iscc_id"]
+
+    # Delete it with a signed request that carries no `timestamp` field
+    deletion_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
+        "iscc_id": iscc_id,
+        "nonce": icr.create_nonce(1),
+    }
+    signed_deletion = icr.sign_json(deletion_note, example_keypair)
+    response = api_client.delete(
+        f"/declaration/{iscc_id}",
+        data=json.dumps(signed_deletion).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+
+    # Should succeed with 204 No Content and an empty body
+    assert response.status_code == 204, f"DELETE failed: {response.content!r}"
+    assert response.content == b""
+
+
+@pytest.mark.django_db(transaction=True)
 def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, example_iscc_data, current_timestamp):
     # type: (object, icr.KeyPair, dict, str) -> None
     """

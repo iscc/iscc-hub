@@ -248,7 +248,7 @@ def process_iscc_delete(iscc_delete_note):
         iscc_delete_bytes,
         verify_signature=True,
         verify_hub_id=1,  # Using hub_id=1 from environment
-        require_timestamp=True,
+        require_timestamp=False,
         timestamp_tolerance_seconds=0,
     )
 

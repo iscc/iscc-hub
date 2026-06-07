@@ -146,8 +146,9 @@ def validate_iscc_note_delete(
 
     Performs format validation and cryptographic verification on ISCC deletion
     requests. Validates required fields, timestamps, signatures, and ensures
-    the ISCC-ID format is correct. A deletion is a deliberate signed act, so
-    ``timestamp`` is always required regardless of the IsccNote server policy.
+    the ISCC-ID format is correct. ``timestamp`` follows the same server policy
+    as IsccNote: optional unless ``require_timestamp`` is set, and range-checked
+    against the tolerance when present.
 
     :param data: Raw request body bytes
     :param verify_signature: Whether to verify the cryptographic signature (default: True)
@@ -164,8 +165,8 @@ def validate_iscc_note_delete(
     allowed_fields = {"$schema", "iscc_id", "nonce", "timestamp", "signature"}
     validate_structure(data_dict, allowed_fields)
 
-    # Validate required fields for delete (timestamp stays mandatory for deletions)
-    required_fields = {"$schema", "iscc_id", "nonce", "timestamp", "signature"}
+    # Validate required fields for delete (timestamp is policy-driven, validated below)
+    required_fields = {"$schema", "iscc_id", "nonce", "signature"}
     validate_required_fields(data_dict, required_fields)
 
     # Validate the declared $schema against the allowlist
@@ -177,7 +178,7 @@ def validate_iscc_note_delete(
     # Validate nonce
     validate_nonce(data_dict["nonce"], verify_hub_id)
 
-    # Validate timestamp (present via required fields; range-checked when tolerance enabled)
+    # Validate timestamp (policy-driven; optional unless required by server policy)
     validate_timestamp_policy(data_dict, require_timestamp, timestamp_tolerance_seconds)
 
     # Validate signature structure

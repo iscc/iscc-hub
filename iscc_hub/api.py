@@ -197,13 +197,13 @@ def delete_declaration(request, iscc_id: str):
     :return: 204 No Content on success, or error response
     """
     # Validate and parse request body
-    # A deletion always carries a timestamp; presence is enforced structurally (timestamp is a
-    # required field for deletions), so require_timestamp is left at its default. A provided value
-    # is range-checked by Hub policy.
+    # The deletion timestamp follows the same Hub policy as a declaration: optional unless
+    # REQUIRE_CLIENT_TIMESTAMP is set, and range-checked against the tolerance when present.
     valid_data = validate_iscc_note_delete(
         request.body,
         True,
         settings.ISCC_HUB_ID,
+        require_timestamp=config.REQUIRE_CLIENT_TIMESTAMP,
         timestamp_tolerance_seconds=config.TIMESTAMP_TOLERANCE_SECONDS,
     )
 

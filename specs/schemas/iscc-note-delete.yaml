@@ -11,7 +11,6 @@ description: |
 required:
   - $schema
   - iscc_id
-  - timestamp
   - nonce
   - signature
 additionalProperties: false
@@ -27,7 +26,10 @@ properties:
   timestamp:
     $ref: "./common.yaml#/properties/timestamp_ms"
     description: |
-      Declarer-supplied timestamp of the deletion request.
+      Optional declarer-supplied timestamp of the deletion request. Governed by
+      the same Hub policy as IsccNote: a Hub MAY require it
+      (REQUIRE_CLIENT_TIMESTAMP) and MAY range-check a provided value
+      (TIMESTAMP_TOLERANCE_SECONDS).
   nonce:
     $ref: "./common.yaml#/properties/nonce"
   signature:

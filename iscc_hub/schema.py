@@ -258,7 +258,7 @@ class IsccNoteDelete(Schema):
         ),
     ]
     iscc_id: IsccId
-    timestamp: Timestamp
+    timestamp: Timestamp | None = None
     nonce: Nonce
     signature: Signature
 

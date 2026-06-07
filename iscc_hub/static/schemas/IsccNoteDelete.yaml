@@ -9,7 +9,6 @@ description: |
 required:
   - $schema
   - iscc_id
-  - timestamp
   - nonce
   - signature
 additionalProperties: false
