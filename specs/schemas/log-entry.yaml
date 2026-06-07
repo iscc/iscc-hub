@@ -1,5 +1,4 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://schema.iscc.codes/idp/log-entry.yaml"
 title: "LogEntry"
 type: object
 description: |
@@ -43,6 +42,7 @@ examples:
     type: "declaration"
     iscc_id: "ISCC:MAEK2NC3Y5VZ4XQM"
     note:
+      $schema: "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
       iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
       datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
       nonce: "0013a3c214c05796673503e6e549446d"
@@ -54,6 +54,7 @@ examples:
     type: "deletion"
     iscc_id: "ISCC:MAEK2NC3Y5VZ4XQM"
     note:
+      $schema: "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"
       iscc_id: "ISCC:MAEK2NC3Y5VZ4XQM"
       timestamp: "2026-05-22T08:15:00.000Z"
       nonce: "001d17437f53f6899ed01ecb8659118b"

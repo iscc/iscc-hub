@@ -1,5 +1,4 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://schema.iscc.codes/idp/iscc-signature.yaml"
 title: "IsccSignature"
 type: object
 description: |
@@ -27,9 +26,10 @@ properties:
     description: |
       Ed25519 signature value in multibase z-base58-btc form.
 
-      Computed over the JCS-canonicalized signed object with this proof
-      field set to the literal string `PROOF_PLACEHOLDER` during
-      canonicalization.
+      Computed over the JCS-canonicalized signed object with the `proof`
+      field omitted during canonicalization (per the iscc-crypto reference
+      implementation). `pubkey` is REQUIRED — PROOF_ONLY signatures
+      (carrying only `version` and `proof`) are rejected.
   controller:
     type: string
     description: |

@@ -1,5 +1,4 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://schema.iscc.codes/idp/iscc-note.yaml"
 title: "IsccNote"
 type: object
 description: |
@@ -7,17 +6,28 @@ description: |
 
   See §5.1 of the IDP Declaration Profile.
 
-  Note: in v2 of the IDP Declaration Profile, `timestamp` is OPTIONAL.
-  The Hub assigns its own microsecond-precision timestamp at sequencing
-  time regardless of the declarer-supplied value. Hubs MUST NOT enforce
-  a ±10 minute window on the declarer timestamp.
+  In v2 of the IDP Declaration Profile, `timestamp` is OPTIONAL. The Hub
+  assigns its own microsecond-precision timestamp at sequencing time
+  regardless of any declarer-supplied value. Timestamp handling is
+  governed by configurable Hub policy (see the `timestamp` property).
 required:
+  - $schema
   - iscc_code
   - datahash
   - nonce
   - signature
 additionalProperties: false
 properties:
+  $schema:
+    type: string
+    enum:
+      - "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+    description: |
+      URI of the published IsccNote schema this declaration conforms to.
+
+      A conforming declaration MUST validate against the published
+      `iscc-note-0.8.0` schema; the Hub additionally enforces a stricter
+      admission profile (see §5).
   iscc_code:
     $ref: "./common.yaml#/properties/iscc_code"
   datahash:
@@ -33,10 +43,12 @@ properties:
     description: |
       OPTIONAL declarer-supplied timestamp.
 
-      If absent, the Hub still produces a valid ISCC-ID and receipt.
-      If present, the Hub MAY enforce sanity bounds (not in future, not
-      before earliest-accepted date) but MUST NOT enforce a ±10 minute
-      window.
+      If absent, the Hub still produces a valid ISCC-ID and receipt. A Hub
+      MAY require a declarer timestamp by policy (`REQUIRE_CLIENT_TIMESTAMP`)
+      and MAY range-check a provided value against a configurable tolerance
+      (`TIMESTAMP_TOLERANCE_SECONDS`, default ±600 s; 0 disables). When
+      present, the value MUST use the strict RFC 3339 form with a `Z`
+      suffix and exactly 3-digit milliseconds.
   gateway:
     $ref: "./common.yaml#/properties/gateway_uri"
   metahash:
@@ -57,14 +69,16 @@ properties:
     items:
       $ref: "./common.yaml#/properties/iscc_unit"
 examples:
-  - iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
+  - $schema: "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+    iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
     datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
     nonce: "00197932bfe2d31f11d8709be50f84bd"
     signature:
       version: "ISCC-SIG v1.0"
       pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
       proof: "znTcLukuu7CL8FpoaSxr6UWQpxCogZUCZ9iqx9dnP3inkzGszbUN79qrxWvpxEHnuNtLQ5Jd1rBukY7g1JSiYHVZ"
-  - iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
+  - $schema: "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+    iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
     datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
     metahash: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
     nonce: "0013a3c214c05796673503e6e549446d"

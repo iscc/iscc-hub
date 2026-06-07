@@ -1,13 +1,13 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://schema.iscc.codes/idp/common.yaml"
 title: "IDP Common Properties"
 type: object
 description: |
   Shared field definitions referenced by IDP Declaration Profile schemas.
 
   Companion to §5 (Abstract Data Model) and §6 (JSON Representation) of the
-  IDP Declaration Profile specification. Where these schemas and the spec
-  text disagree, the spec text governs.
+  IDP Declaration Profile specification. These schemas document the
+  plan-driven implementation; where they disagree with the running
+  implementation, the implementation governs and the schema is corrected.
 properties:
   iscc_code:
     type: string
@@ -76,9 +76,15 @@ properties:
     format: date-time
     pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
     description: |
-      RFC 3339 UTC timestamp with millisecond precision.
+      RFC 3339 UTC timestamp with strict millisecond precision.
 
-      Format: `YYYY-MM-DDTHH:MM:SS.sssZ`. Uppercase `Z` denotes UTC.
+      Format: `YYYY-MM-DDTHH:MM:SS.sssZ` — uppercase `Z` denotes UTC and
+      exactly 3 fractional digits are required (a deliberate narrowing of
+      the published pattern, which tolerates variable-length fractional
+      seconds). On an IsccNote a declarer timestamp is OPTIONAL and its
+      requirement is governed by Hub policy; on an IsccNoteDelete it is
+      REQUIRED. A provided value MAY be range-checked against a configurable
+      tolerance (default ±600 s).
     examples:
       - "2026-05-21T10:42:00.000Z"
   multibase_z:
@@ -93,7 +99,7 @@ properties:
     type: string
     minLength: 8
     maxLength: 2048
-    pattern: "^https?://[^\\s]+"
+    pattern: "^https?://[^\\s]+$"
     description: |
       HTTPS URL or RFC 6570 URI template for Gateway resolution.
 

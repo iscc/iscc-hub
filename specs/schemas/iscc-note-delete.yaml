@@ -1,5 +1,4 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://schema.iscc.codes/idp/iscc-note-delete.yaml"
 title: "IsccNoteDelete"
 type: object
 description: |
@@ -10,12 +9,19 @@ description: |
   Authorization: the signing key (`signature.pubkey`) MUST equal the
   signing key of the original IsccNote that produced `iscc_id`.
 required:
+  - $schema
   - iscc_id
   - timestamp
   - nonce
   - signature
 additionalProperties: false
 properties:
+  $schema:
+    type: string
+    enum:
+      - "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"
+    description: |
+      URI of the published IsccNoteDelete schema this deletion conforms to.
   iscc_id:
     $ref: "./common.yaml#/properties/iscc_id"
   timestamp:
@@ -27,7 +33,8 @@ properties:
   signature:
     $ref: "./iscc-signature.yaml"
 examples:
-  - iscc_id: "ISCC:MAEK2NC3Y5VZ4XQM"
+  - $schema: "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"
+    iscc_id: "ISCC:MAEK2NC3Y5VZ4XQM"
     timestamp: "2026-05-22T08:15:00.000Z"
     nonce: "001d17437f53f6899ed01ecb8659118b"
     signature:
