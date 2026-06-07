@@ -30,11 +30,14 @@ HASH_LENGTH = 68
 NONCE_LENGTH = 32
 SUPPORTED_GATEWAY_VARIABLES = {"iscc_id", "iscc_code", "datahash"}
 SUPPORTED_URL_SCHEMES = ["http", "https"]
-TIMESTAMP_TOLERANCE_MINUTES = 10
 MAX_HUB_ID = 4095  # 12-bit maximum (2^12 - 1)
 SIGNATURE_VERSION = "ISCC-SIG v1.0"
 MAX_UNITS_ARRAY_SIZE = 4  # Prevent DOS attacks
 MAX_STRING_LENGTH = 2048  # Maximum length for string fields
+
+# Allowlists for the declared `$schema` wire value (matches the published schemas' const)
+SUPPORTED_ISCC_NOTE_SCHEMAS = {"http://purl.org/iscc/schema/iscc-note-0.8.0.json"}
+SUPPORTED_ISCC_NOTE_DELETE_SCHEMAS = {"http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"}
 
 
 def deserialize_request(data, max_size=8192):
@@ -63,8 +66,10 @@ def deserialize_request(data, max_size=8192):
         raise ValidationError("Invalid JSON in request body", code="invalid_format") from e
 
 
-def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_timestamp=True):
-    # type: (bytes, bool, int|None, bool) -> dict
+def validate_iscc_note(
+    data, verify_signature=True, verify_hub_id=None, require_timestamp=False, timestamp_tolerance_seconds=0
+):
+    # type: (bytes, bool, int|None, bool, int) -> dict
     """
     Validate an IsccNote request body with comprehensive security checks.
 
@@ -75,15 +80,17 @@ def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_t
     :param data: Raw request body bytes
     :param verify_signature: Whether to verify the cryptographic signature (default: True)
     :param verify_hub_id: Hub ID to validate nonce against (0-4095, default: None)
-    :param verify_timestamp: Whether to verify timestamp is within tolerance (default: True)
+    :param require_timestamp: Whether a declarer-supplied timestamp is required (default: False)
+    :param timestamp_tolerance_seconds: Max deviation (s) for a provided timestamp; ≤0 disables (default: 0)
     :return: Validated IsccNote data ready for notarization
     :raises ValidationError: If validation fails with detailed error information
     """
     # Deserialize with size check
     data_dict = deserialize_request(data)
 
-    # Validate allowed fields and basic structure
+    # Validate allowed fields and basic structure ($context/@type and any other key are rejected here)
     allowed_fields = {
+        "$schema",
         "iscc_code",
         "datahash",
         "nonce",
@@ -95,9 +102,12 @@ def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_t
     }
     validate_structure(data_dict, allowed_fields)
 
-    # Validate required fields
-    required_fields = {"iscc_code", "datahash", "nonce", "timestamp", "signature"}
+    # Validate required fields (timestamp is optional, governed by server policy below)
+    required_fields = {"$schema", "iscc_code", "datahash", "nonce", "signature"}
     validate_required_fields(data_dict, required_fields)
+
+    # Validate the declared $schema against the allowlist
+    validate_schema_uri(data_dict["$schema"], SUPPORTED_ISCC_NOTE_SCHEMAS)
 
     # Validate ISCC-CODE
     validate_iscc_code(data_dict["iscc_code"])
@@ -108,8 +118,8 @@ def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_t
     # Validate nonce
     validate_nonce(data_dict["nonce"], verify_hub_id)
 
-    # Validate timestamp
-    validate_timestamp(data_dict["timestamp"], verify_timestamp)
+    # Validate timestamp (policy-driven; optional unless required by server policy)
+    validate_timestamp_policy(data_dict, require_timestamp, timestamp_tolerance_seconds)
 
     # Validate optional fields
     validate_optional_fields(data_dict)
@@ -127,32 +137,39 @@ def validate_iscc_note(data, verify_signature=True, verify_hub_id=None, verify_t
     return data_dict
 
 
-def validate_iscc_note_delete(data, verify_signature=True, verify_hub_id=None, verify_timestamp=True):
-    # type: (bytes, bool, int|None, bool) -> dict
+def validate_iscc_note_delete(
+    data, verify_signature=True, verify_hub_id=None, require_timestamp=False, timestamp_tolerance_seconds=0
+):
+    # type: (bytes, bool, int|None, bool, int) -> dict
     """
     Validate an IsccNoteDelete request body for ISCC-ID deletion.
 
     Performs format validation and cryptographic verification on ISCC deletion
     requests. Validates required fields, timestamps, signatures, and ensures
-    the ISCC-ID format is correct.
+    the ISCC-ID format is correct. A deletion is a deliberate signed act, so
+    ``timestamp`` is always required regardless of the IsccNote server policy.
 
     :param data: Raw request body bytes
     :param verify_signature: Whether to verify the cryptographic signature (default: True)
     :param verify_hub_id: Hub ID to validate nonce against (0-4095, default: None)
-    :param verify_timestamp: Whether to verify timestamp is within tolerance (default: True)
+    :param require_timestamp: Whether a missing timestamp is rejected (default: False)
+    :param timestamp_tolerance_seconds: Max deviation (s) for the provided timestamp; ≤0 disables (default: 0)
     :return: Validated IsccNoteDelete data ready for deletion processing
     :raises ValidationError: If validation fails with detailed error information
     """
     # Deserialize with size check
     data_dict = deserialize_request(data)
 
-    # Validate allowed fields and basic structure
-    allowed_fields = {"iscc_id", "nonce", "timestamp", "signature"}
+    # Validate allowed fields and basic structure (@context/@type and any other key are rejected here)
+    allowed_fields = {"$schema", "iscc_id", "nonce", "timestamp", "signature"}
     validate_structure(data_dict, allowed_fields)
 
-    # Validate required fields for delete
-    required_fields = {"iscc_id", "nonce", "timestamp", "signature"}
+    # Validate required fields for delete (timestamp stays mandatory for deletions)
+    required_fields = {"$schema", "iscc_id", "nonce", "timestamp", "signature"}
     validate_required_fields(data_dict, required_fields)
+
+    # Validate the declared $schema against the allowlist
+    validate_schema_uri(data_dict["$schema"], SUPPORTED_ISCC_NOTE_DELETE_SCHEMAS)
 
     # Validate ISCC-ID format
     validate_iscc_id(data_dict["iscc_id"], verify_hub_id)
@@ -160,8 +177,8 @@ def validate_iscc_note_delete(data, verify_signature=True, verify_hub_id=None, v
     # Validate nonce
     validate_nonce(data_dict["nonce"], verify_hub_id)
 
-    # Validate timestamp
-    validate_timestamp(data_dict["timestamp"], verify_timestamp)
+    # Validate timestamp (present via required fields; range-checked when tolerance enabled)
+    validate_timestamp_policy(data_dict, require_timestamp, timestamp_tolerance_seconds)
 
     # Validate signature structure
     validate_signature_structure(data_dict["signature"])
@@ -214,6 +231,22 @@ def validate_required_fields(data, required_fields=None):
     for field in required_fields:
         if field not in data:
             raise FieldValidationError(field, f"Missing required field: {field}", code="validation_failed")
+
+
+def validate_schema_uri(value, supported):
+    # type: (str, set[str]) -> None
+    """
+    Validate the declared `$schema` URI against an allowlist.
+
+    The Hub admits only declarations that name a published schema it supports. The
+    wire value must match exactly (it mirrors each published schema's `$schema` const).
+
+    :param value: The `$schema` value carried in the message
+    :param supported: Set of accepted `$schema` URIs
+    :raises FieldValidationError: If the value is not a string in the allowlist
+    """
+    if not isinstance(value, str) or value not in supported:
+        raise FieldValidationError("$schema", f"Unsupported $schema: {value}", code="validation_failed")
 
 
 def validate_iscc_code(iscc_code):
@@ -294,16 +327,41 @@ def validate_nonce_hub_id(nonce, expected_hub_id):
         )
 
 
-def validate_timestamp(timestamp_str, check_tolerance=True, reference_time=None):
-    # type: (str, bool, datetime|None) -> None
+def validate_timestamp_policy(data, require_timestamp, tolerance_seconds):
+    # type: (dict, bool, int) -> None
     """
-    Validate timestamp format and optionally check if within tolerance.
+    Apply the Hub timestamp policy to a parsed message.
+
+    An omitted timestamp is accepted unless required by policy. A present timestamp
+    is always format-checked and range-checked when tolerance is enabled, even when
+    the policy did not demand one. An explicit ``null`` is treated as present (not
+    omitted) and rejected, since the wire schema types the field as a string.
+
+    :param data: The parsed message dictionary
+    :param require_timestamp: Whether an omitted timestamp is rejected
+    :param tolerance_seconds: Max deviation (s) for a provided timestamp; ≤0 disables
+    :raises TimestampError: If a present timestamp is malformed (incl. null) or out of range
+    :raises FieldValidationError: If timestamp is omitted but required by policy
+    """
+    if "timestamp" not in data:
+        if require_timestamp:
+            raise FieldValidationError("timestamp", "timestamp is required by server policy", code="validation_failed")
+    else:
+        # Present (possibly null): a declarer-supplied timestamp MUST be a string.
+        validate_timestamp(data["timestamp"], tolerance_seconds)
+
+
+def validate_timestamp(timestamp_str, tolerance_seconds=0, reference_time=None):
+    # type: (str, int, datetime|None) -> None
+    """
+    Validate timestamp format and optionally check it is within tolerance.
 
     Timestamp must be RFC 3339 formatted in UTC with millisecond precision.
-    Format: YYYY-MM-DDTHH:MM:SS.sssZ
+    Format: YYYY-MM-DDTHH:MM:SS.sssZ. The format is always enforced; the range
+    check runs only when ``tolerance_seconds`` is greater than zero.
 
     :param timestamp_str: The timestamp string to validate
-    :param check_tolerance: Whether to check if timestamp is within ±10 minutes (default: True)
+    :param tolerance_seconds: Max allowed deviation in seconds; ≤0 disables the range check (default: 0)
     :param reference_time: Reference time for tolerance check (default: current UTC time)
     :raises TimestampError: If timestamp is invalid or outside tolerance
     """
@@ -331,21 +389,17 @@ def validate_timestamp(timestamp_str, check_tolerance=True, reference_time=None)
             raise
         raise TimestampError("timestamp must be RFC 3339 formatted (e.g., '2025-08-04T12:34:56.789Z')") from e
 
-    # Check tolerance if requested
-    if check_tolerance:
+    # Range-check only when a positive tolerance is configured (≤0 disables)
+    if tolerance_seconds > 0:
         # Use provided reference time or current UTC time
         ref_time = reference_time if reference_time else datetime.now(UTC)
 
         # Calculate time difference
         time_diff = abs((parsed_time - ref_time).total_seconds())
 
-        # Check if within tolerance (±10 minutes = 600 seconds)
-        max_tolerance_seconds = TIMESTAMP_TOLERANCE_MINUTES * 60
-        if time_diff > max_tolerance_seconds:
-            time_diff_minutes = time_diff / 60
+        if time_diff > tolerance_seconds:
             raise TimestampError(
-                f"timestamp is outside ±{TIMESTAMP_TOLERANCE_MINUTES} minute tolerance: "
-                f"{time_diff_minutes:.1f} minutes",
+                f"timestamp is outside ±{tolerance_seconds} second tolerance: {time_diff:.1f} seconds",
                 out_of_range=True,
             )
 
@@ -556,6 +610,9 @@ def validate_gateway(gateway):
     :param gateway: The gateway URL or URI template string to validate
     :raises FieldValidationError: If gateway is invalid or uses unsupported variables
     """
+    # Type guard (mirrors validate_multihash) so a non-string value is rejected, not crashed on
+    if not isinstance(gateway, str):
+        raise FieldValidationError("gateway", "gateway must be a string", code="invalid_format")
 
     # Check for restricted components
     url = urlparse(gateway)
@@ -650,8 +707,8 @@ def validate_url(url):
     :param url: The URL string to validate
     :raises FieldValidationError: If URL is invalid
     """
-    # Check for whitespace
-    if url != url.strip():
+    # Reject any whitespace anywhere (matches the published anchored gateway pattern ^https?://[^\s]+$)
+    if re.search(r"\s", url):
         raise FieldValidationError("gateway", "gateway must be a valid URL or URI template", code="invalid_format")
 
     # Parse URL

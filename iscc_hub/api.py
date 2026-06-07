@@ -142,9 +142,14 @@ def search(request: HttpRequest):
 @api.post("/declaration", response={201: IsccReceipt, codes_4xx: ErrorResponse})
 def declaration(request):
     # Validate and parse request body (includes size check and JSON parsing)
-    # Skip timestamp validation in DEBUG mode to allow testing with example data
-    verify_timestamp = not settings.DEBUG
-    valid_data = validate_iscc_note(request.body, True, settings.ISCC_HUB_ID, verify_timestamp)
+    # Timestamp handling is policy-driven (admin-editable Constance values)
+    valid_data = validate_iscc_note(
+        request.body,
+        True,
+        settings.ISCC_HUB_ID,
+        require_timestamp=config.REQUIRE_CLIENT_TIMESTAMP,
+        timestamp_tolerance_seconds=config.TIMESTAMP_TOLERANCE_SECONDS,
+    )
 
     # Check for permission
     if not config.OPEN_ACCESS:
@@ -192,9 +197,15 @@ def delete_declaration(request, iscc_id: str):
     :return: 204 No Content on success, or error response
     """
     # Validate and parse request body
-    # Skip timestamp validation in DEBUG mode to allow testing with example data
-    verify_timestamp = not settings.DEBUG
-    valid_data = validate_iscc_note_delete(request.body, True, settings.ISCC_HUB_ID, verify_timestamp)
+    # A deletion always carries a timestamp; presence is enforced structurally (timestamp is a
+    # required field for deletions), so require_timestamp is left at its default. A provided value
+    # is range-checked by Hub policy.
+    valid_data = validate_iscc_note_delete(
+        request.body,
+        True,
+        settings.ISCC_HUB_ID,
+        timestamp_tolerance_seconds=config.TIMESTAMP_TOLERANCE_SECONDS,
+    )
 
     # Check that the ISCC-ID from the URL matches the one in the body
     if valid_data["iscc_id"] != iscc_id:

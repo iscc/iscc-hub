@@ -158,6 +158,7 @@ paths:
               full_example:
                 summary: Complete IsccNote with all optional fields
                 value:
+                  $schema: "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
                   iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
                   datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
                   metahash: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
@@ -176,10 +177,10 @@ paths:
               minimal_example:
                 summary: Minimal IsccNote with only required fields
                 value:
+                  $schema: "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
                   iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
                   datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
                   nonce: "00197932bfe2d31f11d8709be50f84bd"
-                  timestamp: "2025-01-15T12:00:00.000Z"
                   signature:
                     version: "ISCC-SIG v1.0"
                     controller: "did:web:example.com"
@@ -246,6 +247,7 @@ paths:
               delete_example:
                 summary: Delete declaration request
                 value:
+                  $schema: "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"
                   iscc_id: "ISCC:MAIGIEGXNGY664AB"
                   timestamp: "2025-01-15T12:00:00.000Z"
                   nonce: "001d17437f53f6899ed01ecb8659118b"

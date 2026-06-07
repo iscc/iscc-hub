@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Annotated, Literal
 
 from ninja import Schema
@@ -80,6 +81,10 @@ class Proof(Schema):
     ]
 
 
+class FieldSchema(StrEnum):
+    http___purl_org_iscc_schema_iscc_note_0_8_0_json = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+
+
 class Unit(RootModel[str]):
     root: Annotated[
         str,
@@ -96,7 +101,7 @@ class Timestamp(RootModel[AwareDatetime]):
     root: Annotated[
         AwareDatetime,
         Field(
-            description="RFC 3339 formatted timestamp of IsccNote creation time in UTC with millisecond precision\n\n**Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`\\\n**Example:** `2025-08-04T12:34:56.789Z`\n\n**Requirements:**\n- The `Z` suffix MUST be used to indicate UTC\n- Indicates when the IsccNote was created and signed\n- HUBs MUST reject timestamps outside ±10 minutes from current time\n",
+            description="RFC 3339 formatted timestamp of IsccNote creation time in UTC with millisecond precision\n\n**Format:** `YYYY-MM-DDTHH:MM:SS.sssZ`\\\n**Example:** `2025-08-04T12:34:56.789Z`\n\n**Requirements:**\n- The `Z` suffix MUST be used to indicate UTC\n- Indicates when the IsccNote was created and signed\n",
             examples=["2025-01-15T12:00:00.000Z", "2025-08-12T14:30:00.123Z"],
         ),
     ]
@@ -144,6 +149,10 @@ class IsccSignature(Schema):
             pattern="^z[1-9A-HJ-NP-Za-km-z]+$",
         ),
     ]
+
+
+class FieldSchema1(StrEnum):
+    http___purl_org_iscc_schema_iscc_note_delete_0_8_0_json = "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"
 
 
 class IsccDeclaration(Schema):
@@ -241,6 +250,13 @@ class IsccNoteDelete(Schema):
     model_config = ConfigDict(
         extra="forbid",
     )
+    field_schema: Annotated[
+        FieldSchema1,
+        Field(
+            alias="$schema",
+            description="URI of the published IsccNoteDelete schema this deletion conforms to.\n\n**Value:** `http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json`\n",
+        ),
+    ]
     iscc_id: IsccId
     timestamp: Timestamp
     nonce: Nonce
@@ -251,6 +267,13 @@ class IsccNote(Schema):
     model_config = ConfigDict(
         extra="forbid",
     )
+    field_schema: Annotated[
+        FieldSchema,
+        Field(
+            alias="$schema",
+            description="URI of the published IsccNote schema this declaration conforms to.\n\n**Value:** `http://purl.org/iscc/schema/iscc-note-0.8.0.json`\n",
+        ),
+    ]
     iscc_code: Annotated[
         str,
         Field(
@@ -278,7 +301,7 @@ class IsccNote(Schema):
             pattern="^1e20[0-9a-f]{64}$",
         ),
     ]
-    timestamp: Timestamp
+    timestamp: Timestamp | None = None
     nonce: Nonce
     signature: Signature
     units: Annotated[
@@ -321,7 +344,7 @@ class IsccNote(Schema):
             ],
             max_length=2048,
             min_length=8,
-            pattern="^https?://[^\\s]+",
+            pattern="^https?://[^\\s]+$",
         ),
     ] = None
 

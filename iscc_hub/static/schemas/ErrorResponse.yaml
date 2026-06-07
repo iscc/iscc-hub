@@ -1,5 +1,4 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "http://purl.org/iscc/schema/error-response.json"
 title: "ErrorResponse"
 type: object
 description: |
@@ -38,7 +37,7 @@ examples:
       code: "invalid_iscc"
       field: "iscc_code"
   - error:
-      message: "Timestamp must be within ±10 minutes of server time"
+      message: "timestamp is outside ±600 second tolerance: 660.0 seconds"
       code: "timestamp_out_of_range"
       field: "timestamp"
   - error:

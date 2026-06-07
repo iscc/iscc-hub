@@ -1,5 +1,4 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "http://purl.org/iscc/schema/iscc-event.json"
 title: "IsccEvent"
 type: object
 description: |
@@ -66,6 +65,7 @@ examples:
     iscc_id: "ISCC:MAACCD3C6YZJ4IQM"
     prev: "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
     note:
+      $schema: "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
       iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
       datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
       nonce: "000faa3f18c7b9407a48536a9b00c4cb"
@@ -79,6 +79,7 @@ examples:
     iscc_id: "ISCC:MAACEF5G8YZJ7KLN"
     prev: "5ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
     note:
+      $schema: "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
       iscc_code: "ISCC:KAC6NLDOZ7NA44D6TDOJVDILNW46VJAM2TM2DJ2JYLKPIMV4IBRHQ2Y"
       datahash: "1e201234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
       metahash: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"

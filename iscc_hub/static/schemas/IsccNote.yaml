@@ -1,18 +1,26 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "http://purl.org/iscc/schema/iscc-note.json"
 title: "IsccNote"
 type: object
+additionalProperties: false
 description: |
   ISCC declaration request object for timestamping and registering content.
 
   Contains the ISCC-CODE, cryptographic hashes, and signature for verifiable declaration.
 required:
+  - $schema
   - iscc_code
   - datahash
   - nonce
-  - timestamp
   - signature
 properties:
+  $schema:
+    type: string
+    enum:
+      - "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+    description: |
+      URI of the published IsccNote schema this declaration conforms to.
+
+      **Value:** `http://purl.org/iscc/schema/iscc-note-0.8.0.json`
   iscc_code:
     type: string
     description: |
@@ -97,7 +105,7 @@ properties:
     type: string
     minLength: 8
     maxLength: 2048
-    pattern: "^https?://[^\\s]+"
+    pattern: "^https?://[^\\s]+$"
     description: |
       HTTP(S) URL or RFC 6570 URI Template for gateway resolution.
 
@@ -113,7 +121,8 @@ properties:
       - "https://api.example.com/content/{datahash}/metadata"
       - "https://{iscc_id}.gw.example.com/cid"
 examples:
-  - iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
+  - $schema: "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+    iscc_code: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
     datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
     metahash: "1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"
     nonce: "0013a3c214c05796673503e6e549446d"
@@ -128,7 +137,8 @@ examples:
       controller: "did:web:example.com"
       pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
       proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
-  - iscc_code: "ISCC:KAC6NLDOZ7NA44D6TDOJVDILNW46VJAM2TM2DJ2JYLKPIMV4IBRHQ2Y"
+  - $schema: "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+    iscc_code: "ISCC:KAC6NLDOZ7NA44D6TDOJVDILNW46VJAM2TM2DJ2JYLKPIMV4IBRHQ2Y"
     datahash: "1e201234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
     nonce: "001234567890abcdef1234567890abcd"
     timestamp: "2025-08-12T14:30:00.123Z"

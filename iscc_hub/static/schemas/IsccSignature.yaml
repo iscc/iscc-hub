@@ -1,5 +1,4 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "http://purl.org/iscc/schema/iscc-signature.json"
 title: "IsccSignature"
 type: object
 description: |

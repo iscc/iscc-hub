@@ -451,5 +451,8 @@ CONSTANCE_CONFIG = OrderedDict(
         ("CTA_BUTTON_URL", ("", "Call-to-Action Button URL", str)),
         # Access Control
         ("OPEN_ACCESS", (True, "Open Access", bool)),
+        # Timestamp Policy
+        ("REQUIRE_CLIENT_TIMESTAMP", (False, "Require declarer-supplied timestamp", bool)),
+        ("TIMESTAMP_TOLERANCE_SECONDS", (600, "Max deviation (s) for a provided timestamp; ≤0 disables", int)),
     ]
 )

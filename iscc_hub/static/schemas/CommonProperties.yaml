@@ -1,5 +1,4 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "http://purl.org/iscc/schema/common-properties.json"
 title: "CommonProperties"
 type: object
 description: |
@@ -32,7 +31,6 @@ properties:
       **Requirements:**
       - The `Z` suffix MUST be used to indicate UTC
       - Indicates when the IsccNote was created and signed
-      - HUBs MUST reject timestamps outside ±10 minutes from current time
     examples:
       - "2025-01-15T12:00:00.000Z"
       - "2025-08-12T14:30:00.123Z"
