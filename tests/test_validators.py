@@ -7,6 +7,10 @@ import pytest
 
 from iscc_hub import validators
 
+# Published schema URIs carried in the `$schema` wire field (required on every message)
+ISCC_NOTE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+ISCC_NOTE_DELETE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"
+
 
 def to_bytes(data):
     # type: (dict) -> bytes
@@ -48,29 +52,29 @@ def test_validate_nonce_parameterized(nonce, hub_id, should_pass, error_match):
 
 
 @pytest.mark.parametrize(
-    "timestamp,check_tolerance,should_pass,error_match",
+    "timestamp,should_pass,error_match",
     [
         # Valid cases
-        ("2024-01-01T12:00:00.000Z", False, True, None),
-        ("2024-12-31T23:59:59.999Z", False, True, None),
+        ("2024-01-01T12:00:00.000Z", True, None),
+        ("2024-12-31T23:59:59.999Z", True, None),
         # Invalid cases
-        (12345, False, False, "timestamp must be a string"),
-        ("2024-01-01T12:00:00.000", False, False, "timestamp must end with 'Z'"),
-        ("2024-01-01T12:00:00Z", False, False, "timestamp must include millisecond precision"),
-        ("2024-01-01T12:00:00.12Z", False, False, "timestamp must have exactly 3 digits for milliseconds"),
-        ("2024-01-01T12:00:00.1234Z", False, False, "timestamp must have exactly 3 digits for milliseconds"),
-        ("not-a-timestamp", False, False, "timestamp must end with 'Z'"),
-        ("2024-01-01T12:00:00.000+01:00", False, False, "timestamp must end with 'Z'"),
+        (12345, False, "timestamp must be a string"),
+        ("2024-01-01T12:00:00.000", False, "timestamp must end with 'Z'"),
+        ("2024-01-01T12:00:00Z", False, "timestamp must include millisecond precision"),
+        ("2024-01-01T12:00:00.12Z", False, "timestamp must have exactly 3 digits for milliseconds"),
+        ("2024-01-01T12:00:00.1234Z", False, "timestamp must have exactly 3 digits for milliseconds"),
+        ("not-a-timestamp", False, "timestamp must end with 'Z'"),
+        ("2024-01-01T12:00:00.000+01:00", False, "timestamp must end with 'Z'"),
     ],
 )
-def test_validate_timestamp_parameterized(timestamp, check_tolerance, should_pass, error_match):
-    # type: (str|int, bool, bool, str|None) -> None
-    """Parameterized test for timestamp validation covering multiple cases."""
+def test_validate_timestamp_parameterized(timestamp, should_pass, error_match):
+    # type: (str|int, bool, str|None) -> None
+    """Parameterized test for timestamp format validation (tolerance disabled)."""
     if should_pass:
-        validators.validate_timestamp(timestamp, check_tolerance=check_tolerance)
+        validators.validate_timestamp(timestamp)
     else:
         with pytest.raises(ValueError, match=error_match):
-            validators.validate_timestamp(timestamp, check_tolerance=check_tolerance)
+            validators.validate_timestamp(timestamp)
 
 
 def test_validate_required_fields_all_present():
@@ -227,8 +231,8 @@ def test_validate_nonce_hub_id_direct():
 def test_validate_timestamp_valid():
     # type: () -> None
     """Test validates a valid RFC 3339 timestamp with milliseconds."""
-    # Valid timestamp with millisecond precision
-    validators.validate_timestamp("2025-08-04T12:34:56.789Z", check_tolerance=False)
+    # Valid timestamp with millisecond precision (no tolerance check)
+    validators.validate_timestamp("2025-08-04T12:34:56.789Z")
 
 
 def test_validate_timestamp_not_string():
@@ -282,44 +286,44 @@ def test_validate_timestamp_non_utc():
 
 def test_validate_timestamp_within_tolerance():
     # type: () -> None
-    """Test timestamp within ±10 minute tolerance."""
+    """Test timestamp within ±600 second tolerance."""
     ref_time = datetime(2025, 8, 4, 12, 30, 0, tzinfo=UTC)
 
     # 5 minutes in the future - should pass
-    validators.validate_timestamp("2025-08-04T12:35:00.000Z", reference_time=ref_time)
+    validators.validate_timestamp("2025-08-04T12:35:00.000Z", tolerance_seconds=600, reference_time=ref_time)
 
     # 5 minutes in the past - should pass
-    validators.validate_timestamp("2025-08-04T12:25:00.000Z", reference_time=ref_time)
+    validators.validate_timestamp("2025-08-04T12:25:00.000Z", tolerance_seconds=600, reference_time=ref_time)
 
     # Exactly at tolerance boundary (10 minutes) - should pass
-    validators.validate_timestamp("2025-08-04T12:40:00.000Z", reference_time=ref_time)
-    validators.validate_timestamp("2025-08-04T12:20:00.000Z", reference_time=ref_time)
+    validators.validate_timestamp("2025-08-04T12:40:00.000Z", tolerance_seconds=600, reference_time=ref_time)
+    validators.validate_timestamp("2025-08-04T12:20:00.000Z", tolerance_seconds=600, reference_time=ref_time)
 
 
 def test_validate_timestamp_outside_tolerance():
     # type: () -> None
-    """Test raises ValueError when timestamp is outside ±10 minute tolerance."""
+    """Test raises ValueError when timestamp is outside ±600 second tolerance."""
     ref_time = datetime(2025, 8, 4, 12, 30, 0, tzinfo=UTC)
 
     # 11 minutes in the future
-    with pytest.raises(ValueError, match="timestamp is outside ±10 minute tolerance: 11.0 minutes"):
-        validators.validate_timestamp("2025-08-04T12:41:00.000Z", reference_time=ref_time)
+    with pytest.raises(ValueError, match="timestamp is outside ±600 second tolerance: 660.0 seconds"):
+        validators.validate_timestamp("2025-08-04T12:41:00.000Z", tolerance_seconds=600, reference_time=ref_time)
 
     # 11 minutes in the past
-    with pytest.raises(ValueError, match="timestamp is outside ±10 minute tolerance: 11.0 minutes"):
-        validators.validate_timestamp("2025-08-04T12:19:00.000Z", reference_time=ref_time)
+    with pytest.raises(ValueError, match="timestamp is outside ±600 second tolerance: 660.0 seconds"):
+        validators.validate_timestamp("2025-08-04T12:19:00.000Z", tolerance_seconds=600, reference_time=ref_time)
 
 
 def test_validate_timestamp_skip_tolerance_check():
     # type: () -> None
-    """Test skipping tolerance check allows any valid timestamp."""
+    """Test disabling the tolerance check (tolerance_seconds=0) allows any valid timestamp."""
     ref_time = datetime(2025, 8, 4, 12, 30, 0, tzinfo=UTC)
 
-    # 1 hour in the future - would fail with tolerance check
-    validators.validate_timestamp("2025-08-04T13:30:00.000Z", check_tolerance=False, reference_time=ref_time)
+    # 1 hour in the future - would fail with a tolerance set
+    validators.validate_timestamp("2025-08-04T13:30:00.000Z", tolerance_seconds=0, reference_time=ref_time)
 
-    # 1 year in the past - would fail with tolerance check
-    validators.validate_timestamp("2024-08-04T12:30:00.000Z", check_tolerance=False, reference_time=ref_time)
+    # 1 year in the past - would fail with a tolerance set
+    validators.validate_timestamp("2024-08-04T12:30:00.000Z", tolerance_seconds=0, reference_time=ref_time)
 
 
 def test_validate_timestamp_with_current_time():
@@ -330,7 +334,7 @@ def test_validate_timestamp_with_current_time():
     timestamp_str = current_time.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
     # Should pass with default reference_time (current time)
-    validators.validate_timestamp(timestamp_str, check_tolerance=True)
+    validators.validate_timestamp(timestamp_str, tolerance_seconds=600)
 
 
 def test_validate_hex_string_valid():
@@ -1019,6 +1023,14 @@ def test_validate_signature_structure_missing_fields():
     with pytest.raises(ValueError, match="Missing required field in signature: proof"):
         validators.validate_signature_structure(signature)
 
+    # Missing pubkey (PROOF_ONLY signatures are rejected — pubkey is mandatory)
+    proof_only = {
+        "version": "ISCC-SIG v1.0",
+        "proof": "z2dW4e3DVcqnweJWPvLZNyaYiYTZiaEYKHiy3PUpE6Poth2BUVzKA72Tqih6GHz9KoWvEQ2CqfXSgyjY17cR94nXu",
+    }
+    with pytest.raises(ValueError, match="Missing required field in signature: pubkey"):
+        validators.validate_signature_structure(proof_only)
+
 
 def test_validate_signature_structure_with_optional_fields():
     # type: () -> None
@@ -1096,6 +1108,34 @@ def test_validate_url_with_whitespace():
         validators.validate_url(" https://example.com ")
 
 
+def test_validate_url_rejects_internal_whitespace():
+    # type: () -> None
+    """Test validate_url rejects internal whitespace (matches the published anchored pattern)."""
+    with pytest.raises(ValueError, match="gateway must be a valid URL"):
+        validators.validate_url("https://example.com/a b")
+
+
+def test_validate_gateway_internal_whitespace_rejected():
+    # type: () -> None
+    """Test a gateway URL with internal whitespace is rejected via validate_gateway."""
+    with pytest.raises(ValueError, match="gateway must be a valid URL"):
+        validators.validate_gateway("https://example.com/a b")
+
+
+def test_validate_gateway_clean_url_and_template_accepted():
+    # type: () -> None
+    """Test a clean gateway URL and a clean URI template both pass validation."""
+    validators.validate_gateway("https://example.com/metadata")
+    validators.validate_gateway("https://gateway.iscc.io/iscc_id/{iscc_id}")
+
+
+def test_validate_gateway_non_string_rejected():
+    # type: () -> None
+    """Test a non-string gateway value is rejected (not crashed on)."""
+    with pytest.raises(ValueError, match="gateway must be a string"):
+        validators.validate_gateway({})
+
+
 def test_validate_iscc_note_full_validation(example_nonce, current_timestamp, example_keypair, example_iscc_data):
     # type: (str, str, Any, dict) -> None
     """Test validate_iscc_note with full validation."""
@@ -1103,6 +1143,7 @@ def test_validate_iscc_note_full_validation(example_nonce, current_timestamp, ex
     import iscc_crypto as icr
 
     minimal_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -1120,9 +1161,7 @@ def test_validate_iscc_note_full_validation(example_nonce, current_timestamp, ex
 def test_validate_iscc_note_skip_signature(unsigned_iscc_note):
     # type: () -> None
     """Test validate_iscc_note without signature verification."""
-    validated = validators.validate_iscc_note(
-        to_bytes(unsigned_iscc_note), verify_signature=False, verify_timestamp=False
-    )
+    validated = validators.validate_iscc_note(to_bytes(unsigned_iscc_note), verify_signature=False)
     assert validated == unsigned_iscc_note
 
 
@@ -1130,6 +1169,7 @@ def test_validate_iscc_note_with_hub_id():
     # type: () -> None
     """Test validate_iscc_note with hub ID verification."""
     note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": "ISCC:KACZH265WE3KJOSRJT3OCVAFMMNYPEWWFTXNHEFX66ACDIKE4HHI7VA",
         "datahash": "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d",
         "nonce": "000faa3f18c7b9407a48536a9b00c4cb",  # hub_id = 0
@@ -1140,13 +1180,14 @@ def test_validate_iscc_note_with_hub_id():
             "proof": "zInvalidButWeSkipVerification",
         },
     }
-    validators.validate_iscc_note(to_bytes(note), verify_signature=False, verify_hub_id=0, verify_timestamp=False)
+    validators.validate_iscc_note(to_bytes(note), verify_signature=False, verify_hub_id=0)
 
 
 def test_validate_iscc_note_missing_field():
     # type: () -> None
     """Test validate_iscc_note raises for missing required field."""
     note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "datahash": "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d",
         "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
         "timestamp": "2025-01-15T12:00:00.000Z",
@@ -1158,11 +1199,12 @@ def test_validate_iscc_note_missing_field():
 
 def test_validate_iscc_note_skip_timestamp(example_nonce, example_keypair, example_iscc_data):
     # type: (str, Any, dict) -> None
-    """Test validate_iscc_note skipping timestamp tolerance check."""
+    """Test validate_iscc_note range-checks a provided timestamp only when tolerance is enabled."""
     import iscc_crypto as icr
 
     # Create a note with an old timestamp
     old_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -1172,12 +1214,123 @@ def test_validate_iscc_note_skip_timestamp(example_nonce, example_keypair, examp
     # Sign the note with old timestamp
     signed_note = icr.sign_json(old_note, example_keypair)
 
-    # Would fail with timestamp check
+    # Would fail with a tolerance configured (provided timestamp is range-checked)
     with pytest.raises(ValueError, match="timestamp is outside"):
-        validators.validate_iscc_note(to_bytes(signed_note), verify_timestamp=True)
+        validators.validate_iscc_note(to_bytes(signed_note), timestamp_tolerance_seconds=600)
 
-    # Should pass without timestamp check
-    validators.validate_iscc_note(to_bytes(signed_note), verify_timestamp=False)
+    # Should pass with tolerance disabled (default)
+    validators.validate_iscc_note(to_bytes(signed_note))
+
+
+def test_validate_iscc_note_without_timestamp_default_policy(example_nonce, example_keypair, example_iscc_data):
+    # type: (str, Any, dict) -> None
+    """A note without a timestamp is accepted under the default policy (timestamp not required)."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+    }
+    signed_note = icr.sign_json(note, example_keypair)
+
+    # Tolerance is ignored entirely when no timestamp is provided and none is required
+    validated = validators.validate_iscc_note(to_bytes(signed_note), timestamp_tolerance_seconds=600)
+    assert "timestamp" not in validated
+
+
+def test_validate_iscc_note_without_timestamp_required(example_nonce, example_keypair, example_iscc_data):
+    # type: (str, Any, dict) -> None
+    """A note without a timestamp is rejected when the server policy requires one."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+    }
+    signed_note = icr.sign_json(note, example_keypair)
+
+    with pytest.raises(ValueError, match="timestamp is required by server policy"):
+        validators.validate_iscc_note(to_bytes(signed_note), require_timestamp=True)
+
+
+def test_validate_iscc_note_malformed_timestamp_regardless_of_tolerance(
+    example_nonce, example_keypair, example_iscc_data
+):
+    # type: (str, Any, dict) -> None
+    """A malformed provided timestamp is rejected whether or not tolerance is enabled."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": "not-a-timestamp",
+    }
+    signed_note = icr.sign_json(note, example_keypair)
+
+    with pytest.raises(ValueError, match="timestamp must end with 'Z'"):
+        validators.validate_iscc_note(to_bytes(signed_note), timestamp_tolerance_seconds=0)
+    with pytest.raises(ValueError, match="timestamp must end with 'Z'"):
+        validators.validate_iscc_note(to_bytes(signed_note), timestamp_tolerance_seconds=600)
+
+
+def test_validate_iscc_note_explicit_null_timestamp_rejected(example_nonce, example_keypair, example_iscc_data):
+    # type: (str, Any, dict) -> None
+    """An explicit null timestamp is rejected (present-but-null is not the same as omitted)."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": None,
+    }
+    signed_note = icr.sign_json(note, example_keypair)
+
+    # Rejected even though the default policy does not require a timestamp.
+    with pytest.raises(ValueError, match="timestamp must be a string"):
+        validators.validate_iscc_note(to_bytes(signed_note))
+
+
+def test_validate_iscc_note_delete_missing_timestamp(example_nonce, example_keypair):
+    # type: (str, Any) -> None
+    """A deletion without a timestamp is rejected (timestamp is mandatory for deletions)."""
+    import iscc_crypto as icr
+
+    delete_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
+        "nonce": example_nonce,
+    }
+    signed_delete = icr.sign_json(delete_note, example_keypair)
+
+    with pytest.raises(ValueError, match="Missing required field: timestamp"):
+        validators.validate_iscc_note_delete(to_bytes(signed_delete), verify_signature=False)
+
+
+def test_validate_iscc_note_delete_timestamp_out_of_tolerance(example_nonce, example_keypair):
+    # type: (str, Any) -> None
+    """A deletion with an out-of-tolerance timestamp is rejected when tolerance is enabled."""
+    import iscc_crypto as icr
+
+    delete_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
+        "nonce": example_nonce,
+        "timestamp": "2020-01-01T00:00:00.000Z",
+    }
+    signed_delete = icr.sign_json(delete_note, example_keypair)
+
+    with pytest.raises(ValueError, match="timestamp is outside"):
+        validators.validate_iscc_note_delete(
+            to_bytes(signed_delete), verify_signature=False, timestamp_tolerance_seconds=600
+        )
 
 
 # Tests from test_missing_coverage.py
@@ -1188,6 +1341,7 @@ def test_validate_iscc_note_bytes_input(example_iscc_data, example_nonce, exampl
 
     # Test valid bytes input
     valid_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -1199,7 +1353,7 @@ def test_validate_iscc_note_bytes_input(example_iscc_data, example_nonce, exampl
         },
     }
     valid_bytes = json.dumps(valid_note).encode()
-    result = validators.validate_iscc_note(valid_bytes, verify_signature=False, verify_timestamp=False)
+    result = validators.validate_iscc_note(valid_bytes, verify_signature=False)
     assert result["iscc_code"] == example_iscc_data["iscc"]
 
     # Test oversized bytes input (>8192 bytes)
@@ -1334,7 +1488,7 @@ def test_validator_rejects_extra_fields(unsigned_iscc_note):
     unsigned_iscc_note["unknown_field"] = "should_cause_error"
 
     with pytest.raises(ValueError, match="Unknown fields not allowed: unknown_field"):
-        validators.validate_iscc_note(to_bytes(unsigned_iscc_note), verify_signature=False, verify_timestamp=False)
+        validators.validate_iscc_note(to_bytes(unsigned_iscc_note), verify_signature=False)
 
 
 def test_validator_rejects_extra_signature_fields(unsigned_iscc_note):
@@ -1343,14 +1497,14 @@ def test_validator_rejects_extra_signature_fields(unsigned_iscc_note):
     unsigned_iscc_note["signature"]["extra_sig_field"] = "should_cause_error"
 
     with pytest.raises(ValueError, match="Unknown fields in signature not allowed: extra_sig_field"):
-        validators.validate_iscc_note(to_bytes(unsigned_iscc_note), verify_signature=False, verify_timestamp=False)
+        validators.validate_iscc_note(to_bytes(unsigned_iscc_note), verify_signature=False)
 
 
 def test_validator_accepts_all_valid_fields(full_iscc_note):
     # type: (dict) -> None
     """Test that validator accepts all valid optional fields."""
     # Should not raise any exception
-    result = validators.validate_iscc_note(to_bytes(full_iscc_note), verify_signature=False, verify_timestamp=False)
+    result = validators.validate_iscc_note(to_bytes(full_iscc_note), verify_signature=False)
     assert result["gateway"] == full_iscc_note["gateway"]
     assert result["metahash"] == full_iscc_note["metahash"]
     assert result["units"] == full_iscc_note["units"]
@@ -1446,6 +1600,7 @@ def test_validate_iscc_note_delete_valid(example_nonce, example_keypair):
 
     # Create a valid delete note
     delete_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
         "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
         "nonce": example_nonce,
         "timestamp": "2025-01-15T12:00:00.000Z",
@@ -1455,9 +1610,7 @@ def test_validate_iscc_note_delete_valid(example_nonce, example_keypair):
     signed_delete = icr.sign_json(delete_note, example_keypair)
 
     # Should validate successfully (without timestamp/signature checks for test)
-    validated = validators.validate_iscc_note_delete(
-        to_bytes(signed_delete), verify_signature=True, verify_timestamp=False
-    )
+    validated = validators.validate_iscc_note_delete(to_bytes(signed_delete), verify_signature=True)
     assert validated == signed_delete
 
 
@@ -1465,6 +1618,7 @@ def test_validate_iscc_note_delete_missing_field():
     # type: () -> None
     """Test validate_iscc_note_delete raises for missing required field."""
     delete_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
         "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
         "timestamp": "2025-01-15T12:00:00.000Z",
         "signature": {},
@@ -1479,6 +1633,7 @@ def test_validate_iscc_note_delete_invalid_iscc_id():
     from iscc_hub.exceptions import IsccIdError
 
     delete_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
         "iscc_id": "ISCC:INVALID",
         "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
         "timestamp": "2025-01-15T12:00:00.000Z",
@@ -1489,13 +1644,14 @@ def test_validate_iscc_note_delete_invalid_iscc_id():
         },
     }
     with pytest.raises(IsccIdError, match="Invalid ISCC-ID format"):
-        validators.validate_iscc_note_delete(to_bytes(delete_note), verify_signature=False, verify_timestamp=False)
+        validators.validate_iscc_note_delete(to_bytes(delete_note), verify_signature=False)
 
 
 def test_validate_iscc_note_delete_with_hub_id():
     # type: () -> None
     """Test validate_iscc_note_delete with hub ID verification."""
     delete_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
         "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",  # hub_id=1
         "nonce": "001faa3f18c7b9407a48536a9b00c4cb",  # hub_id=1
         "timestamp": "2025-01-15T12:00:00.000Z",
@@ -1505,9 +1661,7 @@ def test_validate_iscc_note_delete_with_hub_id():
             "proof": "zProof",
         },
     }
-    validators.validate_iscc_note_delete(
-        to_bytes(delete_note), verify_signature=False, verify_hub_id=1, verify_timestamp=False
-    )
+    validators.validate_iscc_note_delete(to_bytes(delete_note), verify_signature=False, verify_hub_id=1)
 
 
 def test_validate_iscc_note_delete_hub_id_mismatch():
@@ -1516,6 +1670,7 @@ def test_validate_iscc_note_delete_hub_id_mismatch():
     from iscc_hub.exceptions import IsccIdError
 
     delete_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
         "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",  # hub_id=1
         "nonce": "000faa3f18c7b9407a48536a9b00c4cb",  # hub_id=0
         "timestamp": "2025-01-15T12:00:00.000Z",
@@ -1527,15 +1682,14 @@ def test_validate_iscc_note_delete_hub_id_mismatch():
     }
     # ISCC-ID check should fail
     with pytest.raises(IsccIdError, match="ISCC-ID with invalid hub_id"):
-        validators.validate_iscc_note_delete(
-            to_bytes(delete_note), verify_signature=False, verify_hub_id=0, verify_timestamp=False
-        )
+        validators.validate_iscc_note_delete(to_bytes(delete_note), verify_signature=False, verify_hub_id=0)
 
 
 def test_validate_iscc_note_delete_unknown_fields():
     # type: () -> None
     """Test validate_iscc_note_delete rejects unknown fields."""
     delete_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
         "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
         "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
         "timestamp": "2025-01-15T12:00:00.000Z",
@@ -1547,7 +1701,7 @@ def test_validate_iscc_note_delete_unknown_fields():
         },
     }
     with pytest.raises(ValueError, match="Unknown fields not allowed: unknown_field"):
-        validators.validate_iscc_note_delete(to_bytes(delete_note), verify_signature=False, verify_timestamp=False)
+        validators.validate_iscc_note_delete(to_bytes(delete_note), verify_signature=False)
 
 
 def test_validate_iscc_note_with_wide_subtype():
@@ -1572,6 +1726,7 @@ def test_validate_iscc_note_with_wide_subtype():
 
     # Create an IsccNote with WIDE subtype ISCC
     wide_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": wide_iscc_code,
         "datahash": datahash,
         "nonce": "000faa3f18c7b9407a48536a9b00c4cb",
@@ -1584,9 +1739,7 @@ def test_validate_iscc_note_with_wide_subtype():
 
     # This should validate successfully but currently fails due to WIDE subtype bug
     # The bug is in validate_units_reconstruction which doesn't handle WIDE subtype properly
-    validated = validators.validate_iscc_note(
-        to_bytes(signed_wide_note), verify_signature=True, verify_timestamp=False
-    )
+    validated = validators.validate_iscc_note(to_bytes(signed_wide_note), verify_signature=True)
     assert validated["iscc_code"] == wide_iscc_code
     assert validated["datahash"] == datahash
 
@@ -1694,3 +1847,154 @@ def test_not_found_error_to_error_response():
     response_with_field = error_with_field.to_error_response()
     # Field should be removed from 404 errors as it's not semantically meaningful
     assert response_with_field == {"error": {"message": "Not found", "code": "not_found"}}
+
+
+# ---------------------------------------------------------------------------
+# $schema admission rules (IsccNote)
+# ---------------------------------------------------------------------------
+
+
+def test_validate_iscc_note_missing_schema(example_nonce, example_keypair, example_iscc_data):
+    # type: (str, Any, dict) -> None
+    """A note without $schema is rejected (required field)."""
+    import iscc_crypto as icr
+
+    note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    signed = icr.sign_json(note, example_keypair)
+
+    with pytest.raises(ValueError, match="Missing required field: \\$schema"):
+        validators.validate_iscc_note(to_bytes(signed))
+
+
+def test_validate_iscc_note_unsupported_schema(example_nonce, example_keypair, example_iscc_data):
+    # type: (str, Any, dict) -> None
+    """A note declaring an unsupported $schema URI is rejected."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": "http://purl.org/iscc/schema/iscc-note-9.9.9.json",
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    signed = icr.sign_json(note, example_keypair)
+
+    with pytest.raises(ValueError, match="Unsupported \\$schema"):
+        validators.validate_iscc_note(to_bytes(signed))
+
+
+def test_validate_iscc_note_non_string_schema(example_nonce, example_keypair, example_iscc_data):
+    # type: (str, Any, dict) -> None
+    """A non-string $schema value is rejected without crashing (unhashable-safe)."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": {},
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    signed = icr.sign_json(note, example_keypair)
+
+    with pytest.raises(ValueError, match="Unsupported \\$schema"):
+        validators.validate_iscc_note(to_bytes(signed))
+
+
+def test_validate_iscc_note_rejects_context_and_type(example_nonce, example_keypair, example_iscc_data):
+    # type: (str, Any, dict) -> None
+    """A note carrying @context or @type is rejected as an unknown field."""
+    import iscc_crypto as icr
+
+    for extra in ("@context", "@type"):
+        note = {
+            "$schema": ISCC_NOTE_SCHEMA,
+            extra: "https://schema.iscc.codes/context.jsonld",
+            "iscc_code": example_iscc_data["iscc"],
+            "datahash": example_iscc_data["datahash"],
+            "nonce": example_nonce,
+            "timestamp": "2025-01-15T12:00:00.000Z",
+        }
+        signed = icr.sign_json(note, example_keypair)
+        with pytest.raises(ValueError, match="Unknown fields not allowed"):
+            validators.validate_iscc_note(to_bytes(signed))
+
+
+def test_validate_iscc_note_schema_in_signature_scope(example_nonce, example_keypair, example_iscc_data):
+    # type: (str, Any, dict) -> None
+    """Injecting a valid $schema after signing breaks the signature — proves $schema is in signed scope."""
+    import iscc_crypto as icr
+
+    note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    signed = icr.sign_json(note, example_keypair)  # signed WITHOUT $schema
+    tampered = {"$schema": ISCC_NOTE_SCHEMA, **signed}  # injected AFTER signing
+
+    # Structure, required-field and allowlist checks pass; signature verification fails
+    with pytest.raises(ValueError, match="Invalid signature"):
+        validators.validate_iscc_note(to_bytes(tampered))
+
+
+# ---------------------------------------------------------------------------
+# $schema admission rules (IsccNoteDelete)
+# ---------------------------------------------------------------------------
+
+
+def test_validate_iscc_note_delete_missing_schema(example_nonce, example_keypair):
+    # type: (str, Any) -> None
+    """A deletion without $schema is rejected (required field)."""
+    import iscc_crypto as icr
+
+    delete_note = {
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
+        "nonce": example_nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    signed = icr.sign_json(delete_note, example_keypair)
+
+    with pytest.raises(ValueError, match="Missing required field: \\$schema"):
+        validators.validate_iscc_note_delete(to_bytes(signed))
+
+
+def test_validate_iscc_note_delete_wrong_schema(example_nonce, example_keypair):
+    # type: (str, Any) -> None
+    """A deletion declaring the IsccNote schema URI (wrong allowlist) is rejected."""
+    import iscc_crypto as icr
+
+    delete_note = {
+        "$schema": ISCC_NOTE_SCHEMA,  # IsccNote URI is not valid for a deletion
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
+        "nonce": example_nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    signed = icr.sign_json(delete_note, example_keypair)
+
+    with pytest.raises(ValueError, match="Unsupported \\$schema"):
+        validators.validate_iscc_note_delete(to_bytes(signed))
+
+
+def test_validate_iscc_note_delete_schema_in_signature_scope(example_nonce, example_keypair):
+    # type: (str, Any) -> None
+    """Injecting a valid $schema after signing a deletion breaks the signature."""
+    import iscc_crypto as icr
+
+    delete_note = {
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
+        "nonce": example_nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    signed = icr.sign_json(delete_note, example_keypair)  # signed WITHOUT $schema
+    tampered = {"$schema": ISCC_NOTE_DELETE_SCHEMA, **signed}  # injected AFTER signing
+
+    with pytest.raises(ValueError, match="Invalid signature"):
+        validators.validate_iscc_note_delete(to_bytes(tampered))

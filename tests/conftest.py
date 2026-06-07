@@ -20,6 +20,10 @@ sys.path.insert(0, str(BASE_DIR))
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
+# Published schema URIs carried in the `$schema` wire field (required on every message)
+ISCC_NOTE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+ISCC_NOTE_DELETE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"
+
 
 def pytest_configure(config):
     """Configure Django settings for testing."""
@@ -142,6 +146,7 @@ def minimal_iscc_note(example_nonce, example_timestamp, example_keypair, example
     # type: (str, str, icr.KeyPair, dict) -> dict
     """Create a minimal signed IsccNote with deterministic values."""
     minimal_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -158,6 +163,7 @@ def full_iscc_note(example_nonce, example_timestamp, example_keypair, example_is
     # type: (str, str, icr.KeyPair, dict) -> dict
     """Create a full signed IsccNote with all optional fields."""
     full_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -177,6 +183,7 @@ def unsigned_iscc_note(example_nonce, example_timestamp, example_iscc_data):
     # type: (str, str, dict) -> dict
     """Create an unsigned IsccNote with a placeholder signature."""
     return {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -194,6 +201,7 @@ def invalid_signature_note(example_nonce, example_timestamp, example_keypair, ex
     # type: (str, str, icr.KeyPair, dict) -> dict
     """Create an IsccNote with a tampered signature."""
     note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -302,6 +310,7 @@ def test_events():
         # Create unique note for each event
         iscc_data = create_iscc_from_text(f"Test content {i}")
         note = {
+            "$schema": ISCC_NOTE_SCHEMA,
             "iscc_code": iscc_data["iscc"],
             "datahash": iscc_data["datahash"],
             "nonce": f"{i:032x}",

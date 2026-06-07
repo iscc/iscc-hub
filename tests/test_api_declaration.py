@@ -10,6 +10,9 @@ from django.db import connection
 
 from iscc_hub.models import PubKey
 
+# Published schema URI carried in the `$schema` wire field (required on every IsccNote)
+ISCC_NOTE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+
 
 @pytest.fixture(autouse=True)
 def clear_database():
@@ -45,6 +48,7 @@ def test_declaration_permission_denied_no_pubkey(
 
     # Create a minimal note
     minimal_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -83,6 +87,7 @@ def test_declaration_permission_denied_inactive_pubkey(
 
     # Create a minimal note
     minimal_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -125,6 +130,7 @@ def test_declaration_permission_allowed_with_active_pubkey(
 
     # Create a minimal note
     minimal_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -167,6 +173,7 @@ def test_declaration_success_minimal(
 
     # Create a minimal note with current timestamp
     minimal_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -236,6 +243,7 @@ def test_declaration_duplicate_rejected(
 
     # Create and sign first declaration
     first_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -251,6 +259,7 @@ def test_declaration_duplicate_rejected(
         # Create second declaration with same datahash but different nonce
         second_nonce = "001abcd1234567890abcdef123456700"  # Different nonce, same hub_id prefix
         second_note = {
+            "$schema": ISCC_NOTE_SCHEMA,
             "iscc_code": example_iscc_data["iscc"],
             "datahash": example_iscc_data["datahash"],  # Same datahash
             "nonce": second_nonce,
@@ -281,6 +290,7 @@ def test_declaration_duplicate_forced(
 
     # Create and sign first declaration
     first_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -296,6 +306,7 @@ def test_declaration_duplicate_forced(
         # Create second declaration with same datahash but different nonce
         second_nonce = "001abcd1234567890abcdef123456700"  # Different nonce, same hub_id prefix
         second_note = {
+            "$schema": ISCC_NOTE_SCHEMA,
             "iscc_code": example_iscc_data["iscc"],
             "datahash": example_iscc_data["datahash"],  # Same datahash
             "nonce": second_nonce,
@@ -323,6 +334,7 @@ def test_declaration_duplicate_force_variations(
 
     # Create and sign first declaration
     first_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -338,6 +350,7 @@ def test_declaration_duplicate_force_variations(
         # Test force="1" works
         second_nonce = "001abcd1234567890abcdef123456700"
         second_note = {
+            "$schema": ISCC_NOTE_SCHEMA,
             "iscc_code": example_iscc_data["iscc"],
             "datahash": example_iscc_data["datahash"],
             "nonce": second_nonce,
@@ -352,6 +365,7 @@ def test_declaration_duplicate_force_variations(
         # Test force="TRUE" (case insensitive) works
         third_nonce = "001abcd1234567890abcdef123456701"
         third_note = {
+            "$schema": ISCC_NOTE_SCHEMA,
             "iscc_code": example_iscc_data["iscc"],
             "datahash": example_iscc_data["datahash"],
             "nonce": third_nonce,
@@ -366,6 +380,7 @@ def test_declaration_duplicate_force_variations(
         # Test force="false" is rejected
         fourth_nonce = "001abcd1234567890abcdef123456702"
         fourth_note = {
+            "$schema": ISCC_NOTE_SCHEMA,
             "iscc_code": example_iscc_data["iscc"],
             "datahash": example_iscc_data["datahash"],
             "nonce": fourth_nonce,
@@ -387,6 +402,7 @@ def test_declaration_nonce_reuse_error(
 
     # Create a minimal note with current timestamp
     minimal_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -448,6 +464,7 @@ def test_declaration_signature_error(live_server, current_timestamp, example_non
     """Test invalid signature returns 401."""
     # Create an IsccNote with an invalid signature
     invalid_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,  # Hub ID 1
@@ -533,6 +550,7 @@ def test_issued_iscc_id_passes_iscc_core_validation(
 
     # Create a minimal note with current timestamp
     minimal_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
@@ -574,3 +592,230 @@ def test_issued_iscc_id_passes_iscc_core_validation(
         assert vs == 1  # VERSION = 1
         assert ln == 0  # LENGTH = 0 (64-bit, no counter)
         assert len(body) == 8  # Body is 8 bytes
+
+
+@pytest.mark.django_db(transaction=True)
+def test_declaration_without_timestamp_succeeds(live_server, example_nonce, example_keypair, example_iscc_data):
+    # type: (object, str, object, dict) -> None
+    """A declaration without a timestamp is accepted under the default policy."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+    }
+    signed_note = icr.sign_json(note, example_keypair)
+
+    with httpx.Client() as client:
+        response = client.post(f"{live_server.url}/declaration", json=signed_note)
+
+    assert response.status_code == 201
+
+
+@pytest.mark.django_db(transaction=True)
+def test_declaration_require_client_timestamp(live_server, example_nonce, example_keypair, example_iscc_data):
+    # type: (object, str, object, dict) -> None
+    """A declaration without a timestamp is rejected when REQUIRE_CLIENT_TIMESTAMP is enabled."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+    }
+    signed_note = icr.sign_json(note, example_keypair)
+
+    with override_config(REQUIRE_CLIENT_TIMESTAMP=True), httpx.Client() as client:
+        response = client.post(f"{live_server.url}/declaration", json=signed_note)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["field"] == "timestamp"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_declaration_timestamp_out_of_tolerance(live_server, example_nonce, example_keypair, example_iscc_data):
+    # type: (object, str, object, dict) -> None
+    """A declaration with a provided timestamp outside the default tolerance is rejected."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": "2020-01-01T00:00:00.000Z",
+    }
+    signed_note = icr.sign_json(note, example_keypair)
+
+    with httpx.Client() as client:
+        response = client.post(f"{live_server.url}/declaration", json=signed_note)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "timestamp_out_of_range"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_declaration_timestamp_tolerance_disabled(live_server, example_nonce, example_keypair, example_iscc_data):
+    # type: (object, str, object, dict) -> None
+    """A provided out-of-range timestamp is accepted when TIMESTAMP_TOLERANCE_SECONDS is 0."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": "2020-01-01T00:00:00.000Z",
+    }
+    signed_note = icr.sign_json(note, example_keypair)
+
+    with override_config(TIMESTAMP_TOLERANCE_SECONDS=0), httpx.Client() as client:
+        response = client.post(f"{live_server.url}/declaration", json=signed_note)
+
+    assert response.status_code == 201
+
+
+@pytest.mark.django_db(transaction=True)
+def test_declaration_gateway_internal_whitespace_rejected(
+    live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
+):
+    # type: (object, str, str, object, dict) -> None
+    """A declaration whose gateway contains internal whitespace is rejected."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+        "gateway": "https://example.com/a b",
+    }
+    signed_note = icr.sign_json(note, example_keypair)
+
+    with httpx.Client() as client:
+        response = client.post(f"{live_server.url}/declaration", json=signed_note)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["field"] == "gateway"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_declaration_missing_schema(live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data):
+    # type: (object, str, str, object, dict) -> None
+    """A declaration without $schema is rejected with 422."""
+    import iscc_crypto as icr
+
+    note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+    signed_note = icr.sign_json(note, example_keypair)
+
+    with httpx.Client() as client:
+        response = client.post(f"{live_server.url}/declaration", json=signed_note)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["field"] == "$schema"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_declaration_unsupported_schema(
+    live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
+):
+    # type: (object, str, str, object, dict) -> None
+    """A declaration with an unsupported $schema URI is rejected with 422."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": "http://purl.org/iscc/schema/iscc-note-9.9.9.json",
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+    signed_note = icr.sign_json(note, example_keypair)
+
+    with httpx.Client() as client:
+        response = client.post(f"{live_server.url}/declaration", json=signed_note)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["field"] == "$schema"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_declaration_rejects_context(
+    live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
+):
+    # type: (object, str, str, object, dict) -> None
+    """A declaration carrying @context (JSON-LD framing) is rejected as an unknown field."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "@context": "https://schema.iscc.codes/context.jsonld",
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+    signed_note = icr.sign_json(note, example_keypair)
+
+    with httpx.Client() as client:
+        response = client.post(f"{live_server.url}/declaration", json=signed_note)
+
+    assert response.status_code == 422
+    assert "Unknown fields not allowed" in response.json()["error"]["message"]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_declaration_schema_signature_scope(
+    live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
+):
+    # type: (object, str, str, object, dict) -> None
+    """Injecting $schema after signing fails signature verification (401) — proves $schema is signed."""
+    import iscc_crypto as icr
+
+    note = {
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+    signed_note = icr.sign_json(note, example_keypair)  # signed WITHOUT $schema
+    tampered = {"$schema": ISCC_NOTE_SCHEMA, **signed_note}  # injected AFTER signing
+
+    with httpx.Client() as client:
+        response = client.post(f"{live_server.url}/declaration", json=tampered)
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "invalid_signature"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_declaration_proof_only_rejected(
+    live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
+):
+    # type: (object, str, str, object, dict) -> None
+    """A PROOF_ONLY signature (no embedded pubkey) is rejected (401)."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+    signed_note = icr.sign_json(note, example_keypair, sigtype=icr.SigType.PROOF_ONLY)
+
+    with httpx.Client() as client:
+        response = client.post(f"{live_server.url}/declaration", json=signed_note)
+
+    assert response.status_code == 401
+    assert "pubkey" in response.json()["error"]["message"]

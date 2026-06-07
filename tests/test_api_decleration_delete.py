@@ -7,6 +7,10 @@ import json
 import iscc_crypto as icr
 import pytest
 
+# Published schema URIs carried in the `$schema` wire field (required on every message)
+ISCC_NOTE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
+ISCC_NOTE_DELETE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"
+
 
 @pytest.mark.django_db(transaction=True)
 def test_delete_declaration_success(api_client, example_keypair, example_iscc_data, current_timestamp):
@@ -18,6 +22,7 @@ def test_delete_declaration_success(api_client, example_keypair, example_iscc_da
     """
     # Create a declaration using fresh nonce
     declaration_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": icr.create_nonce(1),
@@ -40,6 +45,7 @@ def test_delete_declaration_success(api_client, example_keypair, example_iscc_da
 
     # Now prepare the deletion request with a new unique nonce
     deletion_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
         "iscc_id": iscc_id,
         "nonce": icr.create_nonce(1),
         "timestamp": current_timestamp,
@@ -61,6 +67,7 @@ def test_delete_declaration_success(api_client, example_keypair, example_iscc_da
 
     # Verify the declaration is actually deleted by trying to delete it again
     deletion_note2 = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
         "iscc_id": iscc_id,
         "nonce": icr.create_nonce(1),
         "timestamp": current_timestamp,
@@ -93,6 +100,7 @@ def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, exampl
     """
     # Create first declaration
     declaration_note1 = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": icr.create_nonce(1),
@@ -115,6 +123,7 @@ def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, exampl
 
     different_iscc_data = conftest.create_iscc_from_text("Different content for test!")
     declaration_note2 = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": different_iscc_data["iscc"],
         "datahash": different_iscc_data["datahash"],
         "nonce": icr.create_nonce(1),
@@ -137,6 +146,7 @@ def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, exampl
 
     # Now try to delete iscc_id1 but put iscc_id2 in the body (mismatch)
     deletion_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
         "iscc_id": iscc_id2,  # Body has different ISCC-ID
         "nonce": icr.create_nonce(1),
         "timestamp": current_timestamp,
@@ -170,6 +180,7 @@ def test_delete_declaration_not_found(api_client, example_keypair, current_times
     fake_iscc_id = conftest.generate_test_iscc_id(hub_id=1, seq=999999)
 
     deletion_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
         "iscc_id": fake_iscc_id,
         "nonce": icr.create_nonce(1),
         "timestamp": current_timestamp,
@@ -197,6 +208,7 @@ def test_delete_declaration_unauthorized(api_client, example_keypair, example_is
     """
     # Create a declaration with first keypair
     declaration_note = {
+        "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": icr.create_nonce(1),
@@ -218,6 +230,7 @@ def test_delete_declaration_unauthorized(api_client, example_keypair, example_is
     different_keypair = icr.key_generate(controller="did:web:different.com")
 
     deletion_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
         "iscc_id": iscc_id,
         "nonce": icr.create_nonce(1),
         "timestamp": current_timestamp,
@@ -235,3 +248,46 @@ def test_delete_declaration_unauthorized(api_client, example_keypair, example_is
     error_response = response.json()
     error_message = error_response.get("detail") or error_response.get("error", {}).get("message", "")
     assert "not authorized" in error_message.lower()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_delete_missing_schema(api_client, example_keypair, current_timestamp):
+    # type: (object, icr.KeyPair, str) -> None
+    """A deletion request without $schema is rejected with 422."""
+    deletion_note = {
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
+        "nonce": icr.create_nonce(1),
+        "timestamp": current_timestamp,
+    }
+    signed_deletion = icr.sign_json(deletion_note, example_keypair)
+
+    response = api_client.delete(
+        "/declaration/ISCC:MAIGFKM3UDDAAEAB",
+        data=json.dumps(signed_deletion).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["field"] == "$schema"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_delete_proof_only_rejected(api_client, example_keypair, current_timestamp):
+    # type: (object, icr.KeyPair, str) -> None
+    """A deletion whose signature omits pubkey (PROOF_ONLY) is rejected (401)."""
+    deletion_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
+        "nonce": icr.create_nonce(1),
+        "timestamp": current_timestamp,
+    }
+    signed_deletion = icr.sign_json(deletion_note, example_keypair, sigtype=icr.SigType.PROOF_ONLY)
+
+    response = api_client.delete(
+        "/declaration/ISCC:MAIGFKM3UDDAAEAB",
+        data=json.dumps(signed_deletion).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 401
+    assert "pubkey" in response.json()["error"]["message"]
