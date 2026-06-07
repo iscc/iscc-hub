@@ -124,11 +124,11 @@ use-union-operator = true
 extra-fields = "forbid"
 strict-nullable = true
 use-title-as-name = true
-formatters = ["ruff-format", "ruff-check"]
+formatters = []
 
 [tool.poe.tasks]
 # Code quality tasks
-build-schema = { cmd = "uv run datamodel-codegen", help = "Build pydantic models from openapi.yaml" }
+build-schema = { sequence = [{ cmd = "uv run datamodel-codegen" }, { cmd = "uv run ruff check --fix --unsafe-fixes iscc_hub/schema.py" }, { cmd = "uv run ruff format iscc_hub/schema.py" }], help = "Build pydantic models from openapi.yaml (formatted to match poe all)" }
 check-python = { cmd = "uv run ruff check --fix --unsafe-fixes .", help = "Check python code"}
 check-types = { cmd = "uv run pyright", help = "Run Pyright type checking"}
 format-python = { cmd = "uv run ruff format .", help = "Format python code"}
