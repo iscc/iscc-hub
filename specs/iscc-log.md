@@ -98,7 +98,7 @@ A **conforming Hub** is server software that:
 - Maintains a single append-only Merkle tree per the rules in [§6](#6-merkle-tree).
 - Commits each accepted log record exactly once, in sequence-number order, with no gaps, per [§5](#5-log-records) and
     [§11.1](#111-append).
-- Publishes hash tiles and data tiles per [§7](#7-tiles).
+- Publishes hash tiles and entry bundles per [§7](#7-tiles).
 - Publishes a signed checkpoint per [§8](#8-checkpoint).
 - Serves the three read endpoints defined in [§9](#9-http-interface).
 
@@ -170,12 +170,12 @@ Reads are static files. The only operation that requires a running Hub is the wr
 ### 5.1 Record content
 
 Each log record is the **canonical log-entry envelope** defined in §5.4 of the *IDP Declaration Profile*: a JSON object
-with members `v`, `type`, `iscc_id`, and `note`. The record bytes committed to the tree **MUST** be the JCS
+with members `$schema`, `iscc_id`, and `note`. The record bytes committed to the tree **MUST** be the JCS
 ([[RFC8785]](#rfc8785)) canonicalization of that object, encoded as UTF-8, with no surrounding whitespace.
 
-A Hub **MUST NOT** alter a record after it has been committed. Deletion is expressed as a new record with `type` set to
-`"deletion"`; it marks the prior declaration as redacted in derived indexes but **MUST NOT** remove or rewrite any
-committed record.
+A Hub **MUST NOT** alter a record after it has been committed. Deletion is expressed as a new record whose `note` is an
+IsccNoteDelete (`note.$schema` = `iscc-note-delete-0.8.0`); it marks the prior declaration as redacted in derived
+indexes but **MUST NOT** remove or rewrite any committed record.
 
 ### 5.2 Sequence numbers
 
@@ -206,18 +206,18 @@ of the tree, as defined by tlog-tiles. A full hash tile is `256 × 32 = 8192` by
 rightmost tile at each level is a **partial tile** of `W` hashes where `1 ≤ W ≤ 255`; it is addressed with the `.p/<W>`
 suffix defined by tlog-tiles and is rewritten as it fills.
 
-### 7.2 Data tiles
+### 7.2 Entry bundles
 
-A **data tile** at index `K` bundles the 256 records whose leaf hashes occupy the level-0 hash tile at index `K`. Each
-record is length-prefixed as specified by tlog-tiles for entry bundles, so a Verifier can fetch a record and its
-inclusion path in two requests rather than one per tree level. Partial data tiles use the same `.p/<W>` suffix as hash
-tiles.
+An **entry bundle** at index `K` bundles the 256 records whose leaf hashes occupy the level-0 hash tile at index `K`. It
+is served at the tlog-tiles `tile/entries/<N>` path (see [§9](#9-http-interface)). Each record is length-prefixed as
+specified by tlog-tiles for entry bundles, so a Verifier can fetch a record and its inclusion path in two requests
+rather than one per tree level. Partial entry bundles use the same `.p/<W>` suffix as hash tiles.
 
 ### 7.3 Immutability
 
-A full tile (hash or data) is immutable once published: its content is fixed by the records it commits. A Hub **MUST**
-serve full tiles as immutable resources and **MAY** serve partial tiles with a short freshness lifetime, since a partial
-tile is replaced as the tree grows.
+A full hash tile or entry bundle is immutable once published: its content is fixed by the records it commits. A Hub
+**MUST** serve full hash tiles and entry bundles as immutable resources and **MAY** serve partial ones with a short
+freshness lifetime, since a partial tile or bundle is replaced as the tree grows.
 
 ## 8. Checkpoint
 
@@ -258,11 +258,11 @@ metadata. The RECOMMENDED default cadence is 10 seconds.
 A Hub **MUST** expose the following three read endpoints. All are HTTP `GET`, return static content, and are cacheable.
 There are no proof-computing endpoints; a Verifier computes proofs locally from tiles.
 
-| Endpoint                 | Returns                                                         |
-| ------------------------ | --------------------------------------------------------------- |
-| `GET /log/checkpoint`    | The latest signed checkpoint ([§8](#8-checkpoint)).             |
-| `GET /log/tile/<L>/<K>`  | The hash tile at level `L`, index `K` ([§7.1](#71-hash-tiles)). |
-| `GET /log/tile/data/<K>` | The data tile at index `K` ([§7.2](#72-data-tiles)).            |
+| Endpoint                    | Returns                                                         |
+| --------------------------- | --------------------------------------------------------------- |
+| `GET /log/checkpoint`       | The latest signed checkpoint ([§8](#8-checkpoint)).             |
+| `GET /log/tile/<L>/<K>`     | The hash tile at level `L`, index `K` ([§7.1](#71-hash-tiles)). |
+| `GET /log/tile/entries/<K>` | The entry bundle at index `K` ([§7.2](#72-entry-bundles)).      |
 
 The index path encoding (including the thousands-grouped form for large indices) and the partial-tile `.p/<W>` suffix
 **MUST** follow [tlog-tiles](#tlog-tiles).
@@ -282,8 +282,8 @@ A Hub:
 To **verify inclusion of record `i`** against a trusted checkpoint with size `N` and root `R` (where `i < N`), a
 Verifier performs the following steps.
 
-1. Fetch the data tile `GET /log/tile/data/⌊i / 256⌋`.
-2. Extract the record at offset `i mod 256` within that tile.
+1. Fetch the entry bundle `GET /log/tile/entries/⌊i / 256⌋`.
+2. Extract the record at offset `i mod 256` within that bundle.
 3. If a record value is being checked (for example against an IsccReceipt), confirm the extracted record bytes match the
     expected canonical bytes; if they do not, return **failure**.
 4. Compute the leaf hash `SHA-256(0x00 || record_bytes)`.
@@ -314,8 +314,8 @@ When the Hub accepts a declaration or deletion, it **MUST**, within a single ato
 3. Persist the record durably as the source of truth.
 4. Update the Merkle tree and the affected partial tiles.
 
-The record **MUST** become visible in the data tile and committed by a published checkpoint of size `≥ i + 1` before the
-Hub asserts the declaration is logged.
+The record **MUST** become visible in the entry bundle and committed by a published checkpoint of size `≥ i + 1` before
+the Hub asserts the declaration is logged.
 
 ### 11.2 Tile materialization
 

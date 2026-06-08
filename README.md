@@ -72,6 +72,27 @@ The project maintains 100% test coverage with comprehensive test suites:
 - **Integration tests**: Full API workflow testing
 - **Property-based tests**: API contract validation with Schemathesis
 
+### Testing against PostgreSQL
+
+The sequencer is database-agnostic and is verified on both SQLite (the default) and PostgreSQL. To run the suite against
+a local PostgreSQL:
+
+```bash
+# Start a throwaway PostgreSQL (host port 5433 avoids clashing with a local 5432 instance)
+docker run -d --name iscc-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres \
+    -e POSTGRES_DB=iscc_hub -p 5433:5432 postgres:16
+
+# Run the suite against it (connection details come from ISCC_HUB_DB_* env vars)
+ISCC_HUB_DB_HOST=127.0.0.1 ISCC_HUB_DB_PORT=5433 uv run poe test-postgres
+
+# Tear it down
+docker rm -f iscc-pg
+```
+
+`poe test-postgres` sets `ISCC_HUB_DB_ENGINE=postgres`; override `ISCC_HUB_DB_HOST`, `ISCC_HUB_DB_PORT`,
+`ISCC_HUB_DB_USER`, `ISCC_HUB_DB_PASSWORD`, and `ISCC_HUB_DB_NAME_PG` as needed. Coverage is only gated on the SQLite
+suite (`poe all`).
+
 ## Architecture
 
 ### Core Components

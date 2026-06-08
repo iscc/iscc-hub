@@ -14,26 +14,32 @@ class SequenceField(models.AutoField):
     A primary key field that uses SQLite's rowid without AUTOINCREMENT.
     Provides gap-less sequence when used with proper transaction handling.
 
-    Inherits from AutoField to get correct INSERT behavior from Django.
+    On non-SQLite backends (e.g. PostgreSQL) it behaves as a normal AutoField,
+    keeping the model portable. Inherits from AutoField for correct INSERT
+    behavior from Django.
     """
 
     description = "Gap-less integer primary key"
 
     def db_type(self, connection):
-        # type: (object) -> str
+        # type: (object) -> str | None
         """
-        Return just INTEGER for SQLite to use rowid without AUTOINCREMENT.
-        Django will automatically add PRIMARY KEY.
+        Return plain INTEGER on SQLite to use rowid without AUTOINCREMENT.
+        Defer to the default AutoField type on other backends.
         """
-        return "INTEGER"
+        if getattr(connection, "vendor", None) == "sqlite":
+            return "INTEGER"
+        return super().db_type(connection)
 
     def db_type_suffix(self, connection):
-        # type: (object) -> str
+        # type: (object) -> str | None
         """
-        Override to return empty string instead of 'AUTOINCREMENT'.
-        This ensures SQLite uses rowid without AUTOINCREMENT for gap-less sequences.
+        Suppress AUTOINCREMENT on SQLite so rowid is reused for gap-less
+        sequences. Defer to the default suffix on other backends.
         """
-        return ""
+        if getattr(connection, "vendor", None) == "sqlite":
+            return ""
+        return super().db_type_suffix(connection)  # pyright: ignore[reportAttributeAccessIssue]
 
 
 class IsccIDFieldIContains(IContains):
@@ -127,7 +133,8 @@ class IsccIDField(models.BinaryField):
                 ) from e
             return value
 
-        if isinstance(value, bytes):
+        if isinstance(value, bytes | bytearray | memoryview):
+            value = bytes(value)
             if len(value) != 8:
                 raise ValidationError(
                     "ISCC-ID body must be exactly 8 bytes",
@@ -141,11 +148,12 @@ class IsccIDField(models.BinaryField):
         )
 
     def from_db_value(self, value, expression, connection):
-        # type: (bytes | None, object, object) -> str | None
-        """Convert database bytes to ISCC-ID string."""
+        # type: (bytes | bytearray | memoryview | None, object, object) -> str | None
+        """Convert database bytes to ISCC-ID string (coercing any bytes-like driver value)."""
         if value is None:
             return None
-        return str(IsccID(value))
+        # Normalize bytearray/memoryview (e.g. a psycopg3 binary-format bytea) to bytes.
+        return str(IsccID(bytes(value)))
 
     def get_prep_value(self, value):
         # type: (str | None) -> bytes | None
@@ -338,7 +346,8 @@ class PubkeyField(models.BinaryField):
             self._validate_multibase(value)
             return value
 
-        if isinstance(value, bytes):
+        if isinstance(value, bytes | bytearray | memoryview):
+            value = bytes(value)
             if len(value) != 32:
                 raise ValidationError(
                     "Public key must be exactly 32 bytes",
@@ -353,10 +362,11 @@ class PubkeyField(models.BinaryField):
         )
 
     def from_db_value(self, value, expression, connection):
-        # type: (bytes | None, object, object) -> str | None
+        # type: (bytes | bytearray | memoryview | None, object, object) -> str | None
         """Convert database bytes to Multibase encoded public key string."""
         if value is None:
             return None
+        # to_python normalizes any bytes-like driver value (e.g. psycopg3 binary bytea).
         return self.to_python(value)
 
     def get_prep_value(self, value):

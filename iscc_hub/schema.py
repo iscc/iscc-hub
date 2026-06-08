@@ -49,6 +49,93 @@ class IsccId(RootModel[str]):
     ]
 
 
+class IsccDeclaration(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    iscc_id: IsccId
+    iscc_code: Annotated[
+        str,
+        Field(
+            description="The declared ISCC-CODE identifying the content\n\n**Format:** `ISCC:` followed by alphanumeric characters\n**Length:** 34-73 characters total\n",
+            examples=[
+                "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
+                "ISCC:KACT3NRHBQXWJKXV6OJ7XR7B62NJXMYQDNHCNZQZLW4L2UXBCJIZERA",
+            ],
+            max_length=73,
+            min_length=34,
+            pattern="^ISCC:[A-Z0-9]{29,68}$",
+        ),
+    ]
+    datahash: Annotated[
+        str,
+        Field(
+            description="Blake3 hash of the declared content\n\n**Format:** 256-bit lowercase hex-encoded multihash\n**Prefix:** `1e20` (Blake3 identifier)\n**Length:** Exactly 68 characters\n",
+            examples=["1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"],
+            max_length=68,
+            min_length=68,
+            pattern="^1e20[0-9a-f]{64}$",
+        ),
+    ]
+    timestamp: Annotated[
+        AwareDatetime,
+        Field(
+            description="Hub timestamp when the declaration was created\n\n**Precision:** Microseconds (6 decimal places)\n**Source:** Derived from the 52-bit timestamp field in the ISCC-ID\n**Format:** ISO 8601 with Z suffix\n",
+            examples=["2025-01-20T14:32:18.123456Z", "2025-01-19T09:15:42.789012Z"],
+        ),
+    ]
+    pubkey: Annotated[
+        str,
+        Field(
+            description="Ed25519 public key of the declaring actor\n\n**Format:** Multibase z-base58-btc encoded (starts with 'z6Mk')\n**Length:** Exactly 48 characters\n",
+            examples=[
+                "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso",
+                "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
+            ],
+            max_length=48,
+            min_length=48,
+            pattern="^z6Mk[1-9A-HJ-NP-Za-km-z]{44}$",
+        ),
+    ]
+    controller: Annotated[
+        str | None,
+        Field(
+            description="DID or W3C CID Document URL identifying the key controller\n\n**Optional:** Omitted from response if not provided by declarer\n**Common formats:** `did:web:`, `did:key:`, `https://` URL\n",
+            examples=[
+                "did:web:example.com",
+                "did:key:z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso",
+                "https://example.com/.well-known/controller/123",
+            ],
+            max_length=2048,
+            min_length=0,
+        ),
+    ] = None
+    gateway: Annotated[
+        str | None,
+        Field(
+            description="Fully expanded HTTP(S) URL for metadata discovery\n\n**Important:** This field returns the expanded URL with all variables resolved,\nnot the URI template. If the declaration included a template like\n`https://example.com/metadata/{iscc_id}`, this field will contain the\nresolved URL like `https://example.com/metadata/maighfecjmopmiab`.\n\n**Template variable format:**\n- `{iscc_id}` → lowercase without prefix (e.g., `maighfecjmopmiab`)\n- `{iscc_code}` → lowercase without prefix (e.g., `ked572p4a0f5k60...`)\n- `{datahash}` → lowercase as-is (e.g., `1e205ca7815...`)\n\n**Optional:** Omitted from response if not provided in the original declaration.\n",
+            examples=[
+                "https://example.com/metadata/maighfecjmopmiab",
+                "https://gateway.iscc.io/iscc_id/mabxw23fqlcypkiz",
+                "https://madkz5plnrxgtvqb.gw.example.com/cid",
+            ],
+            max_length=2048,
+            min_length=0,
+            pattern="^(https?://[^\\s]+)?$",
+        ),
+    ] = None
+    metahash: Annotated[
+        str | None,
+        Field(
+            description="Blake3 hash of seed metadata (optional commitment)\n\n**Optional:** Omitted from response if not provided by declarer\n**Format:** 256-bit lowercase hex-encoded multihash\n**Prefix:** `1e20` (Blake3 identifier)\n",
+            examples=["1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"],
+            max_length=68,
+            min_length=68,
+            pattern="^1e20[0-9a-f]{64}$",
+        ),
+    ] = None
+
+
 class Proof(Schema):
     model_config = ConfigDict(
         extra="forbid",
@@ -155,91 +242,19 @@ class FieldSchema1(StrEnum):
     http___purl_org_iscc_schema_iscc_note_delete_0_8_0_json = "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"
 
 
-class IsccDeclaration(Schema):
+class DeclarationAck(Schema):
     model_config = ConfigDict(
         extra="forbid",
     )
     iscc_id: IsccId
-    iscc_code: Annotated[
-        str,
+    seq: Annotated[
+        int,
         Field(
-            description="The declared ISCC-CODE identifying the content\n\n**Format:** `ISCC:` followed by alphanumeric characters\n**Length:** 34-73 characters total\n",
-            examples=[
-                "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
-                "ISCC:KACT3NRHBQXWJKXV6OJ7XR7B62NJXMYQDNHCNZQZLW4L2UXBCJIZERA",
-            ],
-            max_length=73,
-            min_length=34,
-            pattern="^ISCC:[A-Z0-9]{29,68}$",
+            description="Zero-based leaf index (sequence number) of the record in the log.\n\n**Start:** 0 (first record)\n**Guarantee:** gapless — a missing integer means a missing record\n",
+            examples=[0, 42],
+            ge=0,
         ),
     ]
-    datahash: Annotated[
-        str,
-        Field(
-            description="Blake3 hash of the declared content\n\n**Format:** 256-bit lowercase hex-encoded multihash\n**Prefix:** `1e20` (Blake3 identifier)\n**Length:** Exactly 68 characters\n",
-            examples=["1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"],
-            max_length=68,
-            min_length=68,
-            pattern="^1e20[0-9a-f]{64}$",
-        ),
-    ]
-    timestamp: Annotated[
-        AwareDatetime,
-        Field(
-            description="Hub timestamp when the declaration was created\n\n**Precision:** Microseconds (6 decimal places)\n**Source:** Derived from the 52-bit timestamp field in the ISCC-ID\n**Format:** ISO 8601 with Z suffix\n",
-            examples=["2025-01-20T14:32:18.123456Z", "2025-01-19T09:15:42.789012Z"],
-        ),
-    ]
-    pubkey: Annotated[
-        str,
-        Field(
-            description="Ed25519 public key of the declaring actor\n\n**Format:** Multibase z-base58-btc encoded (starts with 'z6Mk')\n**Length:** Exactly 48 characters\n",
-            examples=[
-                "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso",
-                "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
-            ],
-            max_length=48,
-            min_length=48,
-            pattern="^z6Mk[1-9A-HJ-NP-Za-km-z]{44}$",
-        ),
-    ]
-    controller: Annotated[
-        str | None,
-        Field(
-            description="DID or W3C CID Document URL identifying the key controller\n\n**Optional:** Omitted from response if not provided by declarer\n**Common formats:** `did:web:`, `did:key:`, `https://` URL\n",
-            examples=[
-                "did:web:example.com",
-                "did:key:z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso",
-                "https://example.com/.well-known/controller/123",
-            ],
-            max_length=2048,
-            min_length=0,
-        ),
-    ] = None
-    gateway: Annotated[
-        str | None,
-        Field(
-            description="Fully expanded HTTP(S) URL for metadata discovery\n\n**Important:** This field returns the expanded URL with all variables resolved,\nnot the URI template. If the declaration included a template like\n`https://example.com/metadata/{iscc_id}`, this field will contain the\nresolved URL like `https://example.com/metadata/maighfecjmopmiab`.\n\n**Template variable format:**\n- `{iscc_id}` → lowercase without prefix (e.g., `maighfecjmopmiab`)\n- `{iscc_code}` → lowercase without prefix (e.g., `ked572p4a0f5k60...`)\n- `{datahash}` → lowercase as-is (e.g., `1e205ca7815...`)\n\n**Optional:** Omitted from response if not provided in the original declaration.\n",
-            examples=[
-                "https://example.com/metadata/maighfecjmopmiab",
-                "https://gateway.iscc.io/iscc_id/mabxw23fqlcypkiz",
-                "https://madkz5plnrxgtvqb.gw.example.com/cid",
-            ],
-            max_length=2048,
-            min_length=0,
-            pattern="^(https?://[^\\s]+)?$",
-        ),
-    ] = None
-    metahash: Annotated[
-        str | None,
-        Field(
-            description="Blake3 hash of seed metadata (optional commitment)\n\n**Optional:** Omitted from response if not provided by declarer\n**Format:** 256-bit lowercase hex-encoded multihash\n**Prefix:** `1e20` (Blake3 identifier)\n",
-            examples=["1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598"],
-            max_length=68,
-            min_length=68,
-            pattern="^1e20[0-9a-f]{64}$",
-        ),
-    ] = None
 
 
 class Signature(RootModel[IsccSignature]):

@@ -320,9 +320,11 @@ def test_events():
         # Sign the note
         signed_note = icr.sign_json(note, keypair)
 
-        # Sequence it to create event with proper event_hash
-        seq_num, iscc_id_bytes = sequence_iscc_note(signed_note)
-        event = Event.objects.get(seq=seq_num)
+        # Sequence it to create event with proper event_hash. The sequencer
+        # returns the 0-based leaf index; fetch the legacy Event by ISCC-ID so
+        # this fixture does not depend on the seq numbering.
+        _, iscc_id_bytes = sequence_iscc_note(signed_note)
+        event = Event.objects.get(iscc_id=iscc_id_bytes)
         events.append(event)
 
     return events

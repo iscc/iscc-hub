@@ -1,4 +1,5 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "http://purl.org/iscc/schema/iscc-log-entry-0.8.0.json"
 title: "LogEntry"
 type: object
 description: |
@@ -7,25 +8,21 @@ description: |
   See §5.4 of the IDP Declaration Profile. The byte framing of log entries
   within the transparency-log byte stream is defined by the ISCC-Log
   specification.
+
+  The entry self-describes via its own `$schema`. Whether the entry is a
+  declaration or a deletion is derived from the signed `note.$schema`
+  (`iscc-note-0.8.0` vs `iscc-note-delete-0.8.0`), not a separate field.
 required:
-  - v
-  - type
+  - $schema
   - iscc_id
   - note
 additionalProperties: false
 properties:
-  v:
-    type: integer
-    const: 1
-    description: |
-      Entry-format version. MUST equal 1 in this profile.
-  type:
+  $schema:
     type: string
-    enum:
-      - declaration
-      - deletion
+    const: "http://purl.org/iscc/schema/iscc-log-entry-0.8.0.json"
     description: |
-      Entry type discriminator.
+      Published schema URI for the log-entry envelope. Sorts first under JCS.
   iscc_id:
     $ref: "./common.yaml#/properties/iscc_id"
   note:
@@ -35,11 +32,11 @@ properties:
     description: |
       The verbatim signed object that the declarer submitted.
 
-      For `type` = `"declaration"`, MUST be an IsccNote.
-      For `type` = `"deletion"`, MUST be an IsccNoteDelete.
+      An IsccNote (`note.$schema` = iscc-note-0.8.0) for a declaration entry,
+      or an IsccNoteDelete (`note.$schema` = iscc-note-delete-0.8.0) for a
+      deletion entry.
 examples:
-  - v: 1
-    type: "declaration"
+  - $schema: "http://purl.org/iscc/schema/iscc-log-entry-0.8.0.json"
     iscc_id: "ISCC:MAEK2NC3Y5VZ4XQM"
     note:
       $schema: "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
@@ -50,8 +47,7 @@ examples:
         version: "ISCC-SIG v1.0"
         pubkey: "z6MkmeDbeC5BecFmVnTHA5PWEBaVUrGLdB3weGE2KYnXfHso"
         proof: "z5j9nrpPw3oYSAN4XbCvk2sUtkwrueTD6V2Y35gS1KFTode2ED2YQWokPmoXw6QBYtYEFxtAQfzBhdNyr8PMwP79G"
-  - v: 1
-    type: "deletion"
+  - $schema: "http://purl.org/iscc/schema/iscc-log-entry-0.8.0.json"
     iscc_id: "ISCC:MAEK2NC3Y5VZ4XQM"
     note:
       $schema: "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"

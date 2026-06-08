@@ -14,26 +14,25 @@ from iscc_hub.models import PubKey
 ISCC_NOTE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
 
 
-@pytest.fixture(autouse=True)
-def clear_database():
-    """Clear database before each test."""
-    # Clear database before test
+def _wipe_log_tables():
+    """Remove all rows from the log/declaration tables, resetting the sequencer state."""
     try:
         with connection.cursor() as cursor:
             cursor.execute("DELETE FROM iscc_event")
             cursor.execute("DELETE FROM iscc_declaration")
+            cursor.execute("DELETE FROM iscc_logrecord")
+            cursor.execute("DELETE FROM iscc_logstate")
             connection.commit()
     except Exception:
         pass  # Tables might not exist yet
+
+
+@pytest.fixture(autouse=True)
+def clear_database():
+    """Clear database before and after each test."""
+    _wipe_log_tables()
     yield
-    # Clean up after test
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM iscc_event")
-            cursor.execute("DELETE FROM iscc_declaration")
-            connection.commit()
-    except Exception:
-        pass
+    _wipe_log_tables()
 
 
 @pytest.mark.django_db(transaction=False)
@@ -157,18 +156,16 @@ def test_declaration_permission_allowed_with_active_pubkey(
         # Should be successful
         assert response.status_code == 201
         data = response.json()
-        # Response is an IsccReceipt (W3C Verifiable Credential)
-        assert "@context" in data
-        assert "credentialSubject" in data
-        assert "declaration" in data["credentialSubject"]
-        assert "iscc_id" in data["credentialSubject"]["declaration"]
+        # Response is the minimal DeclarationAck (iscc_id + seq)
+        assert set(data.keys()) == {"iscc_id", "seq"}
+        assert data["iscc_id"].startswith("ISCC:")
 
 
 @pytest.mark.django_db(transaction=False)
 def test_declaration_success_minimal(
     live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
 ):
-    """Test successful declaration with minimal IsccNote returns IsccReceipt."""
+    """Test successful declaration with minimal IsccNote returns the minimal ack."""
     import iscc_crypto as icr
 
     # Create a minimal note with current timestamp
@@ -193,23 +190,76 @@ def test_declaration_success_minimal(
         assert response.status_code == 201
         data = response.json()
 
-        # Verify IsccReceipt structure
-        assert "@context" in data
-        assert "type" in data
-        assert "issuer" in data
-        assert "credentialSubject" in data
-        assert "proof" in data
+        # POST returns the minimal DeclarationAck (no VC, no signing on the hot path).
+        assert set(data.keys()) == {"iscc_id", "seq"}
+        assert data["iscc_id"].startswith("ISCC:")
+        # The ack exposes the 0-based log leaf index; the first declaration on a
+        # freshly-cleared log commits leaf 0.
+        assert data["seq"] == 0
 
-        # Verify credential subject contains declaration
-        credential_subject = data["credentialSubject"]
-        assert "id" in credential_subject
-        assert "declaration" in credential_subject
 
-        # Verify declaration contains expected fields
-        declaration = credential_subject["declaration"]
-        assert "seq" in declaration
-        assert "iscc_id" in declaration
-        assert "iscc_note" in declaration
+@pytest.mark.django_db(transaction=True)
+def test_declaration_receipt_endpoint(
+    live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
+):
+    """GET /declaration/{iscc_id}/receipt returns the full signed IsccReceipt for a declaration."""
+    import iscc_crypto as icr
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": current_timestamp,
+    }
+    signed_note = icr.sign_json(note, example_keypair)
+
+    with httpx.Client(headers={"Accept": "application/json"}) as client:
+        post = client.post(f"{live_server.url}/declaration", json=signed_note)
+        assert post.status_code == 201
+        iscc_id = post.json()["iscc_id"]
+
+        # Fetch the verifiable receipt reconstructed from the stored log record.
+        response = client.get(f"{live_server.url}/declaration/{iscc_id}/receipt")
+        assert response.status_code == 200
+        receipt = response.json()
+
+        # Verify IsccReceipt (W3C Verifiable Credential) structure.
+        assert receipt["@context"] == ["https://www.w3.org/ns/credentials/v2"]
+        assert receipt["type"] == ["VerifiableCredential", "IsccReceipt"]
+        assert "issuer" in receipt
+        assert receipt["proof"]["cryptosuite"] == "eddsa-jcs-2022"
+
+        declaration = receipt["credentialSubject"]["declaration"]
+        assert declaration["seq"] == 0
+        assert declaration["iscc_id"] == iscc_id
+        # The receipt carries the verbatim signed note, so its signature re-verifies.
+        assert declaration["iscc_note"] == signed_note
+        # Re-verify the embedded note's signature from the bytes the Hub round-tripped through
+        # LogRecord.record — structural equality alone would not catch a re-serialization that
+        # changed the signing-input bytes; the receipt must be self-verifying from the log.
+        assert icr.verify_json(declaration["iscc_note"]).signature_valid is True
+
+
+@pytest.mark.django_db(transaction=True)
+def test_declaration_receipt_not_found(live_server):
+    """GET receipt for a well-formed but unknown ISCC-ID returns 404."""
+    import tests.conftest as conftest
+
+    fake_iscc_id = conftest.generate_test_iscc_id(hub_id=1, seq=999999)
+    with httpx.Client(headers={"Accept": "application/json"}) as client:
+        response = client.get(f"{live_server.url}/declaration/{fake_iscc_id}/receipt")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db(transaction=True)
+def test_declaration_receipt_invalid_iscc_id(live_server):
+    """GET receipt for a malformed ISCC-ID returns 404."""
+    with httpx.Client(headers={"Accept": "application/json"}) as client:
+        response = client.get(f"{live_server.url}/declaration/not-an-iscc-id/receipt")
+
+    assert response.status_code == 404
 
 
 @pytest.mark.django_db(transaction=False)
@@ -319,10 +369,10 @@ def test_declaration_duplicate_forced(
         response = client.post(f"{live_server.url}/declaration", json=signed_second, headers=headers)
         assert response.status_code == 201
 
-        # Should return valid receipt
+        # Should return the minimal ack with a freshly minted ISCC-ID
         data = response.json()
-        assert "credentialSubject" in data
-        assert "declaration" in data["credentialSubject"]
+        assert set(data.keys()) == {"iscc_id", "seq"}
+        assert data["iscc_id"].startswith("ISCC:")
 
 
 @pytest.mark.django_db(transaction=False)
@@ -572,12 +622,9 @@ def test_issued_iscc_id_passes_iscc_core_validation(
         assert response.status_code == 201
         data = response.json()
 
-        # Extract ISCC-ID from receipt (it's in credentialSubject.declaration)
-        assert "credentialSubject" in data
-        assert "declaration" in data["credentialSubject"]
-        assert "iscc_id" in data["credentialSubject"]["declaration"]
-
-        iscc_id = data["credentialSubject"]["declaration"]["iscc_id"]
+        # Extract the ISCC-ID from the minimal ack.
+        assert "iscc_id" in data
+        iscc_id = data["iscc_id"]
 
         # Validate format
         assert isinstance(iscc_id, str)

@@ -105,19 +105,19 @@ def main():
     print(json.dumps(note, indent=2))
 
     print(f"\nDeclaring on hub ({hub_url})...")
-    receipt = declare_on_hub(note, hub_url)
+    ack = declare_on_hub(note, hub_url)
 
-    if receipt:
+    if ack:
         print("\n✅ Declaration successful!")
-        print("\nReceipt:")
-        print(json.dumps(receipt, indent=2))
+        print("\nResponse (DeclarationAck):")
+        print(json.dumps(ack, indent=2))
 
-        # Extract ISCC-ID from the receipt structure
-        if "credentialSubject" in receipt and "declaration" in receipt["credentialSubject"]:
-            iscc_id = receipt["credentialSubject"]["declaration"].get("iscc_id")
-            if iscc_id:
-                base_url = hub_url.rstrip("/")
-                print(f"\n🔗 View declaration: {base_url}/declaration/{iscc_id}")
+        # The POST response is a minimal ack: {"iscc_id": ..., "seq": ...}.
+        iscc_id = ack.get("iscc_id")
+        if iscc_id:
+            base_url = hub_url.rstrip("/")
+            print(f"\n🔗 View declaration: {base_url}/declaration/{iscc_id}")
+            print(f"🧾 Verifiable receipt: {base_url}/declaration/{iscc_id}/receipt")
     else:
         print("\n❌ Declaration failed")
 

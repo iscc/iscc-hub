@@ -13,9 +13,9 @@ import iscc_hub
 from iscc_hub.exceptions import BaseApiException, DuplicateDeclarationError, NotFoundError, UnauthorizedError
 from iscc_hub.gateway import expand_gateway_url
 from iscc_hub.iscc_id import IsccID
-from iscc_hub.models import Event, Hub, IsccDeclaration, PubKey
+from iscc_hub.models import Hub, IsccDeclaration, LogRecord, PubKey
 from iscc_hub.receipt import build_iscc_receipt
-from iscc_hub.schema import ErrorResponse, IsccReceipt
+from iscc_hub.schema import DeclarationAck, ErrorResponse, IsccReceipt
 from iscc_hub.schema import IsccDeclaration as IsccDeclarationSchema
 from iscc_hub.sequencer import sequence_iscc_delete, sequence_iscc_note
 from iscc_hub.validators import validate_iscc_note, validate_iscc_note_delete
@@ -139,7 +139,7 @@ def search(request: HttpRequest):
     return [declaration_to_dict(decl) for decl in results]
 
 
-@api.post("/declaration", response={201: IsccReceipt, codes_4xx: ErrorResponse})
+@api.post("/declaration", response={201: DeclarationAck, codes_4xx: ErrorResponse})
 def declaration(request):
     # Validate and parse request body (includes size check and JSON parsing)
     # Timestamp handling is policy-driven (admin-editable Constance values)
@@ -158,29 +158,67 @@ def declaration(request):
         if not pubkey_obj or not pubkey_obj.is_active:
             raise UnauthorizedError("Invalid or inactive pubkey")
 
-    # Check for duplicate declarations (only if force header not present)
+    # Check for duplicate declarations (only if force header not present).
+    # Dedup reads the append-only history (LogRecord), so a declared-then-deleted
+    # datahash stays blocked from re-declaration; X-Force-Declaration is the opt-in override.
     force_declaration = request.headers.get("X-Force-Declaration", "").lower() in ("true", "1")
     if not force_declaration:
-        existing = Event.objects.filter(datahash=valid_data["datahash"]).first()
+        existing = (
+            LogRecord.objects.filter(datahash=valid_data["datahash"], type=LogRecord.RecordType.DECLARATION)
+            .order_by("index")
+            .first()
+        )
         if existing:
             message = f"Duplicate declaration for datahash: {valid_data['datahash']}"
-            existing_data = json.loads(existing.event_data.decode("utf-8"))
-            existing_actor = existing_data.get("note", {}).get("signature", {}).get("pubkey", "")
+            # existing.pubkey is already the multibase string at runtime (PubkeyField.from_db_value);
+            # str() is only a cast for the type checker, which types this BinaryField subclass as bytes.
             raise DuplicateDeclarationError(
-                message, existing_iscc_id=str(IsccID(existing.iscc_id)), existing_actor=existing_actor
+                message, existing_iscc_id=str(IsccID(existing.iscc_id)), existing_actor=str(existing.pubkey)
             )
 
     # Sequencing (now includes materialized view creation)
     seq, iscc_id = sequence_iscc_note(valid_data)
 
-    # Create and return IsccReceipt
+    # Return a minimal acknowledgement; the full signed IsccReceipt is built on demand
+    # from the stored log record via GET /declaration/{iscc_id}/receipt.
+    return api.create_response(request, {"iscc_id": str(IsccID(iscc_id)), "seq": seq}, status=201)
+
+
+@api.get("/declaration/{iscc_id}/receipt", response={200: IsccReceipt, codes_4xx: ErrorResponse})
+def declaration_receipt(request, iscc_id: str):
+    # type: (HttpRequest, str) -> object
+    """
+    Return the signed IsccReceipt for a previously sequenced declaration.
+
+    Reconstructs the W3C Verifiable Credential from the stored log record. This is the
+    verifiable counterpart to the minimal acknowledgement returned by POST /declaration.
+
+    :param request: The incoming HTTP request
+    :param iscc_id: The ISCC-ID of the declaration
+    :return: Signed IsccReceipt JSON, or a 404 error if no declaration exists
+    """
+    try:
+        iscc_id_bytes = bytes(IsccID(iscc_id))
+    except Exception:
+        raise NotFoundError(f"Declaration not found: {iscc_id}") from None
+
+    record = (
+        LogRecord.objects.filter(iscc_id=iscc_id_bytes, type=LogRecord.RecordType.DECLARATION)
+        .order_by("index")
+        .first()
+    )
+    if not record:
+        raise NotFoundError(f"Declaration not found: {iscc_id}")
+
+    # The stored record holds the verbatim {$schema, iscc_id, note} log-entry envelope.
+    entry = json.loads(bytes(record.record).decode("utf-8"))
     declaration_data = {
-        "iscc_note": valid_data,
-        "seq": seq,
-        "iscc_id_str": str(IsccID(iscc_id)),
+        "iscc_note": entry["note"],
+        "seq": record.index,
+        "iscc_id_str": entry["iscc_id"],
     }
     receipt = build_iscc_receipt(declaration_data)
-    return api.create_response(request, receipt, status=201)
+    return api.create_response(request, receipt, status=200)
 
 
 @api.delete("/declaration/{iscc_id}", response={204: None, codes_4xx: ErrorResponse})
@@ -211,28 +249,31 @@ def delete_declaration(request, iscc_id: str):
     if valid_data["iscc_id"] != iscc_id:
         raise NotFoundError(f"ISCC-ID mismatch: URL {iscc_id} != body {valid_data['iscc_id']}")
 
-    # Find the original declaration with matching ISCC-ID
-    original_event = Event.objects.filter(iscc_id=bytes(IsccID(iscc_id)), event_type=1).select_related().first()
+    # Find the original declaration with matching ISCC-ID in the append-only history.
+    iscc_id_bytes = bytes(IsccID(iscc_id))
+    original = (
+        LogRecord.objects.filter(iscc_id=iscc_id_bytes, type=LogRecord.RecordType.DECLARATION)
+        .order_by("index")
+        .first()
+    )
 
-    if not original_event:
+    if not original:
         raise NotFoundError(f"Declaration not found: {iscc_id}")
 
-    # Check if already deleted (look for a deletion event)
-    deletion_event = Event.objects.filter(iscc_id=bytes(IsccID(iscc_id)), event_type=3).first()
+    # Check if already deleted (a deletion leaf exists for this ISCC-ID).
+    deletion = LogRecord.objects.filter(iscc_id=iscc_id_bytes, type=LogRecord.RecordType.DELETION).first()
 
-    if deletion_event:
+    if deletion:
         raise NotFoundError(f"Declaration already deleted: {iscc_id}")
 
-    # Verify that the requester is the same controller who created the declaration
-    original_data = json.loads(original_event.event_data.decode("utf-8"))
-    original_pubkey = original_data.get("note", {}).get("signature", {}).get("pubkey", "")
+    # Verify that the requester is the same controller who created the declaration.
     request_pubkey = valid_data["signature"]["pubkey"]
 
-    if original_pubkey != request_pubkey:
+    if original.pubkey != request_pubkey:
         raise UnauthorizedError("Not authorized to delete this declaration")
 
     # Sequence the deletion event (now includes materialized view deletion)
-    sequence_iscc_delete(valid_data, original_event.datahash)
+    sequence_iscc_delete(valid_data, original.datahash)
 
     # Return 204 No Content with empty body
     return Status(204, None)

@@ -244,6 +244,93 @@ class IsccDeclaration(models.Model):
         return f"{self.iscc_id} ({status})"
 
 
+class LogState(models.Model):
+    """
+    Single-writer state for the portable, database-agnostic sequencer.
+
+    Holds the explicit gapless counter and the monotonic microsecond clock that
+    the sequencer reads and advances under a row lock inside one atomic
+    transaction. Exactly one row exists per Hub; its primary key matches
+    settings.ISCC_HUB_ID.
+    """
+
+    hub_id = models.PositiveSmallIntegerField(
+        primary_key=True,
+        help_text="Hub identifier (0-4095); matches settings.ISCC_HUB_ID",
+    )
+
+    tree_size = models.BigIntegerField(
+        default=0,
+        help_text="Number of committed records; the next 0-based leaf index equals this value",
+    )
+
+    last_timestamp_us = models.BigIntegerField(
+        default=0,
+        help_text="High-water mark of the Hub microsecond clock for monotonic ISCC-IDs",
+    )
+
+    class Meta:
+        db_table = "iscc_logstate"
+        verbose_name = "Log State"
+        verbose_name_plural = "Log State"
+
+    def __str__(self):
+        # type: () -> str
+        """String representation of the log state."""
+        return f"LogState(hub={self.hub_id}, tree_size={self.tree_size})"
+
+
+class LogRecord(models.Model):
+    """
+    Append-only transparency-log record (one row per Merkle-tree leaf).
+
+    The `record` column holds the exact JCS-canonical bytes of the log-entry
+    envelope ({$schema, iscc_id, note}) committed to the tree — the leaf preimage
+    and the source of truth for verification. The remaining columns are auxiliary
+    indexes derived from the record for fast write-path lookups and policy checks.
+    """
+
+    class RecordType(models.TextChoices):
+        """Record discriminator derived from the signed note schema."""
+
+        DECLARATION = "declaration", "Declaration"
+        DELETION = "deletion", "Deletion"
+
+    index = models.BigIntegerField(
+        primary_key=True,
+        help_text="Zero-based leaf index (sequence number); the first record is 0",
+    )
+
+    record = models.BinaryField(help_text="JCS-canonical log-entry envelope bytes (the leaf preimage)")
+
+    iscc_id = IsccIDField(db_index=True, help_text="ISCC-ID carried by the record")
+
+    type = models.CharField(
+        max_length=11,
+        choices=RecordType.choices,
+        db_index=True,
+        help_text="Record type derived from the note schema (declaration|deletion)",
+    )
+
+    nonce = HexField(unique=True, help_text="128-bit hex nonce; unique across all records")
+
+    datahash = HexField(db_index=True, help_text="Blake3 multihash of the declared content")
+
+    pubkey = PubkeyField(db_index=True, help_text="Ed25519 public key of the declaring actor")
+
+    event_time = models.DateTimeField(db_index=True, help_text="Hub microsecond time when the record was sequenced")
+
+    class Meta:
+        db_table = "iscc_logrecord"
+        verbose_name = "Log Record"
+        verbose_name_plural = "Log Records"
+
+    def __str__(self):
+        # type: () -> str
+        """String representation of the log record."""
+        return f"LogRecord #{self.index}: {self.type} {self.iscc_id}"
+
+
 class Checkpoint(models.Model):
     """
     Cryptographic checkpoint of the ISCC Hub event log.

@@ -132,26 +132,32 @@ WSGI_APPLICATION = "iscc_hub.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+#
+# The sequencer is database-agnostic and runs on both SQLite and PostgreSQL.
+# Select the backend with ISCC_HUB_DB_ENGINE ("sqlite" default, "postgres").
+# SQLite serializes writers with BEGIN IMMEDIATE (transaction_mode=IMMEDIATE);
+# PostgreSQL serializes them with a row lock on the singleton LogState row.
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ISCC_HUB_DB_PATH,
-        "CONN_MAX_AGE": 600,
-        "OPTIONS": {
-            "transaction_mode": "IMMEDIATE",  # Required for gapless sequences !!!
-            "init_command": (
-                "PRAGMA journal_mode=WAL;"
-                f"PRAGMA synchronous={ISCC_HUB_SQLITE_SYNC_MODE};"
-                "PRAGMA busy_timeout=5000;"
-                "PRAGMA cache_size=10000;"
-            ),
-        },
-        "TEST": {
-            "NAME": DATA_DIR / "test_db.sqlite3",  # Use persisted file, not in-memory
+ISCC_HUB_DB_ENGINE = env.str("ISCC_HUB_DB_ENGINE", default="sqlite").lower()
+
+if ISCC_HUB_DB_ENGINE in ("postgres", "postgresql"):  # pragma: no cover - exercised by the Postgres CI job
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": env.str("ISCC_HUB_DB_NAME_PG", default="iscc_hub"),
+            "USER": env.str("ISCC_HUB_DB_USER", default="postgres"),
+            "PASSWORD": env.str("ISCC_HUB_DB_PASSWORD", default="postgres"),
+            "HOST": env.str("ISCC_HUB_DB_HOST", default="localhost"),
+            "PORT": env.str("ISCC_HUB_DB_PORT", default="5432"),
             "CONN_MAX_AGE": 600,
-            "SERIALIZE": True,  # Serialize database state for proper transaction testing
-            # Explicitly set OPTIONS for test database to match production settings
+        }
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ISCC_HUB_DB_PATH,
+            "CONN_MAX_AGE": 600,
             "OPTIONS": {
                 "transaction_mode": "IMMEDIATE",  # Required for gapless sequences !!!
                 "init_command": (
@@ -161,9 +167,23 @@ DATABASES = {
                     "PRAGMA cache_size=10000;"
                 ),
             },
-        },
+            "TEST": {
+                "NAME": DATA_DIR / "test_db.sqlite3",  # Use persisted file, not in-memory
+                "CONN_MAX_AGE": 600,
+                "SERIALIZE": True,  # Serialize database state for proper transaction testing
+                # Explicitly set OPTIONS for test database to match production settings
+                "OPTIONS": {
+                    "transaction_mode": "IMMEDIATE",  # Required for gapless sequences !!!
+                    "init_command": (
+                        "PRAGMA journal_mode=WAL;"
+                        f"PRAGMA synchronous={ISCC_HUB_SQLITE_SYNC_MODE};"
+                        "PRAGMA busy_timeout=5000;"
+                        "PRAGMA cache_size=10000;"
+                    ),
+                },
+            },
+        }
     }
-}
 
 
 ATOMIC_REQUESTS = False  # This is the default, but we better make sure with transaction mode IMMEDIATE

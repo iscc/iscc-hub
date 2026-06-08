@@ -39,9 +39,8 @@ def test_delete_declaration_success(api_client, example_keypair, example_iscc_da
         headers={"Content-Type": "application/json"},
     )
     assert response.status_code == 201, f"POST failed: {response.json()}"
-    receipt = response.json()
-    # The ISCC-ID is in credentialSubject.declaration.iscc_id
-    iscc_id = receipt["credentialSubject"]["declaration"]["iscc_id"]
+    # POST returns the minimal ack containing the assigned ISCC-ID.
+    iscc_id = response.json()["iscc_id"]
 
     # Now prepare the deletion request with a new unique nonce
     deletion_note = {
@@ -90,6 +89,65 @@ def test_delete_declaration_success(api_client, example_keypair, example_iscc_da
 
 
 @pytest.mark.django_db(transaction=True)
+def test_redeclaration_after_deletion_is_blocked(api_client, example_keypair, example_iscc_data, current_timestamp):
+    # type: (object, icr.KeyPair, dict, str) -> None
+    """Dedup reads append-only history: a declared-then-deleted datahash stays blocked.
+
+    The declaration leaf remains in the log after deletion (only a deletion leaf is appended),
+    so re-declaring the same datahash returns 409 by default; X-Force-Declaration overrides it.
+    This pins the load-bearing distinction between LogRecord (history) and IsccDeclaration
+    (current state) — if dedup were repointed at the current-state view, this would regress to 201.
+    """
+
+    def _declare(headers=None):
+        # type: (dict|None) -> object
+        note = {
+            "$schema": ISCC_NOTE_SCHEMA,
+            "iscc_code": example_iscc_data["iscc"],
+            "datahash": example_iscc_data["datahash"],
+            "nonce": icr.create_nonce(1),
+            "timestamp": current_timestamp,
+        }
+        signed = icr.sign_json(note, example_keypair)
+        return api_client.post(
+            "/declaration",
+            data=json.dumps(signed).encode("utf-8"),
+            headers={"Content-Type": "application/json", **(headers or {})},
+        )
+
+    # Declare, then delete.
+    response = _declare()
+    assert response.status_code == 201, f"POST failed: {response.json()}"
+    iscc_id = response.json()["iscc_id"]
+
+    deletion = icr.sign_json(
+        {
+            "$schema": ISCC_NOTE_DELETE_SCHEMA,
+            "iscc_id": iscc_id,
+            "nonce": icr.create_nonce(1),
+            "timestamp": current_timestamp,
+        },
+        example_keypair,
+    )
+    response = api_client.delete(
+        f"/declaration/{iscc_id}",
+        data=json.dumps(deletion).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 204
+
+    # Re-declaring the same datahash (fresh nonce, no force header) is blocked by the history dedup.
+    response = _declare()
+    assert response.status_code == 409, f"expected duplicate block, got {response.status_code}: {response.json()}"
+    assert response.json()["error"]["code"] == "duplicate_declaration"
+
+    # X-Force-Declaration overrides the block and mints a fresh ISCC-ID.
+    response = _declare(headers={"X-Force-Declaration": "true"})
+    assert response.status_code == 201, f"forced re-declaration failed: {response.json()}"
+    assert response.json()["iscc_id"] != iscc_id
+
+
+@pytest.mark.django_db(transaction=True)
 def test_delete_declaration_without_timestamp(api_client, example_keypair, example_iscc_data, current_timestamp):
     # type: (object, icr.KeyPair, dict, str) -> None
     """
@@ -113,7 +171,7 @@ def test_delete_declaration_without_timestamp(api_client, example_keypair, examp
         headers={"Content-Type": "application/json"},
     )
     assert response.status_code == 201, f"POST failed: {response.json()}"
-    iscc_id = response.json()["credentialSubject"]["declaration"]["iscc_id"]
+    iscc_id = response.json()["iscc_id"]
 
     # Delete it with a signed request that carries no `timestamp` field
     deletion_note = {
@@ -159,8 +217,7 @@ def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, exampl
         headers={"Content-Type": "application/json"},
     )
     assert response.status_code == 201
-    receipt1 = response.json()
-    iscc_id1 = receipt1["credentialSubject"]["declaration"]["iscc_id"]
+    iscc_id1 = response.json()["iscc_id"]
 
     # Create second declaration with different content
     import tests.conftest as conftest
@@ -182,8 +239,7 @@ def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, exampl
         headers={"Content-Type": "application/json"},
     )
     assert response.status_code == 201
-    receipt2 = response.json()
-    iscc_id2 = receipt2["credentialSubject"]["declaration"]["iscc_id"]
+    iscc_id2 = response.json()["iscc_id"]
 
     # Ensure we have two different ISCC-IDs
     assert iscc_id1 != iscc_id2
@@ -267,8 +323,7 @@ def test_delete_declaration_unauthorized(api_client, example_keypair, example_is
         headers={"Content-Type": "application/json"},
     )
     assert response.status_code == 201
-    receipt = response.json()
-    iscc_id = receipt["credentialSubject"]["declaration"]["iscc_id"]
+    iscc_id = response.json()["iscc_id"]
 
     # Try to delete with different keypair
     different_keypair = icr.key_generate(controller="did:web:different.com")

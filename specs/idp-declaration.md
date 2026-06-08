@@ -108,7 +108,8 @@ A **conforming declarer** is software that:
 - Computes an IsccSignature whose structure satisfies [§5.2](#52-iscc-signature) over the canonicalized IsccNote per
     [§8.2](#82-signing-scope).
 - Submits the IsccNote to a Hub per [§9](#9-declaration-submission).
-- Validates the IsccReceipt returned by the Hub per [§5.3](#53-isccreceipt).
+- Retrieves and validates the IsccReceipt for an accepted declaration per [§5.3](#53-isccreceipt) and
+    [§9.7](#97-receipt-retrieval).
 
 ### 2.2 Hub conformance
 
@@ -118,7 +119,8 @@ A **conforming Hub** is server software that:
 - Validates incoming IsccNotes per the algorithm in [§9.3](#93-validation-procedure).
 - Issues ISCC-IDs whose structure satisfies [§7](#7-iscc-id).
 - Appends a log entry per [§5.4](#54-log-entry) for every accepted declaration.
-- Returns an IsccReceipt per [§5.3](#53-isccreceipt) for every accepted declaration.
+- Returns a DeclarationAck per [§9.4](#94-response) for every accepted declaration, and makes the corresponding
+    IsccReceipt ([§5.3](#53-isccreceipt)) retrievable per [§9.7](#97-receipt-retrieval).
 - Accepts deletion requests per [§10](#10-declaration-deletion) and appends the corresponding log entry.
 
 A Hub MAY additionally implement metadata forwarding per [§13](#13-metadata-forwarding). A Hub that implements metadata
@@ -157,9 +159,9 @@ The following terms are used throughout this specification.
 This section is **informative**.
 
 The Declaration Profile sits at the **Hub layer** of the three-layer IDP architecture (Hub, Gateway, Registry). A
-declarer interacts with a Hub by submitting an IsccNote and receiving an IsccReceipt. The Hub records the declaration in
-its transparency log and assigns an ISCC-ID. Hubs do not store user-supplied descriptive metadata; that responsibility
-belongs to the Gateway and Registry layers.
+declarer interacts with a Hub by submitting an IsccNote and receiving an acknowledgement, then retrieves a signed
+IsccReceipt as durable proof. The Hub records the declaration in its transparency log and assigns an ISCC-ID. Hubs do
+not store user-supplied descriptive metadata; that responsibility belongs to the Gateway and Registry layers.
 
 A typical declaration sequence proceeds as follows.
 
@@ -168,8 +170,9 @@ A typical declaration sequence proceeds as follows.
     12 bits equal the target Hub's `hub_id`.
 3. The declarer canonicalizes the IsccNote per [§8.2](#82-signing-scope), signs it with their Ed25519 private key, and
     submits the result to the Hub.
-4. The Hub validates the IsccNote, atomically assigns an ISCC-ID, appends a log entry, and returns an IsccReceipt.
-5. The declarer stores the IsccReceipt as durable proof of the declaration.
+4. The Hub validates the IsccNote, atomically assigns an ISCC-ID, appends a log entry, and returns a DeclarationAck
+    carrying the assigned ISCC-ID and its log sequence number.
+5. The declarer retrieves the signed IsccReceipt from the Hub and stores it as durable proof of the declaration.
 
 ## 5. Abstract data model
 
@@ -252,7 +255,8 @@ Field semantics:
 ### 5.3 IsccReceipt
 
 An **IsccReceipt** is a W3C Verifiable Credential [[VC-DATA-MODEL]](#vc-data-model) issued by a Hub as proof that a
-declaration has been accepted and committed to the transparency log.
+declaration has been accepted and committed to the transparency log. A Hub does not return the receipt on the submission
+hot path; a declarer retrieves it from the endpoint defined in [§9.7](#97-receipt-retrieval).
 
 The receipt is a self-contained credential: any verifier holding the receipt, the Hub's public key, and (for inclusion
 verification) a log checkpoint can confirm the declaration's authenticity and the time at which it was logged, without
@@ -304,19 +308,22 @@ at which the Hub committed the declaration to the log (see [§7](#7-iscc-id)).
 A **log entry** is the canonical JSON object that a Hub appends to its transparency log for every accepted declaration
 or deletion. Log entries are the unit over which the transparency log's Merkle tree is constructed.
 
-| Field     | Required | Type                       | Description                               |
-| --------- | -------- | -------------------------- | ----------------------------------------- |
-| `v`       | **MUST** | integer                    | Entry-format version. **MUST** equal `1`. |
-| `type`    | **MUST** | string                     | `"declaration"` or `"deletion"`.          |
-| `iscc_id` | **MUST** | ISCC-ID                    | The ISCC-ID this entry refers to.         |
-| `note`    | **MUST** | IsccNote or IsccNoteDelete | The verbatim signed object.               |
+| Field     | Required | Type                       | Description                                                                                            |
+| --------- | -------- | -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `$schema` | **MUST** | URI                        | Published envelope schema URI; **MUST** equal `http://purl.org/iscc/schema/iscc-log-entry-0.8.0.json`. |
+| `iscc_id` | **MUST** | ISCC-ID                    | The ISCC-ID this entry refers to.                                                                      |
+| `note`    | **MUST** | IsccNote or IsccNoteDelete | The verbatim signed object.                                                                            |
 
-For `type` = `"declaration"`, the `note` field **MUST** contain the original IsccNote, byte-for-byte identical to the
-bytes whose hash was signed by the declarer — including its `$schema` field. A verifier reading the log entry can
-re-verify the declarer's signature without consulting the Hub.
+A log entry self-describes via its own `$schema`. Whether the entry is a **declaration** or a **deletion** is
+**derived** from the signed `note.$schema` (`iscc-note-0.8.0` vs `iscc-note-delete-0.8.0`); there is no separate
+top-level `type` field. Under JCS the `$schema` member sorts first.
 
-For `type` = `"deletion"`, the `note` field **MUST** contain the IsccNoteDelete object signed by the declarer (see
-[§5.5](#55-deletion-entry-isccnotedelete)).
+For a **declaration** entry (`note.$schema` = `iscc-note-0.8.0`), the `note` field **MUST** contain the original
+IsccNote, byte-for-byte identical to the bytes whose hash was signed by the declarer — including its `$schema` field. A
+verifier reading the log entry can re-verify the declarer's signature without consulting the Hub.
+
+For a **deletion** entry (`note.$schema` = `iscc-note-delete-0.8.0`), the `note` field **MUST** contain the
+IsccNoteDelete object signed by the declarer (see [§5.5](#55-deletion-entry-isccnotedelete)).
 
 Log entries are canonicalized with JCS prior to being appended to the log. The exact framing of entries within the log
 byte stream is defined by the *ISCC-Log Specification* and is out of scope here.
@@ -603,8 +610,9 @@ step that fails determines the error response per [§9.5](#95-error-responses).
     - Compose the ISCC-ID from the timestamp and the Hub's `hub_id`.
     - Compose the canonical log entry per [§5.4](#54-log-entry).
     - Append the log entry to the Hub's transparency log.
-13. **Compose and return IsccReceipt.** Build the IsccReceipt per [§5.3](#53-isccreceipt), sign per
-    [§8.5](#85-issccreceipt-signature-procedure), and return it with HTTP status `201 Created`.
+13. **Return a DeclarationAck.** Return HTTP status `201 Created` with a DeclarationAck body per [§9.4](#94-response).
+    The Hub does not build or sign the IsccReceipt on this path; the receipt is composed on demand when retrieved per
+    [§9.7](#97-receipt-retrieval).
 
 If metadata forwarding applies (envelope shape with `metadata` present and `gateway` resolvable per
 [§13](#13-metadata-forwarding)), the Hub **SHOULD** initiate the forward asynchronously after step 12. The forward
@@ -616,7 +624,17 @@ On success, the Hub returns:
 
 - **Status:** `201 Created`.
 - **Content-Type:** `application/json`.
-- **Body:** The IsccReceipt as defined in [§5.3](#53-isccreceipt).
+- **Body:** A **DeclarationAck** object.
+
+The DeclarationAck is a minimal acknowledgement that keeps the submission path free of signing work. It **MUST**
+contain:
+
+| Field     | Required | Type        | Description                                                            |
+| --------- | -------- | ----------- | ---------------------------------------------------------------------- |
+| `iscc_id` | **MUST** | ISCC-ID     | The ISCC-ID assigned by the Hub.                                       |
+| `seq`     | **MUST** | integer ≥ 0 | Gapless 0-based sequence number of the log entry within the Hub's log. |
+
+The full signed IsccReceipt ([§5.3](#53-isccreceipt)) is retrieved separately per [§9.7](#97-receipt-retrieval).
 
 ### 9.5 Error responses
 
@@ -658,7 +676,28 @@ with distinct provenance.
 
 A Hub **MAY** apply a soft duplicate check that rejects a second declaration of a previously seen `datahash` with HTTP
 409 unless the request includes the header `X-Force-Declaration: true`. This is an operator convenience to help
-declarers catch unintended re-submissions. It is **NOT** a protocol-level uniqueness guarantee.
+declarers catch unintended re-submissions. It is **NOT** a protocol-level uniqueness guarantee. A Hub that applies the
+check evaluates it against the append-only history, so a `datahash` that was declared and later deleted remains blocked
+from re-declaration unless `X-Force-Declaration: true` is supplied.
+
+### 9.7 Receipt retrieval
+
+A conforming Hub **MUST** expose the following HTTP endpoint to retrieve the signed IsccReceipt for a previously
+accepted declaration:
+
+```
+GET /declaration/{iscc_id}/receipt
+Accept: application/json
+```
+
+The `{iscc_id}` path parameter is the ISCC-ID assigned at submission. The Hub reconstructs the IsccReceipt from the
+stored log entry — the entry holds the verbatim signed IsccNote, and the entry's sequence number is the receipt `seq` —
+then signs it per [§8.5](#85-issccreceipt-signature-procedure). On success the Hub returns HTTP `200 OK` with the
+IsccReceipt ([§5.3](#53-isccreceipt)) as the `application/json` body. If no declaration exists for the ISCC-ID, the Hub
+**MUST** return HTTP `404` with error code `DECLARATION_NOT_FOUND`.
+
+Because the receipt is rebuilt deterministically from the log entry, retrieval is idempotent and **MAY** be repeated at
+any time.
 
 ## 10. Declaration deletion
 
@@ -703,7 +742,7 @@ A conforming Hub **MUST** perform the following steps in order.
 8. **Check nonce uniqueness.** As in [§9.3](#93-validation-procedure) step 9.
 9. **Atomically commit.** Within a single atomic transaction:
     - Assign a microsecond-precision Hub timestamp strictly greater than the most recent prior Hub timestamp.
-    - Compose the deletion log entry per [§5.4](#54-log-entry) with `type` = `"deletion"`.
+    - Compose the deletion log entry per [§5.4](#54-log-entry) (a deletion entry carries an IsccNoteDelete in `note`).
     - Append the entry to the Hub's transparency log.
     - Remove or mark redacted the materialized declaration record so that subsequent lookups by `iscc_id` reflect the
         deletion.
@@ -1044,8 +1083,7 @@ The first 12 bits of the nonce (`001`) bind this note to a Hub with `hub_id = 1`
 
 ```json
 {
-  "v": 1,
-  "type": "declaration",
+  "$schema": "http://purl.org/iscc/schema/iscc-log-entry-0.8.0.json",
   "iscc_id": "ISCC:MAEK2NC3Y5VZ4XQM",
   "note": {
     "...": "canonical IsccNote, see A.2"
@@ -1057,8 +1095,7 @@ The first 12 bits of the nonce (`001`) bind this note to a Hub with `hub_id = 1`
 
 ```json
 {
-  "v": 1,
-  "type": "deletion",
+  "$schema": "http://purl.org/iscc/schema/iscc-log-entry-0.8.0.json",
   "iscc_id": "ISCC:MAEK2NC3Y5VZ4XQM",
   "note": {
     "...": "canonical IsccNoteDelete, see A.5"

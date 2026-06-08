@@ -2,11 +2,14 @@
 Test fixture loading functionality.
 """
 
+import iscc_crypto as icr
 import pytest
 from django.core.management import call_command
 from django.db.models import Q
 
-from iscc_hub.models import Event, IsccDeclaration
+from iscc_hub.models import Event, IsccDeclaration, LogRecord, LogState
+from iscc_hub.sequencer import sequence_iscc_note
+from tests.conftest import create_iscc_from_text
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
@@ -65,3 +68,34 @@ def test_fixture_data_relationships():
         event = Event.objects.filter(seq=declaration.event_seq).first()
         error_msg = f"No Event with seq={declaration.event_seq} for IsccDeclaration {declaration.iscc_id}"
         assert event is not None, error_msg
+
+
+@pytest.mark.django_db(transaction=True, reset_sequences=True)
+def test_fixture_seeds_log_models_and_allows_next_declaration():
+    # type: () -> None
+    """The fixture seeds LogState/LogRecord so the dual-write continues without a seq collision.
+
+    Regression guard for the missing log-model fixtures: without LogState/LogRecord, a fresh
+    LogState would mint event_seq=1 and collide with the fixture's legacy Event seq=1, and the
+    LogRecord-based dedup/receipt/delete paths would not see the fixture declarations.
+    """
+    call_command("loaddata", "test_data")
+
+    # The log models were dumped and are consistent with the legacy Event log.
+    state = LogState.objects.get()
+    assert state.tree_size == LogRecord.objects.count() == Event.objects.count()
+
+    # The next declaration continues from the loaded counter (no seq collision with fixture Events).
+    data = create_iscc_from_text("fixture-continuation")
+    note = {
+        "iscc_code": data["iscc"],
+        "datahash": data["datahash"],
+        "nonce": icr.create_nonce(1),
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    signed = icr.sign_json(note, icr.key_generate())
+    seq, _ = sequence_iscc_note(signed)
+    # 0-based: the next leaf index equals the loaded tree_size; the dual-written Event.seq
+    # (tree_size + 1) does not collide with the fixture's existing Event rows.
+    assert seq == state.tree_size
+    assert LogRecord.objects.count() == state.tree_size + 1

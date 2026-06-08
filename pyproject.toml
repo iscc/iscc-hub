@@ -17,6 +17,7 @@ dependencies = [
     "iscc-crypto>=0.4.0",
     "niquests>=3.15.2",
     "pillow>=11.3.0",
+    "psycopg[binary]>=3.3.4",
     "pymerkle>=6.1.0",
     "python-dateutil>=2.9.0.post0",
     "pyyaml>=6.0.2",
@@ -47,6 +48,8 @@ dev = [
 [tool.ruff]
 line-length = 119
 target-version = "py312"
+# Django-generated migrations are written by makemigrations, not hand-edited.
+extend-exclude = ["iscc_hub/migrations"]
 
 [tool.ruff.lint]
 select = [
@@ -135,6 +138,7 @@ format-python = { cmd = "uv run ruff format .", help = "Format python code"}
 format-markdown = { cmd = "uv run mdformat README.md docs/ specs/", help = "Format markdown"}
 test-python = {cmd = "uv run pytest -m 'not slow'", help = "Run python tests (excluding slow tests)"}
 test-all = {cmd = "uv run pytest", help = "Run all python tests including slow ones"}
+test-postgres = {cmd = "uv run pytest --no-cov", env = {ISCC_HUB_DB_ENGINE = "postgres"}, help = "Run the suite against PostgreSQL (set ISCC_HUB_DB_HOST/PORT/USER/PASSWORD/NAME_PG; see README)"}
 test-api = {cmd = "uv run schemathesis run iscc_hub/static/openapi.yaml --url http://localhost:8000 -H 'Accept: application/json'", help = "Run API property-based fuzz tests with Schemathesis"}
 test-api-smoke = {cmd = "uv run python scripts/test_api_smoke.py", help = "Run basic API smoke tests for CI"}
 

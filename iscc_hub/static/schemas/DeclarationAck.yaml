@@ -1,0 +1,27 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: "DeclarationAck"
+type: object
+description: |
+  Minimal acknowledgement returned by `POST /declaration`.
+
+  Confirms that the declaration was sequenced into the log and assigned an
+  ISCC-ID. The full signed `IsccReceipt` (W3C Verifiable Credential) is fetched
+  separately from `GET /declaration/{iscc_id}/receipt`, keeping the submission
+  hot path free of signing work.
+required:
+  - iscc_id
+  - seq
+properties:
+  iscc_id:
+    $ref: "./CommonProperties.yaml#/properties/iscc_id"
+  seq:
+    type: integer
+    description: |
+      Zero-based leaf index (sequence number) of the record in the log.
+
+      **Start:** 0 (first record)
+      **Guarantee:** gapless — a missing integer means a missing record
+    minimum: 0
+    examples:
+      - 0
+      - 42

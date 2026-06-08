@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.forms import CharField
 
 from iscc_hub.fields import HexField, IsccIDField, SequenceField
@@ -85,20 +86,28 @@ def test_sequence_field_description():
     assert field.description == "Gap-less integer primary key"
 
 
-def test_sequence_field_db_type():
+def test_sequence_field_db_type_sqlite():
     # type: () -> None
-    """Test that db_type returns INTEGER for SQLite."""
+    """Test that db_type/suffix use the SQLite rowid trick on SQLite."""
     field = SequenceField()
     connection = MagicMock()
+    connection.vendor = "sqlite"
     assert field.db_type(connection) == "INTEGER"
+    assert field.db_type_suffix(connection) == ""
 
 
-def test_sequence_field_db_type_suffix():
-    # type: () -> None
-    """Test that db_type_suffix returns empty string instead of AUTOINCREMENT."""
+def test_sequence_field_db_type_non_sqlite_delegates(monkeypatch):
+    # type: (pytest.MonkeyPatch) -> None
+    """Test that non-SQLite backends defer to the default AutoField behavior."""
     field = SequenceField()
     connection = MagicMock()
-    assert field.db_type_suffix(connection) == ""
+    connection.vendor = "postgresql"
+    sentinel_type = object()
+    sentinel_suffix = object()
+    monkeypatch.setattr(models.AutoField, "db_type", lambda self, conn: sentinel_type)
+    monkeypatch.setattr(models.AutoField, "db_type_suffix", lambda self, conn: sentinel_suffix)
+    assert field.db_type(connection) is sentinel_type
+    assert field.db_type_suffix(connection) is sentinel_suffix
 
 
 # Tests for IsccIDField
@@ -213,6 +222,15 @@ def test_isccid_field_from_db_value_bytes():
     bytes_value = bytes(iscc_id)
     result = field.from_db_value(bytes_value, None, None)
     assert result == "ISCC:MAIGGQRD43YZQUAA"
+
+
+def test_isccid_field_from_db_value_memoryview():
+    # type: () -> None
+    """from_db_value accepts a memoryview (e.g. a psycopg3 binary-format bytea)."""
+    field = IsccIDField()
+    bytes_value = bytes(IsccID("ISCC:MAIGGQRD43YZQUAA"))
+    assert field.from_db_value(memoryview(bytes_value), None, None) == "ISCC:MAIGGQRD43YZQUAA"
+    assert field.to_python(bytearray(bytes_value)) == "ISCC:MAIGGQRD43YZQUAA"
 
 
 def test_isccid_field_get_prep_value_none():
@@ -824,6 +842,20 @@ def test_pubkey_field_from_db_value_bytes():
     result = field.from_db_value(raw_bytes, None, None)
     assert result == kp.public_key
     assert result.startswith("z")
+
+
+def test_pubkey_field_from_db_value_memoryview():
+    # type: () -> None
+    """from_db_value accepts a memoryview/bytearray (psycopg3 binary-format bytea)."""
+    import iscc_crypto as icr
+
+    from iscc_hub.fields import PubkeyField
+
+    field = PubkeyField()
+    kp = icr.key_generate()
+    raw_bytes = icr.pubkey_decode(kp.public_key).public_bytes_raw()
+    assert field.from_db_value(memoryview(raw_bytes), None, None) == kp.public_key
+    assert field.to_python(bytearray(raw_bytes)) == kp.public_key
 
 
 def test_pubkey_field_get_prep_value_none():

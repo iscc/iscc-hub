@@ -29,10 +29,11 @@ def test_event_hash_determinism(full_iscc_note):
     The same event data should always produce the same hash.
     """
     # Sequence the note to create an event
-    seq, iscc_id_bytes = sequence_iscc_note(full_iscc_note)
+    _, iscc_id_bytes = sequence_iscc_note(full_iscc_note)
 
-    # Get the event from database
-    event = Event.objects.get(seq=seq)
+    # Get the event by ISCC-ID; reuse its legacy 1-based seq for the checks below.
+    event = Event.objects.get(iscc_id=iscc_id_bytes)
+    seq = event.seq
 
     # Reconstruct the event data as it was hashed
     with connection.cursor() as cursor:
@@ -95,11 +96,11 @@ def test_event_hash_chaining():
         keypair = icr.key_generate(controller=controller)
         signed_note = icr.sign_json(note, keypair)
 
-        seq, iscc_id_bytes = sequence_iscc_note(signed_note)
-        events_data.append((seq, iscc_id_bytes))
+        _, iscc_id_bytes = sequence_iscc_note(signed_note)
+        events_data.append(iscc_id_bytes)
 
-    # Get only the events we just created
-    events = Event.objects.filter(seq__in=[seq for seq, _ in events_data]).order_by("seq")
+    # Get only the events we just created (looked up by ISCC-ID, ordered by legacy seq).
+    events = Event.objects.filter(iscc_id__in=events_data).order_by("seq")
 
     for i, event in enumerate(events):
         # Deserialize event_data to get the full IsccEvent structure
@@ -141,10 +142,10 @@ def test_event_data_integrity(full_iscc_note):
     The stored event_data should preserve all original note fields.
     """
     # Sequence the note
-    seq, iscc_id_bytes = sequence_iscc_note(full_iscc_note)
+    _, iscc_id_bytes = sequence_iscc_note(full_iscc_note)
 
-    # Get the event
-    event = Event.objects.get(seq=seq)
+    # Get the event by ISCC-ID (decoupled from the now 0-based returned seq).
+    event = Event.objects.get(iscc_id=iscc_id_bytes)
 
     # Deserialize event_data - now contains full IsccEvent structure
     stored_event = json.loads(event.event_data)
@@ -199,8 +200,8 @@ def test_event_hash_uniqueness():
         keypair = icr.key_generate(controller=controller)
         signed_note = icr.sign_json(note, keypair)
 
-        seq, _ = sequence_iscc_note(signed_note)
-        event = Event.objects.get(seq=seq)
+        _, iscc_id_bytes = sequence_iscc_note(signed_note)
+        event = Event.objects.get(iscc_id=iscc_id_bytes)
 
         # Hash should be unique
         assert event.event_hash not in hashes
@@ -237,9 +238,9 @@ def test_event_hash_based_retrieval():
         keypair = icr.key_generate(controller=controller)
         signed_note = icr.sign_json(note, keypair)
 
-        seq, _ = sequence_iscc_note(signed_note)
-        event = Event.objects.get(seq=seq)
-        event_hashes.append((seq, event.event_hash))
+        _, iscc_id_bytes = sequence_iscc_note(signed_note)
+        event = Event.objects.get(iscc_id=iscc_id_bytes)
+        event_hashes.append((event.seq, event.event_hash))
 
     # Test retrieval by hash
     for seq, hash_value in event_hashes:
@@ -281,8 +282,8 @@ def test_chain_breaking_detection():
         keypair = icr.key_generate(controller=controller)
         signed_note = icr.sign_json(note, keypair)
 
-        seq, _ = sequence_iscc_note(signed_note)
-        events_created.append(seq)
+        _, iscc_id_bytes = sequence_iscc_note(signed_note)
+        events_created.append(Event.objects.get(iscc_id=iscc_id_bytes).seq)
 
     # Get the middle event
     middle_event = Event.objects.get(seq=events_created[1])
@@ -342,25 +343,26 @@ def test_genesis_event_hash():
     keypair = icr.key_generate(controller=controller)
     signed_note = icr.sign_json(note, keypair)
 
-    seq, _ = sequence_iscc_note(signed_note)
+    seq, iscc_id_bytes = sequence_iscc_note(signed_note)
 
-    event = Event.objects.get(seq=seq)
+    event = Event.objects.get(iscc_id=iscc_id_bytes)
 
     # Get the stored event structure
     stored_event = json.loads(event.event_data)
 
-    # In a production system, seq=1 would have empty prev
+    # In a production system, the genesis leaf (index 0) would have empty prev.
     # In tests, the sequencer may remember previous hashes even after db truncation
     # This is actually a feature - it maintains chain integrity across restarts
     if stored_event["prev"] == "":
-        # True genesis event
-        assert seq == 1
+        # True genesis leaf: the returned 0-based index is 0.
+        assert seq == 0
     else:
         # Has a previous hash - verify it's valid format
         assert len(stored_event["prev"]) == 64
         assert all(c in "0123456789abcdef" for c in stored_event["prev"])
 
-    assert stored_event["seq"] == seq
+    # The legacy envelope still carries the 1-based Event.seq.
+    assert stored_event["seq"] == event.seq
 
     # Verify hash
     canonical_bytes = jcs.canonicalize(stored_event)
@@ -384,13 +386,13 @@ def test_event_hash_consistency_across_event_types(example_timestamp, example_ke
         "timestamp": example_timestamp,
     }
     signed_create = icr.sign_json(create_note, example_keypair)
-    seq1, iscc_id_bytes = sequence_iscc_note(signed_create)
+    _, iscc_id_bytes = sequence_iscc_note(signed_create)
 
     # TODO: Add update event test when update functionality is available
     # Currently only CREATED events go through sequencer
 
     # Verify CREATED event has proper hash
-    created_event = Event.objects.get(seq=seq1)
+    created_event = Event.objects.get(iscc_id=iscc_id_bytes)
     assert created_event.event_hash is not None
     assert len(created_event.event_hash) == 64  # 32 bytes hex encoded
     assert created_event.event_type == Event.EventType.CREATED
@@ -399,7 +401,7 @@ def test_event_hash_consistency_across_event_types(example_timestamp, example_ke
     stored_event = json.loads(created_event.event_data)
 
     # Verify structure
-    assert stored_event["seq"] == seq1
+    assert stored_event["seq"] == created_event.seq
     assert stored_event["iscc_id"] == created_event.iscc_id
     # May or may not have empty prev depending on test order
     if stored_event["prev"]:
@@ -1024,14 +1026,14 @@ def test_create_checkpoint_no_new_events():
     }
 
     signed_note = icr.sign_json(note, keypair)
-    seq, _ = sequence_iscc_note(signed_note)
+    _, iscc_id_bytes = sequence_iscc_note(signed_note)
 
     # Create checkpoint for all events
     with patch("iscc_hub.checkpoint.create_rfc3161_timestamp") as mock_timestamp:
         mock_timestamp.return_value = "token"
         checkpoint = create_checkpoint()
 
-    assert checkpoint.end == seq
+    assert checkpoint.end == Event.objects.get(iscc_id=iscc_id_bytes).seq
 
     # Try to create another checkpoint - should fail
     with pytest.raises(ValueError) as excinfo:
@@ -1423,8 +1425,8 @@ def test_create_checkpoint_integrity_error_returns_existing():
         }
 
         signed_note = icr.sign_json(note, keypair)
-        seq, _ = sequence_iscc_note(signed_note)
-        event_seqs.append(seq)
+        _, iscc_id_bytes = sequence_iscc_note(signed_note)
+        event_seqs.append(Event.objects.get(iscc_id=iscc_id_bytes).seq)
 
     # Mock the checkpoint creation process
     with patch("iscc_hub.checkpoint.create_rfc3161_timestamp") as mock_timestamp:

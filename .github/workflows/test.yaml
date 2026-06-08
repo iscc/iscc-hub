@@ -31,3 +31,46 @@ jobs:
 
     - name: Run complete CI pipeline
       run: uv run poe ci
+
+  # Portability gate: run the full suite against PostgreSQL so the cross-backend
+  # single-writer locking (select_for_update / FOR UPDATE on LogState) is exercised.
+  # SQLite serializes writers via BEGIN IMMEDIATE and cannot prove the row lock.
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: iscc_hub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      ISCC_HUB_DB_ENGINE: postgres
+      ISCC_HUB_DB_HOST: localhost
+      ISCC_HUB_DB_PORT: "5432"
+      ISCC_HUB_DB_USER: postgres
+      ISCC_HUB_DB_PASSWORD: postgres
+      ISCC_HUB_DB_NAME_PG: iscc_hub
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
+    - name: Set up Python
+      run: uv python install 3.12
+
+    - name: Install dependencies
+      run: uv sync --all-extras --dev
+
+    - name: Run the suite against PostgreSQL
+      run: uv run poe test-postgres

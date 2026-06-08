@@ -38,7 +38,7 @@ django.setup()
 from django.core.management import call_command  # noqa: E402
 
 from iscc_hub.iscc_id import IsccID  # noqa: E402
-from iscc_hub.models import Event, IsccDeclaration  # noqa: E402
+from iscc_hub.models import Event, IsccDeclaration, LogRecord, LogState  # noqa: E402
 from iscc_hub.sequencer import sequence_iscc_delete, sequence_iscc_note  # noqa: E402
 from iscc_hub.validators import validate_iscc_note, validate_iscc_note_delete  # noqa: E402
 
@@ -288,6 +288,8 @@ def generate_fixtures():
     call_command("migrate", "--run-syncdb", verbosity=0)
 
     # Clear any existing data
+    LogRecord.objects.all().delete()
+    LogState.objects.all().delete()
     Event.objects.all().delete()
     IsccDeclaration.objects.all().delete()
 
@@ -359,6 +361,7 @@ def generate_fixtures():
 
     # Print summary
     print(f"\nCreated {Event.objects.count()} events")
+    print(f"Created {LogRecord.objects.count()} log records")
     print(f"Created {IsccDeclaration.objects.count()} declarations")
 
     # Dump the fixtures
@@ -368,6 +371,8 @@ def generate_fixtures():
     with open(output_file, "w", newline="\n") as f:
         call_command(
             "dumpdata",
+            "iscc_hub.LogState",
+            "iscc_hub.LogRecord",
             "iscc_hub.Event",
             "iscc_hub.IsccDeclaration",
             format="json",

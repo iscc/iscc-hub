@@ -131,8 +131,12 @@ paths:
     post:
       summary: Declare ISCC-CODE
       description: |
-        Submit an `IsccNote` to declare an ISCC-CODE. The server validates the submission,
-        sequences it in the declaration log, and returns an `IsccReceipt` as a verifiable credential.
+        Submit an `IsccNote` to declare an ISCC-CODE. The server validates the submission
+        and sequences it in the declaration log, then returns a minimal `DeclarationAck`
+        with the assigned `iscc_id` and its log `seq`. The full signed `IsccReceipt`
+        (W3C Verifiable Credential) is retrieved separately from
+        `GET /declaration/{iscc_id}/receipt`, keeping the submission hot path free of
+        signing work.
 
         **Duplicate Protection:** By default, the server rejects duplicate declarations
         (same datahash) with a 409 Conflict error. To force a duplicate declaration,
@@ -188,11 +192,11 @@ paths:
                     proof: "znTcLukuu7CL8FpoaSxr6UWQpxCogZUCZ9iqx9dnP3inkzGszbUN79qrxWvpxEHnuNtLQ5Jd1rBukY7g1JSiYHVZ"
       responses:
         '201':
-          description: Declaration successful - ISCC-ID created
+          description: Declaration successful - ISCC-ID created and sequenced
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IsccReceipt'
+                $ref: '#/components/schemas/DeclarationAck'
         '400':
           description: Bad Request - General client error
           content:
@@ -213,6 +217,37 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           description: Unprocessable Entity - Validation failed. Returns the first validation error encountered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /declaration/{iscc_id}/receipt:
+    get:
+      summary: Get IsccReceipt
+      description: |
+        Retrieve the signed `IsccReceipt` (W3C Verifiable Credential) for a previously
+        sequenced declaration, reconstructed from the stored log record. This is the
+        verifiable counterpart to the minimal `DeclarationAck` returned by
+        `POST /declaration`.
+      operationId: get_declaration_receipt
+      parameters:
+        - name: iscc_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ISCC:[A-Z2-7]{16}$"
+          description: The ISCC-ID of the declaration to build a receipt for
+          example: "ISCC:MAIGIEGXNGY664AB"
+      responses:
+        '200':
+          description: The signed IsccReceipt for the declaration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IsccReceipt'
+        '404':
+          description: Not Found - No declaration exists for this ISCC-ID
           content:
             application/json:
               schema:
@@ -287,6 +322,8 @@ components:
   schemas:
     ErrorResponse:
       $ref: './schemas/ErrorResponse.yaml'
+    DeclarationAck:
+      $ref: './schemas/DeclarationAck.yaml'
     IsccDeclaration:
       $ref: './schemas/IsccDeclaration.yaml'
     IsccReceipt:
