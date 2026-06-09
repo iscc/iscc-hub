@@ -513,18 +513,6 @@ wheels = [
 ]
 
 [[package]]
-name = "croniter"
-version = "6.2.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "python-dateutil" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/df/de/5832661ed55107b8a09af3f0a2e71e0957226a59eb1dcf0a445cce6daf20/croniter-6.2.2.tar.gz", hash = "sha256:ba60832a5ec8e12e51b8691c3309a113d1cf6526bdf1a48150ce8ec7a532d0ab", size = 113762, upload-time = "2026-03-15T08:43:48.112Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d0/39/783980e78cb92c2d7bdb1fc7dbc86e94ccc6d58224d76a7f1f51b6c51e30/croniter-6.2.2-py3-none-any.whl", hash = "sha256:a5d17b1060974d36251ea4faf388233eca8acf0d09cbd92d35f4c4ac8f279960", size = 45422, upload-time = "2026-03-15T08:43:46.626Z" },
-]
-
-[[package]]
 name = "cryptography"
 version = "48.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -659,31 +647,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/d5/7c/3307e17b872f545c88314b2737a22f965785dfb5a120d739b0131d0492c3/django_ninja-1.6.2.tar.gz", hash = "sha256:d56ae5aa4791068ef4ac9a66cfdf2fc11f507413ded35abb79c51d0d52ad6412", size = 3685599, upload-time = "2026-03-18T20:06:47.284Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/21/0c/25f72060a39632fbd2d90e9c8b6052a09cd45b0598fc06c0758d313f0052/django_ninja-1.6.2-py3-none-any.whl", hash = "sha256:20095f5900bada22ea00cf1a58af50bdb285b2354c61a9d9b47d0dc89ac462d6", size = 2374994, upload-time = "2026-03-18T20:06:45.676Z" },
-]
-
-[[package]]
-name = "django-picklefield"
-version = "3.4.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/93/03/13114bccbd1ec8c026ac1ff33dae75ae6c6a5632e4769ee9cda283b9f57e/django_picklefield-3.4.0.tar.gz", hash = "sha256:3a1f740536c0e60d0dba43aa89ccdbe86760d4c3f8ec47799eae122baa741d0a", size = 12555, upload-time = "2025-11-27T03:11:53.13Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/79/b7/139eb1419ca7b27fd714925b8d0eed6efb592479dcf2155fed6c0c87c956/django_picklefield-3.4.0-py3-none-any.whl", hash = "sha256:929bcfbae5b48bd22a52bc04521fdfdd152eee36abb9f20228f9480f9df65f45", size = 10031, upload-time = "2025-11-27T03:11:51.937Z" },
-]
-
-[[package]]
-name = "django-q2"
-version = "1.10.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django" },
-    { name = "django-picklefield" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/38/ea/a97c24d04345b20afd3f04711642d7f27921dd8bbaba8ebfdbb77448be0a/django_q2-1.10.0.tar.gz", hash = "sha256:cc805008986c560ed4e0a3ef08776c1b41f403a60477b2726a2545ae64b71504", size = 86438, upload-time = "2026-05-01T17:39:20.925Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ab/72/92b531a3f794f1869a89e480045c82fd1cf27a98a73a83402ff7ad3f3234/django_q2-1.10.0-py3-none-any.whl", hash = "sha256:7746c1cb7178551d81f25f47603ed29b80599e93d82ffd198c493a2b2323f3b5", size = 106170, upload-time = "2026-05-01T17:39:22.184Z" },
 ]
 
 [[package]]
@@ -936,11 +899,9 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "blake3" },
-    { name = "croniter" },
     { name = "django" },
     { name = "django-environ" },
     { name = "django-ninja" },
-    { name = "django-q2" },
     { name = "django-unfold" },
     { name = "gunicorn" },
     { name = "iscc-core" },
@@ -974,11 +935,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "blake3", specifier = ">=1.0.5" },
-    { name = "croniter", specifier = ">=6.0.0" },
     { name = "django", specifier = ">=5.2.5" },
     { name = "django-environ", specifier = ">=0.12.0" },
     { name = "django-ninja", specifier = ">=1.4.3" },
-    { name = "django-q2", specifier = ">=1.8.0" },
     { name = "django-unfold", specifier = ">=0.63.0" },
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "iscc-core", specifier = ">=1.2.1" },

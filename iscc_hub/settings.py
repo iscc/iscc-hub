@@ -94,7 +94,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "servestatic.runserver_nostatic",
     "iscc_hub",
-    "django_q",
 ]
 
 MIDDLEWARE = [
@@ -348,47 +347,7 @@ UNFOLD = {
                     },
                 ],
             },
-            {
-                "title": "Tasks",
-                "collapsible": True,
-                "items": [
-                    {
-                        "title": "Scheduled",
-                        "icon": "schedule",
-                        "link": "/admin/django_q/schedule/",
-                    },
-                    {
-                        "title": "Queued",
-                        "icon": "queue",
-                        "link": "/admin/django_q/ormq/",
-                    },
-                    {
-                        "title": "Success",
-                        "icon": "check_circle",
-                        "link": "/admin/django_q/success/",
-                    },
-                    {
-                        "title": "Failed",
-                        "icon": "error",
-                        "link": "/admin/django_q/failure/",
-                    },
-                ],
-            },
         ],
     },
     "SHOW_HISTORY": False,  # Disable history links for better performance
-}
-
-# Django-Q2 Configuration
-Q_CLUSTER = {
-    "name": "iscc-hub",
-    "workers": 1,
-    "timeout": 90,
-    "retry": 120,
-    "orm": "default",
-    "poll": 3,
-    "catch_up": False,
-    "label": "Tasks",
-    "cached": False,  # Store results in Database
-    "cache": "not_configured",  # Discable cache
 }

@@ -12,7 +12,6 @@ import yaml
 from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings
-from django_q.models import Schedule
 
 from iscc_hub.models import Hub
 from iscc_hub.tasks import sync_hub_list
@@ -246,41 +245,6 @@ def test_sync_hub_list_http_error():
     # Check error result
     assert result["status"] == "error"
     assert "Connection failed" in result["error"]
-
-
-@pytest.mark.django_db(transaction=True)
-def test_install_tasks_command_creates_hub_sync_schedule():
-    # type: () -> None
-    """Test that install_tasks command creates hub sync schedule."""
-    from django.core.management import call_command
-
-    # Ensure no schedule exists initially
-    Schedule.objects.filter(func="iscc_hub.tasks.sync_hub_list").delete()
-
-    # Run the management command
-    call_command("install_tasks")
-
-    # Verify hub sync schedule was created
-    schedule = Schedule.objects.get(func="iscc_hub.tasks.sync_hub_list")
-    assert schedule.name == "Hub List Synchronization"
-    assert schedule.schedule_type == Schedule.CRON
-    assert schedule.cron == "0 * * * *"  # Every hour
-    assert schedule.repeats == -1
-
-
-@pytest.mark.django_db(transaction=True)
-def test_install_tasks_command_idempotent():
-    # type: () -> None
-    """Test that install_tasks command is idempotent."""
-    from django.core.management import call_command
-
-    # Run command twice
-    call_command("install_tasks")
-    call_command("install_tasks")
-
-    # Should only have one hub sync schedule
-    schedules = Schedule.objects.filter(func="iscc_hub.tasks.sync_hub_list")
-    assert schedules.count() == 1
 
 
 # Tests for sync_hubs management command

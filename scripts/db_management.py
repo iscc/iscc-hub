@@ -114,14 +114,6 @@ def create_superuser():
         print(f"    Superuser '{username}' already exists")
 
 
-def install_tasks():
-    # type: () -> None
-    """Install periodic tasks for background job scheduling."""
-    print("  ✓ Installing periodic tasks...")
-    call_command("install_tasks", verbosity=0)
-    print("    Periodic tasks configured")
-
-
 def sync_hubs():
     # type: () -> None
     """Sync hub configurations from GitHub."""
@@ -247,8 +239,8 @@ def reset_database():
     """
     Reset the development database.
 
-    Deletes existing database and recreates from scratch.
-    Hub synchronization will happen automatically on app startup.
+    Deletes existing database and recreates from scratch, then syncs the hub
+    list from GitHub and loads test fixtures.
     """
     # Get database path from settings
     db_name = settings.DATABASES["default"]["NAME"]
@@ -270,9 +262,6 @@ def reset_database():
 
     # Create superuser
     create_superuser()
-
-    # Install periodic tasks
-    install_tasks()
 
     # Sync hub list from GitHub
     sync_hubs()

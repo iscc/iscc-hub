@@ -10,9 +10,11 @@ the binary/JSON endpoints with no Accept header (as Go clients and fsck do).
 import json
 from datetime import UTC, datetime
 from functools import lru_cache
+from io import StringIO
 from pathlib import Path
 
 import pytest
+from django.core.management import call_command
 
 from iscc_hub import checkpoint_note, log_tree, merkle
 from iscc_hub.iscc_id import IsccID
@@ -260,6 +262,20 @@ def test_log_endpoints_reachable_without_accept_header(client):
         tile = client.get("/log/tile/0/000.p/3", **headers)
         assert tile.status_code == 200
         assert tile["Content-Type"] == "application/octet-stream"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_refresh_checkpoint_command_persists_checkpoint():
+    # type: () -> None
+    """The refresh_checkpoint command persists a signed checkpoint at the current tree size."""
+    _populate_log(5)
+    assert LogState.objects.get(pk=1).checkpoint == ""  # nothing published yet
+    out = StringIO()
+    call_command("refresh_checkpoint", stdout=out)
+    state = LogState.objects.get(pk=1)
+    _, tree_size, _ = checkpoint_note.parse_checkpoint(state.checkpoint)
+    assert tree_size == log_tree.current_tree_size() == 5
+    assert "tree size 5" in out.getvalue()
 
 
 @pytest.mark.django_db(transaction=True)

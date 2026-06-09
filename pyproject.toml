@@ -5,11 +5,9 @@ description = "ISCC-HUB - ISCC Declarations & Discovery"
 requires-python = ">=3.12"
 dependencies = [
     "blake3>=1.0.5",
-    "croniter>=6.0.0",
     "django>=5.2.5",
     "django-environ>=0.12.0",
     "django-ninja>=1.4.3",
-    "django-q2>=1.8.0",
     "django-unfold>=0.63.0",
     "gunicorn>=23.0.0",
     "iscc-core>=1.2.1",

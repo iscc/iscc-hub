@@ -3,7 +3,6 @@
 from typing import Any
 from urllib.parse import urlparse
 
-import django_q.admin
 from django.contrib import admin
 from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
@@ -11,7 +10,6 @@ from django.contrib.auth.models import Group
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.utils.html import format_html
-from django_q.models import Failure, OrmQ, Schedule, Success, Task
 from unfold.admin import ModelAdmin
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 from unfold.paginator import InfinitePaginator
@@ -255,29 +253,3 @@ class IsccDeclarationAdmin(ModelAdmin):
         # type: (HttpRequest, IsccDeclaration | None) -> bool
         """Prevent deleting declarations through admin (use API with DELETE events)."""
         return False
-
-
-admin.site.unregister(Failure)
-admin.site.unregister(Schedule)
-admin.site.unregister(Success)
-admin.site.unregister(OrmQ)
-
-
-@admin.register(Schedule)
-class ScheduleAdmin(ModelAdmin, django_q.admin.ScheduleAdmin):
-    pass
-
-
-@admin.register(OrmQ)
-class QueueAdmin(ModelAdmin, django_q.admin.QueueAdmin):
-    pass
-
-
-@admin.register(Success)
-class TaskAdmin(ModelAdmin, django_q.admin.TaskAdmin):
-    pass
-
-
-@admin.register(Failure)
-class FailAdmin(ModelAdmin, django_q.admin.FailAdmin):
-    pass

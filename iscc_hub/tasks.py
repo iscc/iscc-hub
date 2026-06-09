@@ -1,5 +1,5 @@
 """
-Background tasks for ISCC Hub using Django-Q2.
+Hub-list synchronization routine for ISCC Hub.
 """
 
 import logging
@@ -9,37 +9,7 @@ import yaml
 from django.conf import settings
 from django.utils import timezone
 
-from iscc_hub import log_tree
-from iscc_hub.checkpoint_note import parse_checkpoint
-
 logger = logging.getLogger(__name__)
-
-
-def checkpoint_task():
-    # type: () -> dict
-    """
-    Refresh the published C2SP signed-note checkpoint over the log.
-
-    :return: Dictionary with task execution details.
-    """
-    try:
-        logger.info("Starting scheduled checkpoint refresh")
-        checkpoint = log_tree.build_checkpoint()
-        _, tree_size, _ = parse_checkpoint(checkpoint)
-        logger.info(f"Checkpoint refreshed at tree size {tree_size}")
-        return {
-            "status": "success",
-            "tree_size": tree_size,
-            "message": f"Checkpoint refreshed at tree size {tree_size}",
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to refresh checkpoint: {e}", exc_info=True)
-        return {
-            "status": "error",
-            "error": str(e),
-            "timestamp": timezone.now().isoformat(),
-        }
 
 
 def sync_hub_list():
