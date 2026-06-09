@@ -1,6 +1,5 @@
 """Context processors for making common variables available in templates."""
 
-from constance import config
 from django.conf import settings
 
 
@@ -23,8 +22,9 @@ def hub_context(request):
     else:
         build_commit_short = build_commit
 
-    # Check if co-branding is configured
-    has_cobranding = bool(config.ORG_NAME)
+    # Co-branding is read from set-once server settings; defaults keep the branding card hidden.
+    org_name = getattr(settings, "ISCC_HUB_ORG_NAME", "")
+    has_cobranding = bool(org_name)
 
     return {
         "hub_id": getattr(settings, "ISCC_HUB_ID", 0),
@@ -35,13 +35,13 @@ def hub_context(request):
         "build_timestamp": build_timestamp,
         # Co-branding configuration
         "has_cobranding": has_cobranding,
-        "org_name": config.ORG_NAME,
-        "org_logo": config.ORG_LOGO,
-        "org_url": config.ORG_URL,
-        "org_tagline": config.ORG_TAGLINE,
-        "cta_enabled": config.CTA_ENABLED,
-        "cta_title": config.CTA_TITLE,
-        "cta_description": config.CTA_DESCRIPTION,
-        "cta_button_text": config.CTA_BUTTON_TEXT,
-        "cta_button_url": config.CTA_BUTTON_URL,
+        "org_name": org_name,
+        "org_logo": getattr(settings, "ISCC_HUB_ORG_LOGO", ""),
+        "org_url": getattr(settings, "ISCC_HUB_ORG_URL", ""),
+        "org_tagline": getattr(settings, "ISCC_HUB_ORG_TAGLINE", ""),
+        "cta_enabled": getattr(settings, "ISCC_HUB_CTA_ENABLED", False),
+        "cta_title": getattr(settings, "ISCC_HUB_CTA_TITLE", ""),
+        "cta_description": getattr(settings, "ISCC_HUB_CTA_DESCRIPTION", ""),
+        "cta_button_text": getattr(settings, "ISCC_HUB_CTA_BUTTON_TEXT", ""),
+        "cta_button_url": getattr(settings, "ISCC_HUB_CTA_BUTTON_URL", ""),
     }

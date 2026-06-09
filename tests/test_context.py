@@ -1,141 +1,102 @@
 """Tests for context processors."""
 
-from unittest.mock import MagicMock, patch
+from django.conf import settings
+from django.test import override_settings
 
 from iscc_hub.context import hub_context
 
+# hub_context only reads from settings; its request argument is unused, so we pass None.
 
-def test_hub_context_returns_hub_id():
+
+@override_settings(
+    BUILD_COMMIT="unknown",
+    BUILD_TAG="unknown",
+    BUILD_TIMESTAMP="unknown",
+    ISCC_HUB_ORG_NAME="",
+    ISCC_HUB_ORG_LOGO="",
+    ISCC_HUB_ORG_URL="",
+    ISCC_HUB_ORG_TAGLINE="",
+    ISCC_HUB_CTA_ENABLED=False,
+    ISCC_HUB_CTA_TITLE="",
+    ISCC_HUB_CTA_DESCRIPTION="",
+    ISCC_HUB_CTA_BUTTON_TEXT="",
+    ISCC_HUB_CTA_BUTTON_URL="",
+)
+def test_hub_context_empty_branding_defaults():
     # type: () -> None
-    """Test that hub_context returns the correct hub ID from settings."""
-    request = MagicMock()
+    """Default settings expose the hub id and leave co-branding empty/disabled."""
+    result = hub_context(None)
 
-    # Create mock settings without BUILD_* attributes
-    mock_settings = MagicMock(spec=["ISCC_HUB_ID", "DEBUG"])
-    mock_settings.ISCC_HUB_ID = 42
-    mock_settings.DEBUG = True
-
-    # Mock constance config
-    mock_config = MagicMock()
-    mock_config.ORG_NAME = ""
-    mock_config.ORG_LOGO = None
-    mock_config.ORG_URL = ""
-    mock_config.ORG_TAGLINE = ""
-    mock_config.CTA_ENABLED = False
-    mock_config.CTA_TITLE = ""
-    mock_config.CTA_DESCRIPTION = ""
-    mock_config.CTA_BUTTON_TEXT = ""
-    mock_config.CTA_BUTTON_URL = ""
-
-    with patch("iscc_hub.context.settings", mock_settings), patch("iscc_hub.context.config", mock_config):
-        result = hub_context(request)
-
-        assert result["hub_id"] == 42
-        assert result["debug_mode"] is True
-        # Check default build metadata
-        assert result["build_commit"] == "unknown"
-        assert result["build_commit_short"] == "unknown"
-        assert result["build_tag"] == "unknown"
-        assert result["build_timestamp"] == "unknown"
-        # Check co-branding fields
-        assert result["has_cobranding"] is False
-        assert result["org_name"] == ""
-        assert result["cta_enabled"] is False
+    # The context processor forwards the live settings verbatim.
+    assert result["hub_id"] == settings.ISCC_HUB_ID
+    assert result["debug_mode"] == settings.DEBUG
+    # Build metadata defaults to "unknown" (else branch of the commit-shortening logic)
+    assert result["build_commit"] == "unknown"
+    assert result["build_commit_short"] == "unknown"
+    assert result["build_tag"] == "unknown"
+    assert result["build_timestamp"] == "unknown"
+    # Co-branding stays hidden when ISCC_HUB_ORG_NAME is empty
+    assert result["has_cobranding"] is False
+    assert result["org_name"] == ""
+    assert result["org_logo"] == ""
+    assert result["org_url"] == ""
+    assert result["org_tagline"] == ""
+    assert result["cta_enabled"] is False
+    assert result["cta_title"] == ""
+    assert result["cta_description"] == ""
+    assert result["cta_button_text"] == ""
+    assert result["cta_button_url"] == ""
 
 
-def test_hub_context_with_missing_settings():
+@override_settings(
+    ISCC_HUB_ORG_NAME="Example University",
+    ISCC_HUB_ORG_LOGO="https://example.com/logo.svg",
+    ISCC_HUB_ORG_URL="https://example.com",
+    ISCC_HUB_ORG_TAGLINE="Digital Archives at Example University",
+    ISCC_HUB_CTA_ENABLED=True,
+    ISCC_HUB_CTA_TITLE="Integrate with Our Services",
+    ISCC_HUB_CTA_DESCRIPTION="Connect your systems to our content registry.",
+    ISCC_HUB_CTA_BUTTON_TEXT="Explore Our Repository",
+    ISCC_HUB_CTA_BUTTON_URL="https://example.com/repository",
+)
+def test_hub_context_populated_branding():
     # type: () -> None
-    """Test that hub_context handles missing settings gracefully."""
-    request = MagicMock()
+    """Populated ISCC_HUB_* branding settings enable the co-branding card and flow through."""
+    result = hub_context(None)
 
-    # Mock settings without the ISCC_HUB_ID and DEBUG attributes
-    mock_settings = MagicMock(spec=[])
-
-    # Mock constance config
-    mock_config = MagicMock()
-    mock_config.ORG_NAME = ""
-    mock_config.ORG_LOGO = None
-    mock_config.ORG_URL = ""
-    mock_config.ORG_TAGLINE = ""
-    mock_config.CTA_ENABLED = False
-    mock_config.CTA_TITLE = ""
-    mock_config.CTA_DESCRIPTION = ""
-    mock_config.CTA_BUTTON_TEXT = ""
-    mock_config.CTA_BUTTON_URL = ""
-
-    with patch("iscc_hub.context.settings", mock_settings), patch("iscc_hub.context.config", mock_config):
-        result = hub_context(request)
-
-        assert result["hub_id"] == 0
-        assert result["debug_mode"] is False
-        assert result["build_commit"] == "unknown"
-        assert result["build_commit_short"] == "unknown"
-        assert result["build_tag"] == "unknown"
-        assert result["build_timestamp"] == "unknown"
+    assert result["has_cobranding"] is True
+    assert result["org_name"] == "Example University"
+    assert result["org_logo"] == "https://example.com/logo.svg"
+    assert result["org_url"] == "https://example.com"
+    assert result["org_tagline"] == "Digital Archives at Example University"
+    assert result["cta_enabled"] is True
+    assert result["cta_title"] == "Integrate with Our Services"
+    assert result["cta_description"] == "Connect your systems to our content registry."
+    assert result["cta_button_text"] == "Explore Our Repository"
+    assert result["cta_button_url"] == "https://example.com/repository"
 
 
+@override_settings(
+    BUILD_COMMIT="a1b2c3d4e5f6789012345678901234567890abcd",
+    BUILD_TAG="v1.2.3",
+    BUILD_TIMESTAMP="2024-01-15T12:00:00Z",
+)
 def test_hub_context_with_build_metadata():
     # type: () -> None
-    """Test that hub_context correctly handles build metadata."""
-    request = MagicMock()
+    """A long commit hash is shortened to its first 8 characters."""
+    result = hub_context(None)
 
-    # Mock constance config
-    mock_config = MagicMock()
-    mock_config.ORG_NAME = ""
-    mock_config.ORG_LOGO = None
-    mock_config.ORG_URL = ""
-    mock_config.ORG_TAGLINE = ""
-    mock_config.CTA_ENABLED = False
-    mock_config.CTA_TITLE = ""
-    mock_config.CTA_DESCRIPTION = ""
-    mock_config.CTA_BUTTON_TEXT = ""
-    mock_config.CTA_BUTTON_URL = ""
-
-    with (
-        patch(
-            "iscc_hub.context.settings",
-            ISCC_HUB_ID=123,
-            DEBUG=False,
-            BUILD_COMMIT="a1b2c3d4e5f6789012345678901234567890abcd",
-            BUILD_TAG="v1.2.3",
-            BUILD_TIMESTAMP="2024-01-15T12:00:00Z",
-        ),
-        patch("iscc_hub.context.config", mock_config),
-    ):
-        result = hub_context(request)
-
-        assert result["hub_id"] == 123
-        assert result["debug_mode"] is False
-        assert result["build_commit"] == "a1b2c3d4e5f6789012345678901234567890abcd"
-        assert result["build_commit_short"] == "a1b2c3d4"  # First 8 chars
-        assert result["build_tag"] == "v1.2.3"
-        assert result["build_timestamp"] == "2024-01-15T12:00:00Z"
+    assert result["build_commit"] == "a1b2c3d4e5f6789012345678901234567890abcd"
+    assert result["build_commit_short"] == "a1b2c3d4"  # First 8 chars
+    assert result["build_tag"] == "v1.2.3"
+    assert result["build_timestamp"] == "2024-01-15T12:00:00Z"
 
 
+@override_settings(BUILD_COMMIT="abc")
 def test_hub_context_with_short_commit():
     # type: () -> None
-    """Test hub_context with commit hash shorter than 8 chars."""
-    request = MagicMock()
+    """A commit hash shorter than 8 characters is left unchanged."""
+    result = hub_context(None)
 
-    # Create mock settings with short commit
-    mock_settings = MagicMock(spec=["BUILD_COMMIT"])
-    mock_settings.BUILD_COMMIT = "abc"
-
-    # Mock constance config
-    mock_config = MagicMock()
-    mock_config.ORG_NAME = ""
-    mock_config.ORG_LOGO = None
-    mock_config.ORG_URL = ""
-    mock_config.ORG_TAGLINE = ""
-    mock_config.CTA_ENABLED = False
-    mock_config.CTA_TITLE = ""
-    mock_config.CTA_DESCRIPTION = ""
-    mock_config.CTA_BUTTON_TEXT = ""
-    mock_config.CTA_BUTTON_URL = ""
-
-    with patch("iscc_hub.context.settings", mock_settings), patch("iscc_hub.context.config", mock_config):
-        result = hub_context(request)
-
-        # Should not shorten if already less than 8 chars
-        assert result["build_commit"] == "abc"
-        assert result["build_commit_short"] == "abc"
+    assert result["build_commit"] == "abc"
+    assert result["build_commit_short"] == "abc"

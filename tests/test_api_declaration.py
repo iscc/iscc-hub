@@ -5,8 +5,8 @@ import json
 import httpx
 import iscc_core as ic
 import pytest
-from constance.test import override_config
 from django.db import connection
+from django.test import override_settings
 
 from iscc_hub.models import PubKey
 
@@ -57,7 +57,7 @@ def test_declaration_permission_denied_no_pubkey(
     signed_note = icr.sign_json(minimal_note, example_keypair)
 
     # Test with OPEN_ACCESS=False
-    with override_config(OPEN_ACCESS=False):
+    with override_settings(ISCC_HUB_OPEN_ACCESS=False):
         # Use httpx client with live server
         with httpx.Client(base_url=live_server.url) as client:
             response = client.post(
@@ -100,7 +100,7 @@ def test_declaration_permission_denied_inactive_pubkey(
     PubKey.objects.create(pubkey=pubkey, is_active=False, label="Test inactive key")
 
     # Test with OPEN_ACCESS=False
-    with override_config(OPEN_ACCESS=False):
+    with override_settings(ISCC_HUB_OPEN_ACCESS=False):
         # Use httpx client with live server
         with httpx.Client(base_url=live_server.url) as client:
             response = client.post(
@@ -143,7 +143,7 @@ def test_declaration_permission_allowed_with_active_pubkey(
     PubKey.objects.create(pubkey=pubkey, is_active=True, label="Test active key")
 
     # Test with OPEN_ACCESS=False
-    with override_config(OPEN_ACCESS=False):
+    with override_settings(ISCC_HUB_OPEN_ACCESS=False):
         # Use httpx client with live server
         with httpx.Client(base_url=live_server.url) as client:
             response = client.post(
@@ -694,7 +694,7 @@ def test_declaration_require_client_timestamp(live_server, example_nonce, exampl
     }
     signed_note = icr.sign_json(note, example_keypair)
 
-    with override_config(REQUIRE_CLIENT_TIMESTAMP=True), httpx.Client() as client:
+    with override_settings(ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP=True), httpx.Client() as client:
         response = client.post(f"{live_server.url}/declaration", json=signed_note)
 
     assert response.status_code == 422
@@ -738,7 +738,7 @@ def test_declaration_timestamp_tolerance_disabled(live_server, example_nonce, ex
     }
     signed_note = icr.sign_json(note, example_keypair)
 
-    with override_config(TIMESTAMP_TOLERANCE_SECONDS=0), httpx.Client() as client:
+    with override_settings(ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS=0), httpx.Client() as client:
         response = client.post(f"{live_server.url}/declaration", json=signed_note)
 
     assert response.status_code == 201

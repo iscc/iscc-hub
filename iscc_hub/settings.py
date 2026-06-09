@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from pathlib import Path
 
 import environ
@@ -57,6 +56,24 @@ ISCC_HUB_SQLITE_SYNC_MODE = env.str("ISCC_HUB_SQLITE_SYNC_MODE", default="NORMAL
 # Hub list initial synchronization (used in Docker startup sequence)
 ISCC_HUB_LIST_INITIAL_SYNC = env.bool("ISCC_HUB_LIST_INITIAL_SYNC", default=True)
 
+# Declaration policy (set-once server policy, read on the declaration write path).
+# Defaults are permissive/open so a fresh deployment behaves correctly out of the box.
+ISCC_HUB_OPEN_ACCESS = env.bool("ISCC_HUB_OPEN_ACCESS", default=True)
+ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP = env.bool("ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP", default=False)
+ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS = env.int("ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS", default=600)
+
+# Optional co-branding (rendered into HTML pages only). ISCC_HUB_ORG_LOGO is a full URL or a
+# path to a static/mounted asset (not an upload).
+ISCC_HUB_ORG_NAME = env.str("ISCC_HUB_ORG_NAME", default="")
+ISCC_HUB_ORG_LOGO = env.str("ISCC_HUB_ORG_LOGO", default="")
+ISCC_HUB_ORG_URL = env.str("ISCC_HUB_ORG_URL", default="")
+ISCC_HUB_ORG_TAGLINE = env.str("ISCC_HUB_ORG_TAGLINE", default="")
+ISCC_HUB_CTA_ENABLED = env.bool("ISCC_HUB_CTA_ENABLED", default=False)
+ISCC_HUB_CTA_TITLE = env.str("ISCC_HUB_CTA_TITLE", default="")
+ISCC_HUB_CTA_DESCRIPTION = env.str("ISCC_HUB_CTA_DESCRIPTION", default="")
+ISCC_HUB_CTA_BUTTON_TEXT = env.str("ISCC_HUB_CTA_BUTTON_TEXT", default="")
+ISCC_HUB_CTA_BUTTON_URL = env.str("ISCC_HUB_CTA_BUTTON_URL", default="")
+
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=(ISCC_HUB_DOMAIN,))
 
 # CSRF settings for reverse proxy deployments
@@ -67,9 +84,6 @@ APPEND_SLASH = False
 
 
 INSTALLED_APPS = [
-    "unfold.contrib.constance",
-    "constance",
-    "constance.backends.database",
     "unfold",
     "unfold.contrib.filters",
     "django.contrib.admin",
@@ -183,17 +197,6 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "loggers": {
         "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
-    },
-}
-
-# Django's in-process LocMemCache, used to cache django-constance config (see
-# CONSTANCE_DATABASE_CACHE_BACKEND below). The previous default used shared_memory_dict
-# (POSIX shared memory), which corrupts under concurrent access from multiple gunicorn
-# workers: a torn write leaves the block un-unpicklable, after which every constance read
-# on the declaration hot path raises UnpicklingError -> HTTP 500.
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
     },
 }
 
@@ -322,11 +325,6 @@ UNFOLD = {
                         "icon": "hub",
                         "link": "/admin/iscc_hub/hub/",
                     },
-                    {
-                        "title": "Configuration",
-                        "icon": "settings",
-                        "link": "/admin/constance/config/",
-                    },
                 ],
             },
             {
@@ -394,79 +392,3 @@ Q_CLUSTER = {
     "cached": False,  # Store results in Database
     "cache": "not_configured",  # Discable cache
 }
-
-# Constance Configuration for Dynamic Settings
-UNFOLD_CONSTANCE_ADDITIONAL_FIELDS = {
-    str: [
-        "django.forms.CharField",
-        {
-            "widget": "unfold.widgets.UnfoldAdminTextInputWidget",
-            "required": False,
-        },
-    ],
-    "text_field": [
-        "django.forms.CharField",
-        {
-            "widget": "unfold.widgets.UnfoldAdminTextareaWidget",
-            "required": False,
-        },
-    ],
-    int: [
-        "django.forms.IntegerField",
-        {
-            "widget": "unfold.widgets.UnfoldAdminIntegerFieldWidget",
-        },
-    ],
-    bool: [
-        "django.forms.BooleanField",
-        {
-            "widget": "unfold.widgets.UnfoldBooleanSwitchWidget",
-            "required": False,
-        },
-    ],
-    "file_field": [
-        "django.forms.fields.FileField",
-        {
-            "widget": "unfold.widgets.UnfoldAdminFileFieldWidget",
-        },
-    ],
-    "image_field": [
-        "django.forms.fields.ImageField",
-        {
-            "widget": "unfold.widgets.UnfoldAdminImageFieldWidget",
-            "required": False,
-        },
-    ],
-}
-
-CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
-CONSTANCE_DATABASE_PREFIX = "constance:iscc-hub:"
-# Read constance config straight from the database on each access (no cache). Constance
-# requires a CROSS-PROCESS cache, so an in-process LocMemCache is rejected and the previous
-# shared_memory_dict cache corrupts under concurrent multi-worker access (see CACHES above).
-# Reading from the DB is always fresh and correct across workers and crash-free. It does add
-# a few small reads to the declaration hot path; if write throughput needs recovering, swap
-# in a shared cross-process cache (Django DatabaseCache, or Redis/Memcached).
-CONSTANCE_DATABASE_CACHE_BACKEND = None
-CONSTANCE_ADDITIONAL_FIELDS = {**UNFOLD_CONSTANCE_ADDITIONAL_FIELDS}
-
-CONSTANCE_CONFIG = OrderedDict(
-    [
-        # Organization Identity
-        ("ORG_NAME", ("", "Organization Name", str)),
-        ("ORG_LOGO", (None, "Organization Logo", "image_field")),
-        ("ORG_URL", ("", "Organization URL", str)),
-        ("ORG_TAGLINE", ("", "Organization Tagline (e.g., 'Digital Archives at Example University')", "text_field")),
-        # Call to Action
-        ("CTA_ENABLED", (False, "Enable Call-to-Action Section", bool)),
-        ("CTA_TITLE", ("", "Call-to-Action Title (e.g., 'Integrate with Our Services')", str)),
-        ("CTA_DESCRIPTION", ("", "Call-to-Action Description", "text_field")),
-        ("CTA_BUTTON_TEXT", ("", "Call-to-Action Button Text (e.g., 'Explore Our Repository')", str)),
-        ("CTA_BUTTON_URL", ("", "Call-to-Action Button URL", str)),
-        # Access Control
-        ("OPEN_ACCESS", (True, "Open Access", bool)),
-        # Timestamp Policy
-        ("REQUIRE_CLIENT_TIMESTAMP", (False, "Require declarer-supplied timestamp", bool)),
-        ("TIMESTAMP_TOLERANCE_SECONDS", (600, "Max deviation (s) for a provided timestamp; ≤0 disables", int)),
-    ]
-)

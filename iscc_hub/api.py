@@ -3,7 +3,6 @@ import re
 
 import iscc_core as ic
 import iscc_crypto as icr
-from constance import config
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
 from ninja import NinjaAPI
@@ -143,17 +142,17 @@ def search(request: HttpRequest):
 @api.post("/declaration", response={201: DeclarationAck, codes_4xx: ErrorResponse})
 def declaration(request):
     # Validate and parse request body (includes size check and JSON parsing)
-    # Timestamp handling is policy-driven (admin-editable Constance values)
+    # Timestamp handling is policy-driven (set-once server policy from settings)
     valid_data = validate_iscc_note(
         request.body,
         True,
         settings.ISCC_HUB_ID,
-        require_timestamp=config.REQUIRE_CLIENT_TIMESTAMP,
-        timestamp_tolerance_seconds=config.TIMESTAMP_TOLERANCE_SECONDS,
+        require_timestamp=settings.ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP,
+        timestamp_tolerance_seconds=settings.ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS,
     )
 
     # Check for permission
-    if not config.OPEN_ACCESS:
+    if not settings.ISCC_HUB_OPEN_ACCESS:
         pubkey = valid_data.get("signature", {}).get("pubkey")
         pubkey_obj = PubKey.objects.filter(pubkey=pubkey).first()
         if not pubkey_obj or not pubkey_obj.is_active:
@@ -245,8 +244,8 @@ def delete_declaration(request, iscc_id: str):
         request.body,
         True,
         settings.ISCC_HUB_ID,
-        require_timestamp=config.REQUIRE_CLIENT_TIMESTAMP,
-        timestamp_tolerance_seconds=config.TIMESTAMP_TOLERANCE_SECONDS,
+        require_timestamp=settings.ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP,
+        timestamp_tolerance_seconds=settings.ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS,
     )
 
     # Check that the ISCC-ID from the URL matches the one in the body
