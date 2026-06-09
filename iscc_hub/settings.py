@@ -132,7 +132,7 @@ WSGI_APPLICATION = "iscc_hub.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 #
-# The sequencer is database-agnostic and runs on both SQLite and PostgreSQL.
+# The sequencer is portable across the two tested backends, SQLite and PostgreSQL.
 # Select the backend with ISCC_HUB_DB_ENGINE ("sqlite" default, "postgres").
 # SQLite serializes writers with BEGIN IMMEDIATE (transaction_mode=IMMEDIATE);
 # PostgreSQL serializes them with a row lock on the singleton LogState row.

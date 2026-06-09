@@ -1,8 +1,10 @@
 """
-ISCC Hub Sequencer - Portable, database-agnostic atomic sequencing.
+ISCC Hub Sequencer - Portable single-writer atomic sequencing.
 
-Provides single-writer sequencing of ISCC declarations and deletions that
-preserves every architecture invariant on both SQLite and PostgreSQL:
+Portable across the two tested backends, SQLite and PostgreSQL (the binary
+primary key / unique columns rule out MySQL and Oracle without per-field
+``db_type`` overrides). Provides single-writer sequencing of ISCC declarations
+and deletions that preserves every architecture invariant on both backends:
 
 - Gapless 0-based leaf indices (the LogRecord sequence has no holes).
 - Strictly monotonic microsecond timestamps (the ISCC-ID clock never repeats).

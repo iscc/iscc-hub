@@ -74,8 +74,9 @@ The project maintains 100% test coverage with comprehensive test suites:
 
 ### Testing against PostgreSQL
 
-The sequencer is database-agnostic and is verified on both SQLite (the default) and PostgreSQL. To run the suite against
-a local PostgreSQL:
+The sequencer is portable across the two tested backends and is verified on both SQLite (the default) and PostgreSQL.
+MySQL and Oracle are not supported: the binary primary-key and unique columns would need per-field `db_type` overrides.
+To run the suite against a local PostgreSQL:
 
 ```bash
 # Start a throwaway PostgreSQL (host port 5433 avoids clashing with a local 5432 instance)

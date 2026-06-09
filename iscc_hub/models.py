@@ -173,7 +173,7 @@ class IsccDeclaration(models.Model):
 
 class LogState(models.Model):
     """
-    Single-writer state for the portable, database-agnostic sequencer.
+    Single-writer state for the portable sequencer (SQLite and PostgreSQL).
 
     Holds the explicit gapless counter and the monotonic microsecond clock that
     the sequencer reads and advances under a row lock inside one atomic

@@ -1,5 +1,5 @@
 """
-Tests for the portable, database-agnostic ISCC Hub sequencer.
+Tests for the portable ISCC Hub sequencer (SQLite and PostgreSQL).
 
 Covers gapless indices, monotonic ISCC-ID timestamps, the timetravel guard,
 nonce uniqueness, deletion handling, the canonical log-entry envelope, the
