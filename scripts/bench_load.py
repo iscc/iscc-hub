@@ -16,7 +16,12 @@ Two subcommands keep generation, measurement, and backends cleanly separated:
 
 - ``run`` replays a slice of the corpus against ``--url`` at a sweep of concurrency
   levels, records end-to-end latency and throughput per level, and writes a JSON result
-  file consumed by scripts/bench_report.py.
+  file consumed by scripts/bench_report.py. With ``--read-fraction`` it switches to a
+  mixed read+write workload: a populate phase declares the warmup notes and collects the
+  issued ISCC-IDs into a pool, then each request slot is — with the given probability —
+  a real read (alternating ``GET /{iscc_id}`` resolution and ``GET /search?datahash=``
+  exact-match) against a pooled item, else a write. Read and write latencies are reported
+  separately so read p95 under write contention can be compared across server configs.
 
 Payload generation (CPU heavy) happens entirely up front, never while requests are in
 flight, so it never competes with the server during measurement.
@@ -26,6 +31,7 @@ import argparse
 import asyncio
 import json
 import os
+import random
 import statistics
 import sys
 import time
@@ -202,6 +208,157 @@ async def run_level(url, bodies, concurrency):
     }
 
 
+async def send_op(client, sem, op):
+    # type: (httpx.AsyncClient, asyncio.Semaphore, tuple[str, bytes|str]) -> tuple[str, int|None, float, str|None]
+    """
+    Execute one tagged operation and return (kind, status, latency_ms, error).
+
+    A ``write`` op POSTs a pre-serialized declaration; a ``read`` op GETs the given path
+    (resolution or exact-match search). Reads send ``Accept: application/json`` so the
+    content-negotiation middleware routes resolution to the JSON API (a programmatic
+    reader's behavior) instead of redirecting to the HTML view. Network/timeout errors are
+    recorded, not raised.
+    """
+    kind, payload = op
+    async with sem:
+        start = time.perf_counter()
+        try:
+            if kind == "write":
+                resp = await client.post("/declaration", content=payload, headers={"content-type": "application/json"})
+            else:
+                resp = await client.get(payload, headers={"accept": "application/json"})
+            return kind, resp.status_code, (time.perf_counter() - start) * 1000.0, None
+        except Exception as exc:
+            return kind, None, (time.perf_counter() - start) * 1000.0, type(exc).__name__
+
+
+async def declare_and_capture(client, sem, body, datahash):
+    # type: (httpx.AsyncClient, asyncio.Semaphore, bytes, str) -> tuple[str, str]|None
+    """
+    Declare one note and capture (iscc_id, datahash) from a 201 response, else None.
+
+    Used by the mixed-mode populate phase to seed the read pool with items that are
+    guaranteed to resolve and to match an exact-match datahash search.
+    """
+    async with sem:
+        try:
+            resp = await client.post("/declaration", content=body, headers={"content-type": "application/json"})
+            if resp.status_code == 201:
+                return resp.json()["iscc_id"], datahash
+        except Exception:
+            return None
+    return None
+
+
+async def populate_pool(url, bodies, datahashes, concurrency):
+    # type: (str, list[bytes], list[str], int) -> list[tuple[str, str]]
+    """Declare the seed notes and return the (iscc_id, datahash) pool of successful writes."""
+    limits = httpx.Limits(max_connections=concurrency, max_keepalive_connections=concurrency)
+    timeout = httpx.Timeout(60.0)
+    sem = asyncio.Semaphore(concurrency)
+    async with httpx.AsyncClient(base_url=url, limits=limits, timeout=timeout) as client:
+        results = await asyncio.gather(
+            *(declare_and_capture(client, sem, b, d) for b, d in zip(bodies, datahashes, strict=True))
+        )
+    return [r for r in results if r is not None]
+
+
+def build_mixed_ops(bodies, datahashes, pool, read_fraction, slots, rng):
+    # type: (list[bytes], list[str], list[tuple[str, str]], float, int, random.Random) -> list[tuple[str, bytes|str]]
+    """
+    Build the per-level op list for the mixed read+write workload.
+
+    Each slot is a read with probability ``read_fraction`` (when the pool is non-empty),
+    alternating resolution and exact-match search against a random pooled item, otherwise a
+    write consuming the next unused corpus body. Using a seeded ``rng`` makes the op sequence
+    deterministic so server configs (sync vs gthread) face an identical workload.
+    """
+    ops = []  # type: list[tuple[str, bytes|str]]
+    write_idx = 0
+    read_idx = 0
+    for _ in range(slots):
+        if pool and rng.random() < read_fraction:
+            iscc_id, datahash = pool[rng.randrange(len(pool))]
+            path = f"/{iscc_id}" if read_idx % 2 == 0 else f"/search?datahash={datahash}"
+            ops.append(("read", path))
+            read_idx += 1
+        else:
+            ops.append(("write", bodies[write_idx]))
+            write_idx += 1
+    return ops
+
+
+async def run_level_mixed(url, ops, concurrency):
+    # type: (str, list[tuple[str, bytes|str]], int) -> dict
+    """
+    Replay a mixed read+write op list, splitting throughput and latency by read vs write.
+
+    :param url: Base URL of the running Hub.
+    :param ops: Tagged ops from build_mixed_ops (each ``read`` path or ``write`` body).
+    :param concurrency: Maximum simultaneous in-flight requests for this level.
+    :return: Per-level metrics with separate read/write counts, throughput, and percentiles.
+    """
+    limits = httpx.Limits(max_connections=concurrency, max_keepalive_connections=concurrency)
+    timeout = httpx.Timeout(60.0)
+    sem = asyncio.Semaphore(concurrency)
+
+    async with httpx.AsyncClient(base_url=url, limits=limits, timeout=timeout) as client:
+        start = time.perf_counter()
+        results = await asyncio.gather(*(send_op(client, sem, op) for op in ops))
+        wall = time.perf_counter() - start
+
+    status_codes = {}
+    errors = {}
+    read_ok = []
+    write_ok = []
+    read_total = write_total = 0
+    read_success = write_success = 0
+    for kind, status, latency_ms, error in results:
+        if kind == "read":
+            read_total += 1
+        else:
+            write_total += 1
+        if status is None:
+            errors[error] = errors.get(error, 0) + 1
+            continue
+        status_codes[str(status)] = status_codes.get(str(status), 0) + 1
+        if kind == "read" and status == 200:
+            read_success += 1
+            read_ok.append(latency_ms)
+        elif kind == "write" and status == 201:
+            write_success += 1
+            write_ok.append(latency_ms)
+
+    success = read_success + write_success
+    throughput = success / wall if wall > 0 else 0.0
+    read_pct = percentiles(read_ok)
+    write_pct = percentiles(write_ok)
+    print(
+        f"  concurrency {concurrency:>3}: {write_success}w/{read_success}r ok in {wall:6.2f}s "
+        f"=> {throughput:7.1f} ops/s  (write p95 {write_pct['p95']:.0f} / read p95 {read_pct['p95']:.0f} ms)"
+    )
+    return {
+        "concurrency": concurrency,
+        "count": len(ops),
+        "success": success,
+        "failed": len(ops) - success,
+        "success_rate": success / len(ops) if ops else 0.0,
+        "wall_seconds": wall,
+        "throughput": throughput,
+        "read_count": read_total,
+        "read_success": read_success,
+        "read_throughput": read_success / wall if wall > 0 else 0.0,
+        "write_count": write_total,
+        "write_success": write_success,
+        "write_throughput": write_success / wall if wall > 0 else 0.0,
+        "latency_ms": write_pct,
+        "read_latency_ms": read_pct,
+        "write_latency_ms": write_pct,
+        "status_codes": status_codes,
+        "errors": errors,
+    }
+
+
 async def wait_healthy(url, attempts=60):
     # type: (str, int) -> None
     """Poll the Hub /health endpoint until it responds or the attempts run out."""
@@ -217,20 +374,33 @@ async def wait_healthy(url, attempts=60):
     raise SystemExit(f"Hub at {url} did not become healthy in time.")
 
 
-async def run_benchmark(args):
-    # type: (argparse.Namespace) -> None
-    """Load the corpus, warm up, sweep concurrency levels, and write the result JSON."""
-    corpus = json.loads(Path(args.corpus).read_text(encoding="utf-8"))
-    levels = [int(x) for x in args.levels.split(",")]
-    needed = args.warmup + args.per_level * len(levels)
-    if len(corpus) < needed:
-        raise SystemExit(f"Corpus has {len(corpus)} notes but {needed} are needed for this sweep.")
+def write_result(args, level_results):
+    # type: (argparse.Namespace, list[dict]) -> None
+    """Assemble the result payload (run metadata + per-level metrics) and write it to JSON."""
+    peak = max(level_results, key=lambda r: r["throughput"])
+    payload = {
+        "backend": args.backend,
+        "url": args.url,
+        "workers": args.workers,
+        "threads": args.threads,
+        "read_fraction": args.read_fraction,
+        "per_level": args.per_level,
+        "warmup": args.warmup,
+        "total_declarations": sum(r["count"] for r in level_results),
+        "peak_throughput": peak["throughput"],
+        "peak_concurrency": peak["concurrency"],
+        "levels": level_results,
+    }
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    unit = "ops/s" if args.read_fraction > 0 else "decl/s"
+    print(f"  peak: {peak['throughput']:.1f} {unit} at concurrency {peak['concurrency']} -> {out_path}")
 
-    bodies = [json.dumps(note).encode("utf-8") for note in corpus]
 
-    print(f"\n=== Benchmarking {args.backend} at {args.url} ===")
-    await wait_healthy(args.url)
-
+async def run_write_benchmark(args, bodies, levels):
+    # type: (argparse.Namespace, list[bytes], list[int]) -> None
+    """Write-only sweep: warm up, then replay one corpus slice per concurrency level."""
     cursor = 0
     if args.warmup:
         print(f"  warming up with {args.warmup} declarations...")
@@ -242,23 +412,55 @@ async def run_benchmark(args):
         result = await run_level(args.url, bodies[cursor : cursor + args.per_level], concurrency)
         level_results.append(result)
         cursor += args.per_level
+    write_result(args, level_results)
 
-    peak = max(level_results, key=lambda r: r["throughput"])
-    payload = {
-        "backend": args.backend,
-        "url": args.url,
-        "workers": args.workers,
-        "per_level": args.per_level,
-        "warmup": args.warmup,
-        "total_declarations": sum(r["count"] for r in level_results),
-        "peak_throughput": peak["throughput"],
-        "peak_concurrency": peak["concurrency"],
-        "levels": level_results,
-    }
-    out_path = Path(args.out)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    print(f"  peak: {peak['throughput']:.1f} decl/s at concurrency {peak['concurrency']} -> {out_path}")
+
+async def run_mixed_benchmark(args, bodies, datahashes, levels):
+    # type: (argparse.Namespace, list[bytes], list[str], list[int]) -> None
+    """Mixed read+write sweep: populate the read pool, then replay tagged ops per level."""
+    rng = random.Random(0)
+    print(f"  populating read pool with {args.warmup} declarations...")
+    pool = await populate_pool(args.url, bodies[: args.warmup], datahashes[: args.warmup], min(args.warmup, 50))
+    print(f"  read pool: {len(pool)} items ({args.read_fraction:.0%} of requests will be reads)")
+    if not pool:
+        raise SystemExit("Populate phase produced no read pool; cannot run a mixed workload.")
+
+    cursor = args.warmup
+    level_results = []
+    for concurrency in levels:
+        ops = build_mixed_ops(
+            bodies[cursor : cursor + args.per_level],
+            datahashes[cursor : cursor + args.per_level],
+            pool,
+            args.read_fraction,
+            args.per_level,
+            rng,
+        )
+        result = await run_level_mixed(args.url, ops, concurrency)
+        level_results.append(result)
+        cursor += args.per_level
+    write_result(args, level_results)
+
+
+async def run_benchmark(args):
+    # type: (argparse.Namespace) -> None
+    """Load the corpus, dispatch to the write-only or mixed sweep, and write the result JSON."""
+    corpus = json.loads(Path(args.corpus).read_text(encoding="utf-8"))
+    levels = [int(x) for x in args.levels.split(",")]
+    needed = args.warmup + args.per_level * len(levels)
+    if len(corpus) < needed:
+        raise SystemExit(f"Corpus has {len(corpus)} notes but {needed} are needed for this sweep.")
+
+    bodies = [json.dumps(note).encode("utf-8") for note in corpus]
+
+    print(f"\n=== Benchmarking {args.backend} at {args.url} ===")
+    await wait_healthy(args.url)
+
+    if args.read_fraction > 0:
+        datahashes = [note["datahash"] for note in corpus]
+        await run_mixed_benchmark(args, bodies, datahashes, levels)
+    else:
+        await run_write_benchmark(args, bodies, levels)
 
 
 def main():
@@ -280,6 +482,13 @@ def main():
     run.add_argument("--per-level", type=int, default=2500)
     run.add_argument("--warmup", type=int, default=200)
     run.add_argument("--workers", type=int, default=4, help="Gunicorn worker count (recorded in the report)")
+    run.add_argument("--threads", type=int, default=1, help="Gunicorn threads per worker (recorded in the report)")
+    run.add_argument(
+        "--read-fraction",
+        type=float,
+        default=0.0,
+        help="Fraction of requests that are reads (0.0 = write-only; e.g. 0.8 = 80%% reads)",
+    )
     run.add_argument("--out", required=True)
 
     args = parser.parse_args()

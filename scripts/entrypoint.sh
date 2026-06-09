@@ -113,6 +113,7 @@ else
     gunicorn iscc_hub.wsgi:application \
         --bind 0.0.0.0:${PORT:-8000} \
         --workers ${WORKERS:-4} \
+        --threads ${THREADS:-1} \
         --max-requests ${MAX_REQUESTS:-1000} \
         --max-requests-jitter ${MAX_REQUESTS_JITTER:-50} \
         --timeout ${TIMEOUT:-30} \
