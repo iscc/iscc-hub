@@ -116,3 +116,43 @@ properties:
 
           **Format:** z-base58-btc encoding
         pattern: "^z[1-9A-HJ-NP-Za-km-z]+$"
+  evidence:
+    type: object
+    description: |
+      ISCC-Log inclusion proof binding the declaration to a signed checkpoint.
+
+      Present once a published checkpoint covers the leaf. A verifier
+      re-encodes the `{$schema, iscc_id, note}` log-entry envelope, computes its
+      RFC 6962 leaf hash, combines it with `inclusionProof` to a root, and
+      checks that root against the signed `checkpoint`.
+    required:
+      - type
+      - checkpoint
+      - treeSize
+      - leafIndex
+      - inclusionProof
+    properties:
+      type:
+        type: string
+        const: "IsccLogInclusionProof"
+      checkpoint:
+        type: string
+        description: |
+          The verbatim C2SP signed-note checkpoint covering the leaf.
+      treeSize:
+        type: integer
+        minimum: 1
+        description: |
+          Tree size committed by the checkpoint.
+      leafIndex:
+        type: integer
+        minimum: 0
+        description: |
+          Zero-based index of the declaration's leaf in the log.
+      inclusionProof:
+        type: array
+        items:
+          type: string
+        description: |
+          RFC 6962 inclusion proof: base64-encoded sibling hashes from the leaf
+          to the tree head.

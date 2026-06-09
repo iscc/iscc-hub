@@ -44,8 +44,10 @@ import iscc_core as ic  # noqa: E402
 import iscc_crypto as icr  # noqa: E402
 from asgiref.sync import sync_to_async  # noqa: E402
 from django.core.management import call_command  # noqa: E402
-from django.db import connection  # noqa: E402
+from django.db.models import Count  # noqa: E402
 
+from iscc_hub.iscc_id import IsccID  # noqa: E402
+from iscc_hub.models import IsccDeclaration, LogRecord, LogState  # noqa: E402
 from iscc_hub.sequencer import sequence_iscc_note  # noqa: E402
 
 ISCC_NOTE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
@@ -135,12 +137,13 @@ async def run_benchmark(num_workers=10, requests_per_worker=50):
     print(f"Total requests: {num_workers * requests_per_worker}")
     print(f"{'=' * 60}\n")
 
-    # Clear the database (run in thread to avoid async context issues)
+    # Clear the log, the materialized view, and the sequencer state (run in a
+    # thread to avoid async context issues). Removing LogState resets tree_size so
+    # the next run's leaf indices start at 0.
     def clear_db():
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM iscc_event")
-            cursor.execute("DELETE FROM iscc_declaration")
-            connection.commit()
+        IsccDeclaration.objects.all().delete()
+        LogRecord.objects.all().delete()
+        LogState.objects.all().delete()
 
     await sync_to_async(clear_db)()
 
@@ -209,90 +212,52 @@ async def run_benchmark(num_workers=10, requests_per_worker=50):
     print(f"{'=' * 60}")
 
     def validate():
-        with connection.cursor() as cursor:
-            # Check for gaps in sequence
-            cursor.execute("""
-                SELECT COUNT(*) as count, MIN(seq) as min_seq, MAX(seq) as max_seq
-                FROM iscc_event
-            """)
-            row = cursor.fetchone()
-            count, min_seq, max_seq = row
+        # Records ordered by their 0-based leaf index; iscc_id reads back as a string.
+        records = list(LogRecord.objects.order_by("index").values_list("index", "iscc_id"))
+        count = len(records)
 
-            if count > 0:
-                expected_count = max_seq - min_seq + 1
-                has_gaps = count != expected_count
-                print(f"Sequence gaps: {'FAILED ❌' if has_gaps else 'PASSED ✓'}")
-                print(f"  Sequences: {min_seq} to {max_seq}")
-                print(f"  Count: {count} (expected: {expected_count})")
+        # Check for gaps in the gapless leaf-index sequence.
+        if count > 0:
+            indices = [idx for idx, _ in records]
+            min_seq, max_seq = indices[0], indices[-1]
+            expected_count = max_seq - min_seq + 1
+            present = set(indices)
+            gaps = [i for i in range(min_seq, max_seq + 1) if i not in present]
+            print(f"Sequence gaps: {'FAILED ❌' if gaps else 'PASSED ✓'}")
+            print(f"  Sequences: {min_seq} to {max_seq}")
+            print(f"  Count: {count} (expected: {expected_count})")
+            if gaps:
+                print(f"  First gaps at: {gaps[:10]}")
 
-                if has_gaps:
-                    # Find gaps
-                    cursor.execute("""
-                        SELECT seq + 1 as gap_start
-                        FROM iscc_event e1
-                        WHERE NOT EXISTS (
-                            SELECT 1 FROM iscc_event e2 WHERE e2.seq = e1.seq + 1
-                        )
-                        AND seq < (SELECT MAX(seq) FROM iscc_event)
-                        ORDER BY seq
-                        LIMIT 10
-                    """)
-                    gaps = cursor.fetchall()
-                    if gaps:
-                        print(f"  First gaps at: {[g[0] for g in gaps]}")
+        # Check for duplicate nonces (the nonce is a dedicated unique column now).
+        duplicates = LogRecord.objects.values("nonce").annotate(n=Count("nonce")).filter(n__gt=1)
+        dup_count = duplicates.count()
+        print(f"Unique nonces: {'FAILED ❌' if dup_count else 'PASSED ✓'}")
+        if dup_count:
+            print(f"  Found {dup_count} duplicate nonces")
 
-            # Check for duplicate nonces
-            cursor.execute("""
-                SELECT json_extract(iscc_note, '$.nonce') as nonce, COUNT(*) as count
-                FROM iscc_event
-                GROUP BY json_extract(iscc_note, '$.nonce')
-                HAVING count > 1
-            """)
-            duplicates = cursor.fetchall()
-            print(f"Unique nonces: {'FAILED ❌' if duplicates else 'PASSED ✓'}")
-            if duplicates:
-                print(f"  Found {len(duplicates)} duplicate nonces")
+        # Check for monotonic timestamps encoded in the ISCC-IDs.
+        non_monotonic = []
+        prev_timestamp = 0
+        for seq, iscc_id in records:
+            timestamp = IsccID(iscc_id).timestamp_micros  # 52-bit µs timestamp, 12-bit hub-id
+            if timestamp <= prev_timestamp:
+                non_monotonic.append((seq, timestamp, prev_timestamp))
+            prev_timestamp = timestamp
 
-            # Check for monotonic timestamps in ISCC-IDs
-            cursor.execute("""
-                SELECT seq, iscc_id
-                FROM iscc_event
-                ORDER BY seq
-            """)
-            rows = cursor.fetchall()
+        print(f"Monotonic timestamps: {'FAILED ❌' if non_monotonic else 'PASSED ✓'}")
+        if non_monotonic:
+            print(f"  Found {len(non_monotonic)} non-monotonic timestamps")
+            for seq, ts, prev_ts in non_monotonic[:5]:
+                print(f"    Seq {seq}: {ts} <= {prev_ts}")
 
-            non_monotonic = []
-            prev_timestamp = 0
-            for seq, iscc_id_bytes in rows:
-                # Extract timestamp from ISCC-ID (52-bit timestamp, 12-bit hub_id)
-                timestamp = int.from_bytes(iscc_id_bytes, "big") >> 12
-                if timestamp <= prev_timestamp:
-                    non_monotonic.append((seq, timestamp, prev_timestamp))
-                prev_timestamp = timestamp
+        # Check materialized declaration-view consistency.
+        declaration_count = IsccDeclaration.objects.count()
+        print(f"Declaration entries: {declaration_count} (should match record count: {count})")
 
-            print(f"Monotonic timestamps: {'FAILED ❌' if non_monotonic else 'PASSED ✓'}")
-            if non_monotonic:
-                print(f"  Found {len(non_monotonic)} non-monotonic timestamps")
-                for seq, ts, prev_ts in non_monotonic[:5]:
-                    print(f"    Seq {seq}: {ts} <= {prev_ts}")
-
-            # Check declaration table consistency
-            cursor.execute("""
-                SELECT COUNT(*) FROM iscc_declaration
-            """)
-            declaration_count = cursor.fetchone()[0]
-            print(f"Declaration entries: {declaration_count} (should match event count: {count})")
-
-            # Check for orphaned declarations
-            cursor.execute("""
-                SELECT COUNT(*)
-                FROM iscc_declaration d
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM iscc_event e WHERE e.iscc_id = d.iscc_id
-                )
-            """)
-            orphaned = cursor.fetchone()[0]
-            print(f"Orphaned declarations: {'FAILED ❌' if orphaned > 0 else 'PASSED ✓'} ({orphaned})")
+        # Check for declarations with no backing log record.
+        orphaned = IsccDeclaration.objects.exclude(iscc_id__in=LogRecord.objects.values("iscc_id")).count()
+        print(f"Orphaned declarations: {'FAILED ❌' if orphaned > 0 else 'PASSED ✓'} ({orphaned})")
 
     # Run validation using sync_to_async
     await sync_to_async(validate)()

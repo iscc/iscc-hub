@@ -5,7 +5,7 @@ Django models for ISCC-HUB.
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-from iscc_hub.fields import HexField, IsccIDField, PubkeyField, SequenceField
+from iscc_hub.fields import HexField, IsccIDField, PubkeyField
 
 
 class User(AbstractUser):
@@ -103,90 +103,17 @@ class PubKey(models.Model):
         return f"Unclaimed key ({self.pubkey[:8]}...)"
 
 
-class Event(models.Model):
-    """
-    Append-only event log for ISCC declarations.
-
-    Stores IsccNote declarations with gapless sequence numbers,
-    supporting both initial declarations and updates.
-    """
-
-    class EventType(models.IntegerChoices):
-        """
-        Event types for ISCC declarations.
-        """
-
-        CREATED = 1, "Created"
-        UPDATED = 2, "Updated"
-        DELETED = 3, "Deleted"
-
-    # Gapless sequence number as primary key
-    seq = SequenceField(primary_key=True, help_text="Gapless sequence number for events")
-
-    # ISCC-ID assigned to the declaration (can be non-unique for updates)
-    iscc_id = IsccIDField(db_index=True, help_text="ISCC-ID assigned to the declaration")
-
-    # Unique Nonce
-    nonce = HexField(unique=True, help_text="128-bit hex nonce preventing replay attacks")
-
-    # For application side detection of duplicate declarations (if desired)
-    datahash = HexField(db_index=True, help_text="Hash of the declared content")
-
-    # Public key of the declaring actor
-    pubkey = PubkeyField(db_index=True, help_text="Ed25519 public key of the declaring actor")
-
-    # Event type
-    event_type = models.PositiveSmallIntegerField(
-        choices=EventType.choices,
-        default=EventType.CREATED,
-        db_index=True,
-        help_text="Type of event (1=CREATED, 2=UPDATED, 3=DELETED)",
-    )
-
-    # Event data stored as binary (canonicalized JSON)
-    event_data = models.BinaryField(help_text="Event data stored as canonicalized JSON bytes")
-
-    # Blake3 hash of the complete IsccEvent (seq, iscc_id, prev, note)
-    event_hash = HexField(db_index=True, help_text="Blake3 hash of the canonicalized IsccEvent")
-
-    # Event timestamp - when this specific event occurred
-    # For CREATED events: same as ISCC-ID timestamp (initial declaration time)
-    # For UPDATED/DELETED events: when the update/deletion happened
-    event_time = models.DateTimeField(
-        auto_now_add=True,
-        db_index=True,
-        help_text="When this event was logged (for updates/deletes, differs from ISCC-ID timestamp)",
-    )
-
-    class Meta:
-        db_table = "iscc_event"
-        verbose_name = "Event"
-        verbose_name_plural = "Events"
-
-    def __str__(self):
-        # type: () -> str
-        """
-        String representation of the Event.
-        """
-        return f"Event #{self.seq}: {self.get_event_type_display()} {self.iscc_id}"  # type: ignore[attr-defined]
-
-
 class IsccDeclaration(models.Model):
     """
     Active ISCC declaration record.
 
     Represents the current state of an ISCC-ID declaration, materialized from
-    the Event log. Each ISCC-ID has exactly one declaration record that gets
-    fully replaced on updates.
+    the append-only LogRecord log for fast resolution and search. Each ISCC-ID
+    has exactly one declaration record; a deletion removes it.
     """
 
     # Primary identifier
     iscc_id = IsccIDField(primary_key=True, help_text="ISCC-ID - the unique timestamp identifier")
-
-    # Event tracking
-    event_seq = models.BigIntegerField(
-        unique=True, db_index=True, help_text="Sequence number of the latest Event affecting this declaration"
-    )
 
     # Core declaration data
     iscc_code = models.CharField(max_length=256, db_index=True, help_text="ISCC-CODE identifying the content")
@@ -269,6 +196,12 @@ class LogState(models.Model):
         help_text="High-water mark of the Hub microsecond clock for monotonic ISCC-IDs",
     )
 
+    checkpoint = models.TextField(
+        blank=True,
+        default="",
+        help_text="Latest published C2SP signed-note checkpoint over the log (text)",
+    )
+
     class Meta:
         db_table = "iscc_logstate"
         verbose_name = "Log State"
@@ -329,70 +262,3 @@ class LogRecord(models.Model):
         # type: () -> str
         """String representation of the log record."""
         return f"LogRecord #{self.index}: {self.type} {self.iscc_id}"
-
-
-class Checkpoint(models.Model):
-    """
-    Cryptographic checkpoint of the ISCC Hub event log.
-
-    Creates verifiable snapshots of event history using Merkle trees
-    and hash chaining for immutable audit trails.
-    """
-
-    # Auto-incrementing primary key
-    id = models.AutoField(primary_key=True, help_text="Unique checkpoint identifier")
-
-    # Event sequence range
-    start = models.BigIntegerField(
-        unique=True, db_index=True, help_text="Sequence number of the first event in this checkpoint"
-    )
-
-    end = models.BigIntegerField(db_index=True, help_text="Sequence number of the last event in this checkpoint")
-
-    # Cryptographic hashes
-    merkle_root = HexField(help_text="Blake3 hash of the Merkle tree root built from event hashes")
-
-    prev = HexField(help_text="Hash of the previous checkpoint (Blake3 of empty bytes for genesis)")
-
-    hash = HexField(unique=True, db_index=True, help_text="This checkpoint's hash: Blake3(merkle_root || prev)")
-
-    # Timestamp
-    created_at = models.DateTimeField(auto_now_add=True, db_index=True, help_text="When this checkpoint was created")
-
-    # External timestamping fields
-    timestamp_type = models.CharField(
-        max_length=10,
-        choices=[
-            ("RFC3161", "RFC 3161 TSA"),
-            ("OTS", "OpenTimestamps"),
-        ],
-        null=True,
-        blank=True,
-        help_text="Type of external timestamp protocol used",
-    )
-
-    timestamp_token = models.TextField(
-        null=True,
-        blank=True,
-        help_text="Base64-encoded timestamp token. Decode and verify using appropriate client library.",
-    )
-
-    class Meta:
-        db_table = "iscc_checkpoint"
-        verbose_name = "Checkpoint"
-        verbose_name_plural = "Checkpoints"
-        constraints = [
-            # Django 6.0 renamed 'check' to 'condition' - ignore until django-types is updated
-            models.CheckConstraint(condition=models.Q(end__gte=models.F("start")), name="checkpoint_end_gte_start"),  # pyright: ignore[reportCallIssue]
-        ]
-
-    def __str__(self):
-        # type: () -> str
-        """String representation of the Checkpoint."""
-        return f"Checkpoint #{self.id}: events {self.start}-{self.end}"
-
-    @property
-    def event_count(self):
-        # type: () -> int
-        """Return the number of events in this checkpoint."""
-        return self.end - self.start + 1

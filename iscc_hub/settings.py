@@ -52,20 +52,6 @@ ISCC_HUB_DB_PATH = DATA_DIR / ISCC_HUB_DB_NAME
 # Realm-1 (SUBTYPE="0001") for operational network
 ISCC_HUB_REALM = env.int("ISCC_HUB_REALM", default=0 if DEV else env.NOTSET)
 
-# List of RFC3161 Timestamping servers for checkpoint timestamping
-# Ordered by performance (fastest first) based on testing with tsp-client
-# Use `python scripts/timestamp.py test` to re-test TSA server performance
-ISCC_HUB_TIMESTAMP_SERVERS = env.list(
-    "ISCC_HUB_TIMESTAMP_SERVERS",
-    default=[
-        "http://tss.accv.es:8318/tsa",
-        "http://ts.ssl.com",
-        "http://timestamp.identrust.com",
-        "http://timestamp.digicert.com",
-        "http://timestamp.sectigo.com",
-    ],
-)
-
 ISCC_HUB_SQLITE_SYNC_MODE = env.str("ISCC_HUB_SQLITE_SYNC_MODE", default="NORMAL")
 
 # Hub list initial synchronization (used in Docker startup sequence)
@@ -188,14 +174,26 @@ else:
 
 ATOMIC_REQUESTS = False  # This is the default, but we better make sure with transaction mode IMMEDIATE
 
-ISCC_HUB_CACHE_MEMORY_SIZE = 1024 * 1024 * 10  # 10MB
+# Surface server-side errors (HTTP 500) to the console even when DEBUG is False. Django's
+# default config routes django.request errors through a require_debug_true filter, so in
+# production unhandled exceptions are swallowed with no traceback; this restores them.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "loggers": {
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+    },
+}
 
-# Shared memory cache used for django-constance configuration values
+# Django's in-process LocMemCache, used to cache django-constance config (see
+# CONSTANCE_DATABASE_CACHE_BACKEND below). The previous default used shared_memory_dict
+# (POSIX shared memory), which corrupts under concurrent access from multiple gunicorn
+# workers: a torn write leaves the block un-unpicklable, after which every constance read
+# on the declaration hot path raises UnpicklingError -> HTTP 500.
 CACHES = {
     "default": {
-        "BACKEND": "shared_memory_dict.caches.django.SharedMemoryCache",
-        "LOCATION": "memory",
-        "OPTIONS": {"MEMORY_BLOCK_SIZE": ISCC_HUB_CACHE_MEMORY_SIZE},
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
     },
 }
 
@@ -318,16 +316,6 @@ UNFOLD = {
                         "title": "Declarations",
                         "icon": "description",
                         "link": "/admin/iscc_hub/isccdeclaration/",
-                    },
-                    {
-                        "title": "Events",
-                        "icon": "history",
-                        "link": "/admin/iscc_hub/event/",
-                    },
-                    {
-                        "title": "Checkpoints",
-                        "icon": "flag",
-                        "link": "/admin/iscc_hub/checkpoint/",
                     },
                     {
                         "title": "Hubs",
@@ -453,7 +441,13 @@ UNFOLD_CONSTANCE_ADDITIONAL_FIELDS = {
 
 CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 CONSTANCE_DATABASE_PREFIX = "constance:iscc-hub:"
-CONSTANCE_DATABASE_CACHE_BACKEND = "default"
+# Read constance config straight from the database on each access (no cache). Constance
+# requires a CROSS-PROCESS cache, so an in-process LocMemCache is rejected and the previous
+# shared_memory_dict cache corrupts under concurrent multi-worker access (see CACHES above).
+# Reading from the DB is always fresh and correct across workers and crash-free. It does add
+# a few small reads to the declaration hot path; if write throughput needs recovering, swap
+# in a shared cross-process cache (Django DatabaseCache, or Redis/Memcached).
+CONSTANCE_DATABASE_CACHE_BACKEND = None
 CONSTANCE_ADDITIONAL_FIELDS = {**UNFOLD_CONSTANCE_ADDITIONAL_FIELDS}
 
 CONSTANCE_CONFIG = OrderedDict(

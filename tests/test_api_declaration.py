@@ -18,7 +18,6 @@ def _wipe_log_tables():
     """Remove all rows from the log/declaration tables, resetting the sequencer state."""
     try:
         with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM iscc_event")
             cursor.execute("DELETE FROM iscc_declaration")
             cursor.execute("DELETE FROM iscc_logrecord")
             cursor.execute("DELETE FROM iscc_logstate")
@@ -239,6 +238,26 @@ def test_declaration_receipt_endpoint(
         # LogRecord.record — structural equality alone would not catch a re-serialization that
         # changed the signing-input bytes; the receipt must be self-verifying from the log.
         assert icr.verify_json(declaration["iscc_note"]).signature_valid is True
+
+        # The receipt carries an inclusion proof binding the leaf to a signed checkpoint.
+        import base64
+
+        import jcs
+
+        from iscc_hub import checkpoint_note, log_tree, merkle
+        from iscc_hub.sequencer import LOG_ENTRY_SCHEMA
+
+        evidence = receipt["evidence"]
+        assert evidence["type"] == "IsccLogInclusionProof"
+        assert evidence["leafIndex"] == 0
+        pubkey = log_tree.hub_keypair().pk_obj.public_bytes_raw()
+        tree_size, root = checkpoint_note.verify_checkpoint(evidence["checkpoint"], log_tree.log_origin(), pubkey)
+        assert tree_size == evidence["treeSize"]
+        # Reconstruct the log-entry envelope a verifier would hash and replay the proof.
+        envelope = {"$schema": LOG_ENTRY_SCHEMA, "iscc_id": iscc_id, "note": declaration["iscc_note"]}
+        leaf = merkle.leaf_hash(jcs.canonicalize(envelope))
+        proof = [base64.b64decode(h) for h in evidence["inclusionProof"]]
+        assert merkle.root_from_inclusion_proof(leaf, 0, tree_size, proof) == root
 
 
 @pytest.mark.django_db(transaction=True)

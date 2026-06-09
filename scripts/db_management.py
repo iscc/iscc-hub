@@ -170,17 +170,17 @@ def print_summary():
     # Import models here to avoid issues if migrations don't exist yet
     from django.contrib.auth import get_user_model
 
-    from iscc_hub.models import Event, IsccDeclaration
+    from iscc_hub.models import IsccDeclaration, LogRecord
 
-    event_count = Event.objects.count()
+    record_count = LogRecord.objects.count()
     declaration_count = IsccDeclaration.objects.count()
     active_count = IsccDeclaration.objects.filter(redacted=False).count()
-    deleted_count = Event.objects.filter(event_type=Event.EventType.DELETED).count()
+    deletion_count = LogRecord.objects.filter(type=LogRecord.RecordType.DELETION).count()
 
-    print(f"  - Events: {event_count}")
+    print(f"  - Log records: {record_count}")
     print(f"  - Declarations: {declaration_count}")
     print(f"    - Active: {active_count}")
-    print(f"    - Deleted: {deleted_count}")
+    print(f"    - Deletions: {deletion_count}")
 
     print("\n🚀 You can now:")
     print("  - Run the dev server: uv run poe serve")

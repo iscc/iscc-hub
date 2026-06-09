@@ -225,7 +225,6 @@ def create_test_declaration(seq=1, **overrides):
 
     defaults = {
         "iscc_id": generate_test_iscc_id(seq=seq),
-        "event_seq": seq,
         "iscc_code": "ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY",
         "datahash": "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
         "nonce": f"{seq:032x}",  # Generate unique nonce based on seq
@@ -233,20 +232,6 @@ def create_test_declaration(seq=1, **overrides):
     }
     defaults.update(overrides)
     return IsccDeclaration.objects.create(**defaults)
-
-
-def create_test_event(seq=1, **overrides):
-    # type: (int, dict) -> object
-    """Factory function for creating test Event objects."""
-    from iscc_hub.models import Event
-
-    defaults = {
-        "seq": seq,
-        "note": {"test": "data"},
-        "iscc_id": generate_test_iscc_id(seq=seq),
-    }
-    defaults.update(overrides)
-    return Event.objects.create(**defaults)
 
 
 # Helper functions for testing
@@ -286,45 +271,3 @@ def sample_validation_data():
         "valid_datahash": "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c",
         "invalid_datahash": "not-a-hash",
     }
-
-
-@pytest.fixture
-def test_events():
-    # type: () -> list
-    """Create test events with proper event_hash for checkpoint testing."""
-    from iscc_hub.models import Event
-    from iscc_hub.sequencer import sequence_iscc_note
-
-    # Clear any existing events and checkpoints
-    Event.objects.all().delete()
-    from iscc_hub.models import Checkpoint
-
-    Checkpoint.objects.all().delete()
-
-    # Create deterministic keypair for testing
-    controller = "did:web:test.example.com"
-    keypair = icr.key_generate(controller=controller)
-
-    events = []
-    for i in range(5):
-        # Create unique note for each event
-        iscc_data = create_iscc_from_text(f"Test content {i}")
-        note = {
-            "$schema": ISCC_NOTE_SCHEMA,
-            "iscc_code": iscc_data["iscc"],
-            "datahash": iscc_data["datahash"],
-            "nonce": f"{i:032x}",
-            "timestamp": f"2025-01-15T12:00:{i:02d}.000Z",
-        }
-
-        # Sign the note
-        signed_note = icr.sign_json(note, keypair)
-
-        # Sequence it to create event with proper event_hash. The sequencer
-        # returns the 0-based leaf index; fetch the legacy Event by ISCC-ID so
-        # this fixture does not depend on the seq numbering.
-        _, iscc_id_bytes = sequence_iscc_note(signed_note)
-        event = Event.objects.get(iscc_id=iscc_id_bytes)
-        events.append(event)
-
-    return events

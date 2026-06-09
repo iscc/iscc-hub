@@ -1,7 +1,5 @@
 """Tests for Django admin configuration."""
 
-import json
-from datetime import datetime
 from unittest.mock import Mock
 
 import pytest
@@ -10,8 +8,8 @@ from django.contrib.admin.sites import site
 from django.http import HttpRequest
 from django.test import RequestFactory
 
-from iscc_hub.admin import CheckpointAdmin, EventAdmin, HubAdmin, IsccDeclarationAdmin, PubKeyAdmin
-from iscc_hub.models import Checkpoint, Event, Hub, IsccDeclaration, PubKey, User
+from iscc_hub.admin import HubAdmin, IsccDeclarationAdmin, PubKeyAdmin
+from iscc_hub.models import Hub, IsccDeclaration, PubKey, User
 
 
 @pytest.fixture
@@ -42,23 +40,7 @@ def iscc_declaration():
         pubkey="ed25519_public_key_test",
         gateway="https://example.com",
         metahash="test_metahash",
-        event_seq=1,
         redacted=False,
-    )
-
-
-@pytest.fixture
-def event():
-    # type: () -> Event
-    """Sample Event fixture."""
-    import json
-
-    return Event(
-        seq=1,
-        event_type=1,  # CREATED
-        iscc_id="ISCC:KAA777777UJZXHQ2",
-        event_data=json.dumps({"test": "data"}).encode("utf-8"),
-        event_hash="123456789abcdef0" * 4,  # 64 hex chars for BLAKE3 hash
     )
 
 
@@ -280,151 +262,6 @@ class TestIsccDeclarationAdmin:
         assert admin_obj.has_delete_permission(admin_request, IsccDeclaration()) is False
 
 
-class TestEventAdmin:
-    def test_registration(self):
-        # type: () -> None
-        """Test that EventAdmin is registered."""
-        assert Event in site._registry
-        assert isinstance(site._registry[Event], EventAdmin)
-
-    def test_has_add_permission(self, admin_request):
-        # type: (HttpRequest) -> None
-        """Test that adding events is prevented."""
-        admin_obj = EventAdmin(Event, site)
-        assert admin_obj.has_add_permission(admin_request) is False
-
-    def test_has_change_permission_get(self, admin_request):
-        # type: (HttpRequest) -> None
-        """Test that viewing events is allowed."""
-        admin_obj = EventAdmin(Event, site)
-        admin_request.method = "GET"
-        assert admin_obj.has_change_permission(admin_request) is True
-
-    def test_has_change_permission_post(self, admin_request):
-        # type: (HttpRequest) -> None
-        """Test that editing events is prevented."""
-        admin_obj = EventAdmin(Event, site)
-        admin_request.method = "POST"
-        assert admin_obj.has_change_permission(admin_request) is False
-
-    def test_has_delete_permission(self, admin_request):
-        # type: (HttpRequest) -> None
-        """Test that deleting events is prevented."""
-        admin_obj = EventAdmin(Event, site)
-        assert admin_obj.has_delete_permission(admin_request) is False
-
-    def test_event_type_display_created(self, event):
-        # type: (Event) -> None
-        """Test event type display for CREATED."""
-        admin_obj = EventAdmin(Event, site)
-        event.event_type = 1
-        result = admin_obj.event_type_display(event)
-        assert "CREATED" in result
-        assert "color: green" in result
-
-    def test_event_type_display_updated(self, event):
-        # type: (Event) -> None
-        """Test event type display for UPDATED."""
-        admin_obj = EventAdmin(Event, site)
-        event.event_type = 2
-        result = admin_obj.event_type_display(event)
-        assert "UPDATED" in result
-        assert "color: blue" in result
-
-    def test_event_type_display_deleted(self, event):
-        # type: (Event) -> None
-        """Test event type display for DELETED."""
-        admin_obj = EventAdmin(Event, site)
-        event.event_type = 3
-        result = admin_obj.event_type_display(event)
-        assert "DELETED" in result
-        assert "color: red" in result
-
-    def test_event_type_display_unknown(self, event):
-        # type: (Event) -> None
-        """Test event type display for unknown type."""
-        admin_obj = EventAdmin(Event, site)
-        event.event_type = 999
-        result = admin_obj.event_type_display(event)
-        assert "UNKNOWN" in result
-        assert "color: black" in result
-
-    def test_iscc_id_display(self, event):
-        # type: (Event) -> None
-        """Test ISCC-ID display."""
-        admin_obj = EventAdmin(Event, site)
-        result = admin_obj.iscc_id_display(event)
-        assert result == "ISCC:KAA777777UJZXHQ2"
-
-    def test_iscc_id_timestamp(self, event):
-        # type: (Event) -> None
-        """Test ISCC-ID timestamp extraction."""
-        admin_obj = EventAdmin(Event, site)
-        # Test with valid ISCC-ID
-        event.iscc_id = "ISCC:MEAJU3PC4ICWCTYI"
-        result = admin_obj.iscc_id_timestamp(event)
-        assert result == "2056-02-02T20:12:57.217556Z"
-
-        # Test with None ISCC-ID
-        event.iscc_id = None
-        result = admin_obj.iscc_id_timestamp(event)
-        assert result == "—"
-
-    def test_event_data_formatted_valid_json(self, event):
-        # type: (Event) -> None
-        """Test JSON formatting for valid data."""
-        admin_obj = EventAdmin(Event, site)
-        test_data = {"key": "value", "nested": {"data": 123}}
-        event.event_data = json.dumps(test_data).encode("utf-8")
-        result = admin_obj.event_data_formatted(event)
-        assert "<pre" in result
-        assert "background: #f5f5f5" in result
-        # HTML-escaped quotes in the output
-        assert "&quot;key&quot;: &quot;value&quot;" in result
-
-    def test_event_data_formatted_invalid_json(self, event):
-        # type: (Event) -> None
-        """Test JSON formatting fallback for invalid data."""
-        admin_obj = EventAdmin(Event, site)
-        # Set invalid binary data that cannot be decoded as UTF-8 JSON
-        event.event_data = b"\xff\xfe\xfd"  # Invalid UTF-8 bytes
-
-        result = admin_obj.event_data_formatted(event)
-
-        # Should fallback to string representation of binary data
-        assert "b'\\xff\\xfe\\xfd'" in result
-
-    def test_event_hash_short_truncated(self, event):
-        # type: (Event) -> None
-        """Test event hash truncation for long hashes."""
-        admin_obj = EventAdmin(Event, site)
-        # event_hash is already set to 64 hex chars in fixture
-        result = admin_obj.event_hash_short(event)
-        # Hash should be truncated and have tooltip
-        assert '<span title="' in result
-        assert "...</span>" in result
-        # Should show first 16 chars of hex
-        assert event.event_hash[:16] in result
-
-    def test_event_hash_short_not_truncated(self, event):
-        # type: (Event) -> None
-        """Test event hash display for short hashes."""
-        admin_obj = EventAdmin(Event, site)
-        # Set a short hash (16 hex chars)
-        event.event_hash = "123456789abcdef0"
-        result = admin_obj.event_hash_short(event)
-        # Should not be truncated
-        assert result == "123456789abcdef0"
-
-    def test_event_hash_short_none(self, event):
-        # type: (Event) -> None
-        """Test event hash display when hash is None."""
-        admin_obj = EventAdmin(Event, site)
-        event.event_hash = None
-        result = admin_obj.event_hash_short(event)
-        assert result == "—"
-
-
 class TestPubKeyAdmin:
     def test_registration(self):
         # type: () -> None
@@ -619,47 +456,3 @@ class TestHubAdmin:
         admin_request.user.is_superuser = False
         assert admin_obj.has_delete_permission(admin_request) is False
         assert admin_obj.has_delete_permission(admin_request, Hub()) is False
-
-
-class TestCheckpointAdmin:
-    def test_event_range(self):
-        # type: () -> None
-        """Test event_range display."""
-        admin_obj = CheckpointAdmin(Checkpoint, site)
-        checkpoint = Checkpoint(start=1, end=100)
-        result = admin_obj.event_range(checkpoint)
-        assert result == "1-100"
-
-    def test_merkle_root_short_none(self):
-        # type: () -> None
-        """Test merkle_root_short when merkle_root is None."""
-        admin_obj = CheckpointAdmin(Checkpoint, site)
-        checkpoint = Checkpoint(merkle_root=None)
-        result = admin_obj.merkle_root_short(checkpoint)
-        assert result == "—"
-
-    def test_merkle_root_short_empty_string(self):
-        # type: () -> None
-        """Test merkle_root_short when merkle_root is empty string."""
-        admin_obj = CheckpointAdmin(Checkpoint, site)
-        checkpoint = Checkpoint(merkle_root="")
-        result = admin_obj.merkle_root_short(checkpoint)
-        assert result == "—"
-
-    def test_merkle_root_short_short_hash(self):
-        # type: () -> None
-        """Test merkle_root_short with hash <= 16 chars."""
-        admin_obj = CheckpointAdmin(Checkpoint, site)
-        checkpoint = Checkpoint(merkle_root="1234567890abcdef")
-        result = admin_obj.merkle_root_short(checkpoint)
-        assert result == "1234567890abcdef"
-
-    def test_merkle_root_short_long_hash(self):
-        # type: () -> None
-        """Test merkle_root_short with hash > 16 chars."""
-        admin_obj = CheckpointAdmin(Checkpoint, site)
-        long_hash = "a" * 64  # 64 hex chars like a real Blake3 hash
-        checkpoint = Checkpoint(merkle_root=long_hash)
-        result = admin_obj.merkle_root_short(checkpoint)
-        assert '<span title="' + long_hash + '">' in result
-        assert long_hash[:16] + "...</span>" in result

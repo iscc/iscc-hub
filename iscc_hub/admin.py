@@ -1,6 +1,5 @@
 """Django admin configuration for ISCC Hub models."""
 
-import json
 from typing import Any
 from urllib.parse import urlparse
 
@@ -17,7 +16,7 @@ from unfold.admin import ModelAdmin
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 from unfold.paginator import InfinitePaginator
 
-from iscc_hub.models import Checkpoint, Event, Hub, IsccDeclaration, PubKey, User
+from iscc_hub.models import Hub, IsccDeclaration, PubKey, User
 
 admin.site.unregister(Group)
 
@@ -136,7 +135,6 @@ class IsccDeclarationAdmin(ModelAdmin):
 
     readonly_fields = [
         "iscc_id",
-        "event_seq",
         "iscc_code",
         "datahash",
         "nonce",
@@ -151,7 +149,7 @@ class IsccDeclarationAdmin(ModelAdmin):
     fieldsets = (
         ("Core Identification", {"fields": ("iscc_id", "iscc_code", "datahash", "nonce")}),
         ("Identity Information", {"fields": ("pubkey", "controller", "gateway")}),
-        ("Metadata", {"fields": ("metahash", "event_seq")}),
+        ("Metadata", {"fields": ("metahash",)}),
         ("Timestamps", {"fields": ("creation_time", "updated_at"), "classes": ("collapse",)}),
         ("Status", {"fields": ("redacted",)}),
     )
@@ -257,195 +255,6 @@ class IsccDeclarationAdmin(ModelAdmin):
         # type: (HttpRequest, IsccDeclaration | None) -> bool
         """Prevent deleting declarations through admin (use API with DELETE events)."""
         return False
-
-
-@admin.register(Event)
-class EventAdmin(ModelAdmin):
-    """Admin interface for Event model (read-only)."""
-
-    list_display = [
-        "seq",
-        "event_type_display",
-        "iscc_id_display",
-        "event_hash_short",
-        "iscc_id_timestamp",
-        "event_time",
-    ]
-
-    list_filter = [
-        "event_type",
-    ]
-
-    list_filter_sheet = False
-    list_filter_submit = False
-
-    search_fields = [
-        "seq",
-        "iscc_id",
-        "event_hash",
-    ]
-
-    readonly_fields = [
-        "seq",
-        "event_type",
-        "iscc_id",
-        "event_hash",
-        "iscc_id_timestamp",
-        "event_time",
-        "event_data_formatted",
-    ]
-
-    fieldsets = (
-        (
-            "Event Information",
-            {"fields": ("seq", "event_type", "iscc_id", "event_hash", "iscc_id_timestamp", "event_time")},
-        ),
-        ("Event Data", {"fields": ("event_data_formatted",), "classes": ("wide",)}),
-    )
-
-    list_per_page = 100
-    date_hierarchy = "event_time"
-
-    # Performance optimizations for large datasets
-    paginator = InfinitePaginator  # Avoid expensive COUNT queries on append-only log
-    show_full_result_count = False  # Don't show total count
-    list_select_related = []  # No FKs in list_display
-
-    def has_add_permission(self, request):
-        # type: (HttpRequest) -> bool
-        """Prevent adding events through admin (append-only log)."""
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        # type: (HttpRequest, Event | None) -> bool
-        """Allow viewing but not editing events."""
-        return request.method == "GET"
-
-    def has_delete_permission(self, request, obj=None):
-        # type: (HttpRequest, Event | None) -> bool
-        """Prevent deleting events (append-only log)."""
-        return False
-
-    def event_type_display(self, obj):
-        # type: (Event) -> str
-        """Display event type with color coding."""
-        colors = {
-            1: ("CREATED", "green"),
-            2: ("UPDATED", "blue"),
-            3: ("DELETED", "red"),
-        }
-        event_name, color = colors.get(obj.event_type, ("UNKNOWN", "black"))
-        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, event_name)
-
-    event_type_display.short_description = "Event Type"
-    event_type_display.admin_order_field = "event_type"
-
-    def iscc_id_display(self, obj):
-        # type: (Event) -> str
-        """Display ISCC-ID."""
-        return str(obj.iscc_id)
-
-    iscc_id_display.short_description = "ISCC-ID"
-    iscc_id_display.admin_order_field = "iscc_id"
-
-    def iscc_id_timestamp(self, obj):
-        # type: (Event) -> str
-        """Extract initial declaration timestamp from ISCC-ID."""
-        if obj.iscc_id:
-            from iscc_hub.iscc_id import IsccID
-
-            iscc_obj = IsccID(obj.iscc_id)
-            return iscc_obj.timestamp_iso
-        return "—"
-
-    iscc_id_timestamp.short_description = "Declaration Time (ISCC-ID)"
-    iscc_id_timestamp.admin_order_field = "iscc_id"
-
-    def event_data_formatted(self, obj):
-        # type: (Event) -> str
-        """Display formatted JSON for event data."""
-        try:
-            # Deserialize binary data to JSON
-            data = json.loads(obj.event_data.decode("utf-8"))
-            formatted = json.dumps(data, indent=2)
-            return format_html(
-                '<pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">{}</pre>',
-                formatted,
-            )
-        except (TypeError, ValueError, UnicodeDecodeError):
-            return str(obj.event_data)
-
-    event_data_formatted.short_description = "Event Data"
-
-    def event_hash_short(self, obj):
-        # type: (Event) -> str
-        """Display truncated event hash with tooltip."""
-        if obj.event_hash:
-            hash_str = str(obj.event_hash)  # Ensure it's a string
-            if len(hash_str) > 16:
-                return format_html('<span title="{}">{}...</span>', hash_str, hash_str[:16])
-            return hash_str
-        return "—"
-
-    event_hash_short.short_description = "Event Hash"
-    event_hash_short.admin_order_field = "event_hash"
-
-
-@admin.register(Checkpoint)
-class CheckpointAdmin(ModelAdmin):
-    """Admin interface for Checkpoint model."""
-
-    list_display = [
-        "id",
-        "event_range",
-        "event_count",
-        "merkle_root_short",
-        "timestamp_type",
-        "created_at",
-    ]
-
-    list_filter = [
-        "timestamp_type",
-        "created_at",
-    ]
-
-    search_fields = [
-        "merkle_root",
-        "hash",
-        "prev",
-    ]
-
-    readonly_fields = [
-        "id",
-        "start",
-        "end",
-        "merkle_root",
-        "prev",
-        "hash",
-        "created_at",
-        "event_count",
-    ]
-
-    def event_range(self, obj):
-        # type: (Checkpoint) -> str
-        """Display event sequence range."""
-        return f"{obj.start}-{obj.end}"
-
-    event_range.short_description = "Event Range"
-    event_range.admin_order_field = "start"
-
-    def merkle_root_short(self, obj):
-        # type: (Checkpoint) -> str
-        """Display truncated merkle root with tooltip."""
-        if obj.merkle_root:
-            root_str = str(obj.merkle_root)
-            if len(root_str) > 16:
-                return format_html('<span title="{}">{}...</span>', root_str, root_str[:16])
-            return root_str
-        return "—"
-
-    merkle_root_short.short_description = "Merkle Root"
-    merkle_root_short.admin_order_field = "merkle_root"
 
 
 admin.site.unregister(Failure)

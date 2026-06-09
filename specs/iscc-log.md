@@ -311,17 +311,19 @@ When the Hub accepts a declaration or deletion, it **MUST**, within a single ato
 
 1. Assign the next sequence number `i` (equal to the current tree size).
 2. Form the canonical record bytes per [§5.1](#51-record-content).
-3. Persist the record durably as the source of truth.
-4. Update the Merkle tree and the affected partial tiles.
+3. Persist the record durably as the source of truth and advance the tree size to `i + 1`.
 
-The record **MUST** become visible in the entry bundle and committed by a published checkpoint of size `≥ i + 1` before
-the Hub asserts the declaration is logged.
+The Merkle tree, tiles, and checkpoint are a deterministic function of the committed records
+([§11.2](#112-tile-materialization)) and **MAY** be derived after the transaction commits; the append transaction itself
+need not perform any tree or tile work. The record **MUST** become visible in the entry bundle and committed by a
+published checkpoint of size `≥ i + 1` before the Hub asserts the declaration is logged.
 
 ### 11.2 Tile materialization
 
-Hash tiles **MAY** be materialized lazily or eagerly. Because every tile is a deterministic function of the committed
-records, a Hub **MAY** discard a materialized hash tile and recompute it on demand. The record store, not the tile
-cache, is the source of truth.
+Hash tiles, entry bundles, and the checkpoint **MAY** be materialized lazily or eagerly. Because every tile is a
+deterministic function of the committed records, a Hub **MAY** discard a materialized tile and recompute it on demand; a
+crash before materialization loses nothing, since the tree is recomputed from the records on restart. The record store,
+not the tile cache, is the source of truth.
 
 ### 11.3 Pruning
 
@@ -331,6 +333,20 @@ A Hub **MAY** prune record and tile data according to an operator-defined retent
     records.
 - **MUST** return `410 Gone` for pruned tile resources.
 - Does not invalidate any inclusion proof held by a third party that retained the covering tiles.
+
+### 11.4 Aggregator synchronization
+
+This section is **informative**. An Aggregator or other indexer synchronizes a Hub's log without trusting the Hub by:
+
+1. Fetching `GET /log/checkpoint` and verifying its signature against the Hub's public key from the Hub-List.
+2. Verifying consistency with the previously observed checkpoint per [§10.2](#102-consistency-proof).
+3. Fetching the entry bundles `GET /log/tile/entries/<K>` for the newly covered range, recomputing every leaf and hash
+    tile, and confirming the reconstructed root matches the signed checkpoint.
+
+For each record, the indexer derives whether it is a declaration or a deletion from `note.$schema` (`iscc-note-0.8.0`
+versus `iscc-note-delete-0.8.0`). An indexer building a resolution view **MUST** apply deletions (removing the prior
+declaration for that ISCC-ID from its view) and **MUST** skip records whose `note.$schema` it does not recognize rather
+than guessing their semantics.
 
 ## 12. Trust model and deferred features
 
@@ -364,6 +380,12 @@ and policy (for example a k-of-n threshold) are out of scope for this draft.
 - **Hash agility.** This profile fixes SHA-256 for the tree. A future version **MAY** define a different tree hash;
     checkpoints are versioned by their origin and tooling, and a Verifier **MUST** reject a checkpoint it cannot parse
     under a known profile.
+- **Local redaction.** A Hub operator **MAY** mark a declaration as redacted to suppress it from that Hub's own
+    resolution and search responses (for example, to disable resolution of abusive content). Redaction is a local policy
+    control only: it writes no log record, does not alter or remove any committed record, and therefore does **not**
+    propagate to Monitors, Aggregators, or other indexers, which continue to see the original declaration in the log.
+    Removing a declaration from the verifiable log is only possible via a signed deletion record
+    ([§5.1](#51-record-content)).
 
 ## 14. References
 

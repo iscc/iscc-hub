@@ -216,3 +216,6 @@ AGENTS.md
 
 # Bubbling, alchemical, where secret raw ingredients transform ;)
 cauldron/
+
+# Local benchmarking
+compose.bench.yaml

@@ -38,7 +38,7 @@ django.setup()
 from django.core.management import call_command  # noqa: E402
 
 from iscc_hub.iscc_id import IsccID  # noqa: E402
-from iscc_hub.models import Event, IsccDeclaration, LogRecord, LogState  # noqa: E402
+from iscc_hub.models import IsccDeclaration, LogRecord, LogState  # noqa: E402
 from iscc_hub.sequencer import sequence_iscc_delete, sequence_iscc_note  # noqa: E402
 from iscc_hub.validators import validate_iscc_note, validate_iscc_note_delete  # noqa: E402
 
@@ -255,16 +255,17 @@ def process_iscc_delete(iscc_delete_note):
     # Get the ISCC-ID from the delete request
     iscc_id_str = validated_delete["iscc_id"]
 
-    # Find the original declaration with matching ISCC-ID to get the datahash
-    original_event = Event.objects.filter(
-        iscc_id=bytes(IsccID(iscc_id_str)),
-        event_type=1,  # CREATED event
-    ).first()
+    # Find the original declaration record with matching ISCC-ID to get the datahash
+    original = (
+        LogRecord.objects.filter(iscc_id=bytes(IsccID(iscc_id_str)), type=LogRecord.RecordType.DECLARATION)
+        .order_by("index")
+        .first()
+    )
 
-    if not original_event:
+    if not original:
         raise ValueError(f"Original declaration not found for ISCC-ID: {iscc_id_str}")
 
-    original_datahash = original_event.datahash
+    original_datahash = original.datahash
 
     # Sequence the delete (now includes IsccDeclaration deletion atomically)
     # Convert datahash to bytes if it's a hex string, otherwise use as-is
@@ -290,7 +291,6 @@ def generate_fixtures():
     # Clear any existing data
     LogRecord.objects.all().delete()
     LogState.objects.all().delete()
-    Event.objects.all().delete()
     IsccDeclaration.objects.all().delete()
 
     # Base time for realistic timestamps (current time minus a few minutes)
@@ -360,8 +360,7 @@ def generate_fixtures():
     print("  - Deleted fourth declaration")
 
     # Print summary
-    print(f"\nCreated {Event.objects.count()} events")
-    print(f"Created {LogRecord.objects.count()} log records")
+    print(f"\nCreated {LogRecord.objects.count()} log records")
     print(f"Created {IsccDeclaration.objects.count()} declarations")
 
     # Dump the fixtures
@@ -373,7 +372,6 @@ def generate_fixtures():
             "dumpdata",
             "iscc_hub.LogState",
             "iscc_hub.LogRecord",
-            "iscc_hub.Event",
             "iscc_hub.IsccDeclaration",
             format="json",
             indent=2,

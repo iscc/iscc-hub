@@ -13,21 +13,20 @@ preserves every architecture invariant on both SQLite and PostgreSQL:
 The locked primitive ``append_record`` reads the explicit counter and clock from
 ``LogState``, assigns the next index, ratchets the timestamp, (optionally) mints
 the ISCC-ID, commits the canonical log-entry envelope to ``LogRecord``, and
-updates the ``IsccDeclaration`` view. During the transition to the tlog-tiles log
-it also dual-writes the legacy ``Event`` row consumed by the checkpoint subsystem.
+updates the ``IsccDeclaration`` view. The tree, tiles, and checkpoint are derived
+from ``LogRecord`` after commit and never run under this write lock.
 """
 
 import time
 from datetime import UTC, datetime
 
-import blake3
 import jcs
 from django.conf import settings
 from django.db import transaction
 
 from iscc_hub.exceptions import NonceError, SequencerError
 from iscc_hub.iscc_id import IsccID
-from iscc_hub.models import Event, IsccDeclaration, LogRecord, LogState
+from iscc_hub.models import IsccDeclaration, LogRecord, LogState
 
 # Reject a backward wall-clock jump larger than this (microseconds) instead of
 # silently ratcheting through it and burning the 52-bit ISCC-ID timestamp budget.
@@ -35,6 +34,13 @@ TIMETRAVEL_BOUND_US = 100_000
 
 # Published schema URI carried in the log-entry envelope (the Merkle-tree leaf).
 LOG_ENTRY_SCHEMA = "http://purl.org/iscc/schema/iscc-log-entry-0.8.0.json"
+
+# tlog-tiles frames each entry with a big-endian u16 length prefix (C2SP), so a
+# committed record must fit in 65535 bytes; a larger leaf would be unservable in
+# its entry bundle and make the whole bundle (and thus the log) unverifiable. The
+# 8192-byte request-body cap keeps this unreachable today; the guard makes the
+# wire-format limit an explicit, loud invariant rather than a latent struct error.
+MAX_RECORD_BYTES = 65535
 
 
 def _jcs(obj):
@@ -75,10 +81,7 @@ def append_record(note, record_type, iscc_id_bytes=None, datahash_bytes=None):
         state = LogState.objects.select_for_update().get(pk=hub_id)
 
         # `index` is the 0-based leaf index (== seq) and the public return value.
-        # `event_seq` is its 1-based form, used only for the transitional legacy
-        # Event.seq / IsccDeclaration.event_seq dual-write removed in Change B.
         index = state.tree_size
-        event_seq = index + 1
 
         now_us = time.time_ns() // 1000
         if now_us <= state.last_timestamp_us and (state.last_timestamp_us - now_us) > TIMETRAVEL_BOUND_US:
@@ -101,10 +104,13 @@ def append_record(note, record_type, iscc_id_bytes=None, datahash_bytes=None):
 
         # Canonical log-entry envelope: the immutable Merkle-tree leaf preimage.
         entry = {"$schema": LOG_ENTRY_SCHEMA, "iscc_id": iscc_id_str, "note": note}
+        record_bytes = _jcs(entry)
+        if len(record_bytes) > MAX_RECORD_BYTES:
+            raise SequencerError(f"record too large: {len(record_bytes)} bytes exceeds {MAX_RECORD_BYTES}")
 
         LogRecord.objects.create(
             index=index,
-            record=_jcs(entry),
+            record=record_bytes,
             iscc_id=id_bytes,
             type=record_type,
             nonce=nonce_hex,
@@ -113,30 +119,13 @@ def append_record(note, record_type, iscc_id_bytes=None, datahash_bytes=None):
             event_time=event_dt,
         )
 
-        # Transitional dual-write of the legacy Event consumed by the checkpoint
-        # subsystem until Change B replaces it; preserves the BLAKE3 prev-chain.
-        last_event = Event.objects.order_by("-seq").first()
-        prev_hex = last_event.event_hash if last_event else blake3.blake3(b"").hexdigest()
-        legacy_bytes = _jcs({"seq": event_seq, "iscc_id": iscc_id_str, "prev": prev_hex, "note": note})
-        is_deletion = record_type == LogRecord.RecordType.DELETION
-        Event.objects.create(
-            seq=event_seq,
-            event_type=Event.EventType.DELETED if is_deletion else Event.EventType.CREATED,
-            iscc_id=id_bytes,
-            nonce=nonce_hex,
-            datahash=datahash_value,
-            pubkey=pubkey_mb,
-            event_data=legacy_bytes,
-            event_hash=blake3.blake3(legacy_bytes).digest(),
-        )
-
         # Maintain the materialized current-state view.
+        is_deletion = record_type == LogRecord.RecordType.DELETION
         if is_deletion:
             IsccDeclaration.objects.filter(iscc_id=id_bytes).delete()
         else:
             IsccDeclaration.objects.create(
                 iscc_id=id_bytes,
-                event_seq=event_seq,
                 iscc_code=note["iscc_code"],
                 datahash=note["datahash"],
                 nonce=nonce_hex,

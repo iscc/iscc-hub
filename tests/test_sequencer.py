@@ -31,8 +31,8 @@ from django.db import IntegrityError, connection, transaction
 
 from iscc_hub.exceptions import NonceError, SequencerError
 from iscc_hub.iscc_id import IsccID
-from iscc_hub.models import Event, IsccDeclaration, LogRecord, LogState
-from iscc_hub.sequencer import LOG_ENTRY_SCHEMA, sequence_iscc_delete, sequence_iscc_note
+from iscc_hub.models import IsccDeclaration, LogRecord, LogState
+from iscc_hub.sequencer import LOG_ENTRY_SCHEMA, MAX_RECORD_BYTES, sequence_iscc_delete, sequence_iscc_note
 from tests.conftest import create_iscc_from_text
 
 
@@ -166,6 +166,20 @@ def test_nonce_reuse_rejected():
 
 
 @pytest.mark.django_db(transaction=True)
+def test_oversized_record_rejected():
+    """A record whose canonical bytes exceed the tlog-tiles u16 entry-frame limit is rejected."""
+    note = make_signed_note("oversized")
+    # Pad the note so the JCS-canonical {$schema, iscc_id, note} envelope exceeds 65535 bytes.
+    note["_pad"] = "x" * (MAX_RECORD_BYTES + 1)
+
+    with pytest.raises(SequencerError, match="record too large"):
+        sequence_iscc_note(note)
+
+    # The rejection happens before any write: nothing is committed.
+    assert LogRecord.objects.count() == 0
+
+
+@pytest.mark.django_db(transaction=True)
 def test_failed_append_reuses_index_and_clock():
     """A rejected append leaves tree_size/clock untouched; the next append reuses the index."""
     nonce = icr.create_nonce(settings.ISCC_HUB_ID)
@@ -192,33 +206,32 @@ def test_failed_append_reuses_index_and_clock():
 
 @pytest.mark.django_db(transaction=True)
 def test_failed_inner_write_rolls_back_the_whole_append():
-    """A failure on a later in-transaction write rolls back LogRecord + Event + the counter.
+    """A failure on a later in-transaction write rolls back the LogRecord and the counter.
 
-    Drives a real (mock-free) IntegrityError on the THIRD write of the atomic append
-    (IsccDeclaration.create), after LogRecord and the dual-written Event have already been
-    inserted in the same transaction, and asserts that none of them — nor the LogState
-    counter — survive, and that the index is not burned.
+    Drives a real (mock-free) IntegrityError on the SECOND write of the atomic append
+    (IsccDeclaration.create), after the LogRecord has already been inserted in the same
+    transaction, and asserts that neither it nor the LogState counter survives, and that
+    the leaf index is not burned.
     """
     keypair = icr.key_generate()
+    # A nonce reused below: the LogRecord nonce pre-check passes (no LogRecord holds it yet),
+    # but IsccDeclaration.create then collides with the pre-seeded row's unique nonce.
+    nonce = "ab" * 16
 
-    # Pre-seed an IsccDeclaration whose unique event_seq (1) collides with the value the first
-    # append assigns (index 0 -> event_seq 1), so IsccDeclaration.create raises mid-transaction.
     IsccDeclaration.objects.create(
         iscc_id=bytes(IsccID.from_timestamp(123, settings.ISCC_HUB_ID)),
-        event_seq=1,
         iscc_code="ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
         datahash="1e20" + "00" * 32,
-        nonce="ff" * 16,
+        nonce=nonce,
         pubkey=keypair.public_key,
     )
 
     with pytest.raises(IntegrityError):
-        sequence_iscc_note(make_signed_note("atomic"))
+        sequence_iscc_note(make_signed_note("atomic", nonce=nonce, keypair=keypair))
 
-    # Nothing from the failed append survives: no log record, no dual-written event, and the
-    # lazily-created LogState row rolled back with the rest (the counter never advanced).
+    # Nothing from the failed append survives: no log record, and the lazily-created LogState
+    # row rolled back with the rest (the counter never advanced).
     assert LogRecord.objects.count() == 0
-    assert Event.objects.count() == 0
     assert not LogState.objects.filter(pk=settings.ISCC_HUB_ID).exists()
 
     # The index was not burned: after clearing the conflict, the next append reuses index 0.

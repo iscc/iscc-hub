@@ -168,6 +168,22 @@ class Proof(Schema):
     ]
 
 
+class Evidence(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: Literal["IsccLogInclusionProof"]
+    checkpoint: Annotated[str, Field(description="The verbatim C2SP signed-note checkpoint covering the leaf.\n")]
+    treeSize: Annotated[int, Field(description="Tree size committed by the checkpoint.\n", ge=1)]
+    leafIndex: Annotated[int, Field(description="Zero-based index of the declaration's leaf in the log.\n", ge=0)]
+    inclusionProof: Annotated[
+        list[str],
+        Field(
+            description="RFC 6962 inclusion proof: base64-encoded sibling hashes from the leaf\nto the tree head.\n"
+        ),
+    ]
+
+
 class FieldSchema(StrEnum):
     http___purl_org_iscc_schema_iscc_note_0_8_0_json = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
 
@@ -427,3 +443,9 @@ class IsccReceipt(Schema):
             description="W3C Data Integrity proof created by ISCC-HUB\n\nUses **EdDSA-JCS-2022** cryptosuite with Ed25519 signatures.\nContains copied @context from credential root per W3C spec.\n"
         ),
     ]
+    evidence: Annotated[
+        Evidence | None,
+        Field(
+            description="ISCC-Log inclusion proof binding the declaration to a signed checkpoint.\n\nPresent once a published checkpoint covers the leaf. A verifier\nre-encodes the `{$schema, iscc_id, note}` log-entry envelope, computes its\nRFC 6962 leaf hash, combines it with `inclusionProof` to a root, and\nchecks that root against the signed `checkpoint`.\n"
+        ),
+    ] = None

@@ -9,7 +9,8 @@ import yaml
 from django.conf import settings
 from django.utils import timezone
 
-from iscc_hub.checkpoint import create_checkpoint
+from iscc_hub import log_tree
+from iscc_hub.checkpoint_note import parse_checkpoint
 
 logger = logging.getLogger(__name__)
 
@@ -17,28 +18,23 @@ logger = logging.getLogger(__name__)
 def checkpoint_task():
     # type: () -> dict
     """
-    Create a checkpoint.
+    Refresh the published C2SP signed-note checkpoint over the log.
 
     :return: Dictionary with task execution details.
     """
     try:
-        logger.info("Starting scheduled checkpoint creation")
-        checkpoint = create_checkpoint()
-
-        result = {
+        logger.info("Starting scheduled checkpoint refresh")
+        checkpoint = log_tree.build_checkpoint()
+        _, tree_size, _ = parse_checkpoint(checkpoint)
+        logger.info(f"Checkpoint refreshed at tree size {tree_size}")
+        return {
             "status": "success",
-            "checkpoint_id": checkpoint.id,
-            "start": checkpoint.start,
-            "end": checkpoint.end,
-            "hash": checkpoint.hash,
-            "created_at": checkpoint.created_at.isoformat(),
-            "message": f"Checkpoint created for events {checkpoint.start}-{checkpoint.end}",
+            "tree_size": tree_size,
+            "message": f"Checkpoint refreshed at tree size {tree_size}",
         }
-        logger.info(f"Checkpoint created for events {checkpoint.start}-{checkpoint.end}")
-        return result
 
     except Exception as e:
-        logger.error(f"Failed to create checkpoint: {e}", exc_info=True)
+        logger.error(f"Failed to refresh checkpoint: {e}", exc_info=True)
         return {
             "status": "error",
             "error": str(e),

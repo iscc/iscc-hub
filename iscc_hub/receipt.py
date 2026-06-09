@@ -6,8 +6,8 @@ import iscc_crypto as icr
 from django.conf import settings
 
 
-def build_iscc_receipt(declaration_data, hub_keypair=None):
-    # type: (dict, icr.KeyPair|None) -> dict
+def build_iscc_receipt(declaration_data, hub_keypair=None, evidence=None):
+    # type: (dict, icr.KeyPair|None, dict|None) -> dict
     """
     Build a signed IsccReceipt (W3C Verifiable Credential) from declaration data.
 
@@ -18,6 +18,8 @@ def build_iscc_receipt(declaration_data, hub_keypair=None):
 
     :param declaration_data: Dict containing iscc_note, seq, and iscc_id_str
     :param hub_keypair: Optional HUB's KeyPair for signing (defaults to configured key)
+    :param evidence: Optional VC ``evidence`` member (e.g. an inclusion proof);
+        added to the credential before signing so it is covered by the proof.
     :return: Signed W3C Verifiable Credential as a dict
     """
     # Use provided or default HUB keypair
@@ -51,6 +53,10 @@ def build_iscc_receipt(declaration_data, hub_keypair=None):
             },
         },
     }
+
+    # Attach inclusion evidence (if any) before signing so the proof covers it.
+    if evidence is not None:
+        vc["evidence"] = evidence
 
     # Sign the VC using iscc-crypto
     signed_vc = icr.sign_vc(vc, hub_keypair)

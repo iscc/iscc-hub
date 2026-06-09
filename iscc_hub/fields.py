@@ -9,39 +9,6 @@ from django.forms import CharField
 from iscc_hub.iscc_id import IsccID
 
 
-class SequenceField(models.AutoField):
-    """
-    A primary key field that uses SQLite's rowid without AUTOINCREMENT.
-    Provides gap-less sequence when used with proper transaction handling.
-
-    On non-SQLite backends (e.g. PostgreSQL) it behaves as a normal AutoField,
-    keeping the model portable. Inherits from AutoField for correct INSERT
-    behavior from Django.
-    """
-
-    description = "Gap-less integer primary key"
-
-    def db_type(self, connection):
-        # type: (object) -> str | None
-        """
-        Return plain INTEGER on SQLite to use rowid without AUTOINCREMENT.
-        Defer to the default AutoField type on other backends.
-        """
-        if getattr(connection, "vendor", None) == "sqlite":
-            return "INTEGER"
-        return super().db_type(connection)
-
-    def db_type_suffix(self, connection):
-        # type: (object) -> str | None
-        """
-        Suppress AUTOINCREMENT on SQLite so rowid is reused for gap-less
-        sequences. Defer to the default suffix on other backends.
-        """
-        if getattr(connection, "vendor", None) == "sqlite":
-            return ""
-        return super().db_type_suffix(connection)  # pyright: ignore[reportAttributeAccessIssue]
-
-
 class IsccIDFieldIContains(IContains):
     """Custom icontains lookup for IsccIDField that handles ISCC-ID string matching."""
 

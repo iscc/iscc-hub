@@ -23,8 +23,16 @@ def ContentNegotiationMiddleware(get_response):
     def determine_urlconf(request):
         # type: (HttpRequest) -> None
         """Determine and set the appropriate URL configuration."""
-        # Always serve .well-known/did.json as JSON API per W3C DID Method Web spec
-        if request.path == "/.well-known/did.json":
+        # Path-route the binary / JSON-only / static endpoints before any Accept
+        # logic. These have no HTML representation and are consumed by clients
+        # (Go net/http, fsck, curl) that send no Accept header, so they must be
+        # reachable independent of content negotiation.
+        path = request.path
+        if path.startswith("/log/"):
+            request.urlconf = "iscc_hub.urls_log"  # type: ignore
+            return
+        if path.startswith("/search") or path.startswith("/declaration") or path.startswith("/.well-known/"):
+            # The /.well-known/ prefix subsumes the did.json special-case.
             request.urlconf = "iscc_hub.urls_api"  # type: ignore
             return
 

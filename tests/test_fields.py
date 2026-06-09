@@ -2,14 +2,11 @@
 Tests for custom Django field implementations.
 """
 
-from unittest.mock import MagicMock
-
 import pytest
 from django.core.exceptions import ValidationError
-from django.db import models
 from django.forms import CharField
 
-from iscc_hub.fields import HexField, IsccIDField, SequenceField
+from iscc_hub.fields import HexField, IsccIDField
 from iscc_hub.iscc_id import IsccID
 
 
@@ -77,37 +74,6 @@ def test_isccid_field_get_prep_value_parameterized(input_value, expected_type, s
             assert isinstance(result, expected_type)
             if expected_type is bytes:
                 assert len(result) == 8
-
-
-def test_sequence_field_description():
-    # type: () -> None
-    """Test that SequenceField has the correct description."""
-    field = SequenceField()
-    assert field.description == "Gap-less integer primary key"
-
-
-def test_sequence_field_db_type_sqlite():
-    # type: () -> None
-    """Test that db_type/suffix use the SQLite rowid trick on SQLite."""
-    field = SequenceField()
-    connection = MagicMock()
-    connection.vendor = "sqlite"
-    assert field.db_type(connection) == "INTEGER"
-    assert field.db_type_suffix(connection) == ""
-
-
-def test_sequence_field_db_type_non_sqlite_delegates(monkeypatch):
-    # type: (pytest.MonkeyPatch) -> None
-    """Test that non-SQLite backends defer to the default AutoField behavior."""
-    field = SequenceField()
-    connection = MagicMock()
-    connection.vendor = "postgresql"
-    sentinel_type = object()
-    sentinel_suffix = object()
-    monkeypatch.setattr(models.AutoField, "db_type", lambda self, conn: sentinel_type)
-    monkeypatch.setattr(models.AutoField, "db_type_suffix", lambda self, conn: sentinel_suffix)
-    assert field.db_type(connection) is sentinel_type
-    assert field.db_type_suffix(connection) is sentinel_suffix
 
 
 # Tests for IsccIDField

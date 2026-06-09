@@ -260,7 +260,7 @@ paths:
         by the same controller that created the original declaration.
 
         **Side Effects:**
-        - A deletion event is logged in the Event table with a new sequence number
+        - A deletion record is appended to the transparency log with a new sequence number
         - The deletion is timestamped with microsecond precision
       operationId: delete_declaration
       parameters:

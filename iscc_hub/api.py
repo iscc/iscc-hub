@@ -10,6 +10,7 @@ from ninja import NinjaAPI
 from ninja.responses import Status, codes_4xx
 
 import iscc_hub
+from iscc_hub import log_tree
 from iscc_hub.exceptions import BaseApiException, DuplicateDeclarationError, NotFoundError, UnauthorizedError
 from iscc_hub.gateway import expand_gateway_url
 from iscc_hub.iscc_id import IsccID
@@ -217,7 +218,10 @@ def declaration_receipt(request, iscc_id: str):
         "seq": record.index,
         "iscc_id_str": entry["iscc_id"],
     }
-    receipt = build_iscc_receipt(declaration_data)
+    # Attach an inclusion proof against the latest checkpoint when it covers the leaf,
+    # making the receipt a self-verifying transparency-log artifact.
+    evidence = log_tree.inclusion_evidence(record.index)
+    receipt = build_iscc_receipt(declaration_data, evidence=evidence)
     return api.create_response(request, receipt, status=200)
 
 
