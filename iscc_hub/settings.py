@@ -62,6 +62,18 @@ ISCC_HUB_OPEN_ACCESS = env.bool("ISCC_HUB_OPEN_ACCESS", default=True)
 ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP = env.bool("ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP", default=False)
 ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS = env.int("ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS", default=600)
 
+# Similarity search proxy (opt-in; an empty ISCC_HUB_SEARCH_URLS disables /search entirely).
+# The Hub proxies similarity queries to external iscc-search backends hosting the hub-global
+# index. The target index name derives from the Hub's network: realm 0 (testnet) -> idptest,
+# realm 1 (mainnet) -> idp; ISCC_HUB_SEARCH_INDEX overrides the derived default when set.
+ISCC_HUB_SEARCH_URLS = env.list("ISCC_HUB_SEARCH_URLS", default=[])
+ISCC_HUB_SEARCH_INDEX = env.str("ISCC_HUB_SEARCH_INDEX", default="idp" if ISCC_HUB_REALM == 1 else "idptest")
+ISCC_HUB_SEARCH_TIMEOUT = env.float("ISCC_HUB_SEARCH_TIMEOUT", default=1.5)
+ISCC_HUB_SEARCH_MAX_INFLIGHT = env.int("ISCC_HUB_SEARCH_MAX_INFLIGHT", default=24)
+ISCC_HUB_SEARCH_API_KEY = env.str("ISCC_HUB_SEARCH_API_KEY", default="")
+ISCC_HUB_SEARCH_CB_FAILS = env.int("ISCC_HUB_SEARCH_CB_FAILS", default=5)
+ISCC_HUB_SEARCH_CB_COOLDOWN = env.int("ISCC_HUB_SEARCH_CB_COOLDOWN", default=15)
+
 # Optional co-branding (rendered into HTML pages only). ISCC_HUB_ORG_LOGO is a full URL or a
 # path to a static/mounted asset (not an upload).
 ISCC_HUB_ORG_NAME = env.str("ISCC_HUB_ORG_NAME", default="")

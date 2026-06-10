@@ -2,10 +2,15 @@
 Pytest configuration for Django testing.
 """
 
+import json
 import os
 import sys
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import django
 import iscc_core as ic
@@ -68,6 +73,153 @@ def api_client(db):
 
     # Ensure database is available and properly initialized
     return TestClient(api)
+
+
+# Canned iscc-search success body with real backend bytes: chunk_matches, unknown
+# top-level / match-level fields (must be dropped by the hub's response projection),
+# a metadata extension key (must be preserved), and an explicit metadata null.
+STUB_SEARCH_SUCCESS = {
+    "query": {
+        "iscc_code": "ISCC:KECYCMZIOY36XXGZ7S6QJQ2AEEXPOVEHZYPK6GMSFLU3WF54UPZMTPY",
+        "backend_echo": "dropped",
+    },
+    "global_matches": [
+        {
+            "iscc_id": "ISCC:MAIGIIFJRDGEQQAA",
+            "score": 0.97,
+            "types": {"CONTENT_TEXT_V0": 1.0, "DATA_NONE_V0": 0.5},
+            "metadata": {
+                "name": "Example Article",
+                "gateway": "https://example.com/articles/123",
+                "custom_ext": "kept",
+            },
+            "match_extra": "dropped",
+        },
+        {
+            "iscc_id": "ISCC:MAIGXXFZRDGEQQBB",
+            "score": 0.75,
+            "types": {"CONTENT_TEXT_V0": 1.0},
+            "metadata": None,
+        },
+    ],
+    "chunk_matches": [],
+    "backend_extra": "dropped",
+}
+
+
+class _StubSearchHandler(BaseHTTPRequestHandler):
+    """Request handler serving the configurable canned response of a StubSearchBackend."""
+
+    def log_message(self, format, *args):
+        # type: (str, object) -> None
+        """Silence request logging to keep test output clean."""
+
+    def _serve(self):
+        # type: () -> None
+        """Record the request and reply per the backend's current configuration."""
+        backend = self.server.backend  # type: ignore[attr-defined]
+        length = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(length) if length else b""
+        parts = urlsplit(self.path)
+        backend.requests.append(
+            {
+                "method": self.command,
+                "path": parts.path,
+                "query": parts.query,
+                # Lowercased keys: clients may send any header casing on the wire
+                "headers": {key.lower(): value for key, value in self.headers.items()},
+                "body": body,
+            }
+        )
+        if backend.required_api_key is not None and self.headers.get("X-API-Key") != backend.required_api_key:
+            self._respond(401, b'{"detail": "unauthorized"}')
+            return
+        if backend.redirect_to:
+            self.send_response(302)
+            self.send_header("Location", backend.redirect_to)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if backend.delay:
+            time.sleep(backend.delay)
+        payload = backend.body if backend.body is not None else json.dumps(STUB_SEARCH_SUCCESS).encode("utf-8")
+        self._respond(backend.status, payload)
+
+    def _respond(self, status, payload):
+        # type: (int, bytes) -> None
+        """Send a JSON response with the given status and payload."""
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    do_GET = _serve
+    do_POST = _serve
+
+
+class StubSearchBackend:
+    """
+    Configurable in-process HTTP server mimicking an iscc-search backend.
+
+    Tests mutate status/body/delay/redirect_to/required_api_key between requests
+    to drive success, passthrough, retryable-failure, timeout, redirect, and auth
+    scenarios; every received request is recorded for assertions on forwarding
+    behavior.
+    """
+
+    def __init__(self):
+        # type: () -> None
+        """Bind the server to a random local port and initialize behavior knobs."""
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), _StubSearchHandler)
+        self.server.backend = self  # type: ignore[attr-defined]
+        self.url = f"http://127.0.0.1:{self.server.server_address[1]}"
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.status = 200
+        self.body = None  # type: bytes|None  # None -> canned STUB_SEARCH_SUCCESS
+        self.delay = 0.0
+        self.redirect_to = None  # type: str|None  # respond 302 with this Location when set
+        self.required_api_key = None  # type: str|None
+        self.requests = []  # type: list[dict]
+
+    def start(self):
+        # type: () -> None
+        """Start serving in a background thread."""
+        self.thread.start()
+
+    def stop(self):
+        # type: () -> None
+        """Stop the server and release the port."""
+        self.server.shutdown()
+        self.server.server_close()
+
+
+@pytest.fixture
+def proxy_state_reset():
+    """Rebuild search-proxy I/O state from current settings around a test."""
+    from iscc_hub.search_proxy import reset_proxy_state
+
+    reset_proxy_state()
+    yield
+    reset_proxy_state()
+
+
+@pytest.fixture
+def search_stub(proxy_state_reset):
+    """Configurable stub iscc-search backend on a random local port."""
+    backend = StubSearchBackend()
+    backend.start()
+    yield backend
+    backend.stop()
+
+
+@pytest.fixture
+def search_stub2(proxy_state_reset):
+    """Second stub backend for failover scenarios."""
+    backend = StubSearchBackend()
+    backend.start()
+    yield backend
+    backend.stop()
 
 
 def create_iscc_from_text(text="Hello World!"):

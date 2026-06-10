@@ -3,15 +3,17 @@ title: "ErrorResponse"
 type: object
 description: |
   Standard error response for ISCC-HUB API operations.
-  
-  The API follows a fail-fast approach: validation stops and returns immediately 
+
+  The API follows a fail-fast approach: validation stops and returns immediately
   upon encountering the first error.
+additionalProperties: false
 required:
   - error
 properties:
   error:
     type: object
     title: "ErrorDetail"
+    additionalProperties: false
     required:
       - message
     properties:
@@ -31,6 +33,26 @@ properties:
         description: |
           The specific field that caused the error (for validation errors).
           Only present when the error is associated with a specific input field.
+      existing_iscc_id:
+        type: string
+        description: |
+          ISCC-ID of the already-registered declaration.
+          Only present on duplicate_declaration errors.
+      existing_actor:
+        type: string
+        description: |
+          Public key or DID of the actor that made the existing declaration.
+          Only present on duplicate_declaration errors.
+      resource_type:
+        type: string
+        description: |
+          Type of the resource that was not found (e.g., declaration).
+          Only present on not_found errors.
+      resource_id:
+        type: string
+        description: |
+          Identifier of the resource that was not found.
+          Only present on not_found errors.
 examples:
   - error:
       message: "Invalid ISCC code format"

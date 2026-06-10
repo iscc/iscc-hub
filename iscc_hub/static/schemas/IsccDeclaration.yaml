@@ -6,6 +6,7 @@ description: |
 
   Contains the ISCC-CODE, cryptographic hashes, actor identity, and optional
   metadata for a timestamped content declaration.
+additionalProperties: false
 required:
   - iscc_id
   - iscc_code

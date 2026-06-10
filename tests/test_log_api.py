@@ -279,9 +279,9 @@ def test_refresh_checkpoint_command_persists_checkpoint():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_search_and_receipt_reachable_without_accept_header(client, minimal_iscc_note):
+def test_lookup_and_receipt_reachable_without_accept_header(client, minimal_iscc_note):
     # type: (object, dict) -> None
-    """/search and the receipt GET are reachable without an Accept header."""
+    """/lookup and the receipt GET are reachable without an Accept header."""
     from iscc_hub.sequencer import sequence_iscc_note
 
     _, iscc_id_bytes = sequence_iscc_note(minimal_iscc_note)
@@ -289,7 +289,7 @@ def test_search_and_receipt_reachable_without_accept_header(client, minimal_iscc
     datahash = minimal_iscc_note["datahash"]
 
     for headers in ({}, {"HTTP_ACCEPT": "*/*"}):
-        search = client.get(f"/search?datahash={datahash}", **headers)
+        search = client.get(f"/lookup?datahash={datahash}", **headers)
         assert search.status_code == 200
         assert "json" in search["Content-Type"]
         assert any(item["iscc_id"] == iscc_id for item in search.json())

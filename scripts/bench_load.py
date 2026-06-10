@@ -19,7 +19,7 @@ Two subcommands keep generation, measurement, and backends cleanly separated:
   file consumed by scripts/bench_report.py. With ``--read-fraction`` it switches to a
   mixed read+write workload: a populate phase declares the warmup notes and collects the
   issued ISCC-IDs into a pool, then each request slot is — with the given probability —
-  a real read (alternating ``GET /{iscc_id}`` resolution and ``GET /search?datahash=``
+  a real read (alternating ``GET /{iscc_id}`` resolution and ``GET /lookup?datahash=``
   exact-match) against a pooled item, else a write. Read and write latencies are reported
   separately so read p95 under write contention can be compared across server configs.
 
@@ -279,7 +279,7 @@ def build_mixed_ops(bodies, datahashes, pool, read_fraction, slots, rng):
     for _ in range(slots):
         if pool and rng.random() < read_fraction:
             iscc_id, datahash = pool[rng.randrange(len(pool))]
-            path = f"/{iscc_id}" if read_idx % 2 == 0 else f"/search?datahash={datahash}"
+            path = f"/{iscc_id}" if read_idx % 2 == 0 else f"/lookup?datahash={datahash}"
             ops.append(("read", path))
             read_idx += 1
         else:

@@ -31,7 +31,12 @@ def ContentNegotiationMiddleware(get_response):
         if path.startswith("/log/"):
             request.urlconf = "iscc_hub.urls_log"  # type: ignore
             return
-        if path.startswith("/search") or path.startswith("/declaration") or path.startswith("/.well-known/"):
+        if (
+            path.startswith("/search")
+            or path.startswith("/lookup")
+            or path.startswith("/declaration")
+            or path.startswith("/.well-known/")
+        ):
             # The /.well-known/ prefix subsumes the did.json special-case.
             request.urlconf = "iscc_hub.urls_api"  # type: ignore
             return

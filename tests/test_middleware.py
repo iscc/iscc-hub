@@ -301,3 +301,17 @@ def test_middleware_wildcard_accept_without_json_content(request_factory):
     response = middleware(request)
     assert request.urlconf == "iscc_hub.urls_views"
     assert "Accept" in response.get("Vary", "")
+
+
+def test_middleware_path_routes_lookup_and_search(request_factory):
+    # type: (RequestFactory) -> None
+    """Test /lookup and /search are path-routed to the JSON API regardless of Accept."""
+    get_response = Mock(return_value=HttpResponse("OK"))
+    middleware = ContentNegotiationMiddleware(get_response)
+
+    for path in ("/lookup?datahash=1e20ab", "/search?iscc_code=ISCC:KAD7BHC5GKBFLGTE"):
+        request = request_factory.get(path)
+        if "HTTP_ACCEPT" in request.META:
+            del request.META["HTTP_ACCEPT"]
+        middleware(request)
+        assert request.urlconf == "iscc_hub.urls_api"

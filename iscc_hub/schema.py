@@ -27,6 +27,28 @@ class ErrorDetail(Schema):
             description="The specific field that caused the error (for validation errors).\nOnly present when the error is associated with a specific input field.\n"
         ),
     ] = None
+    existing_iscc_id: Annotated[
+        str | None,
+        Field(
+            description="ISCC-ID of the already-registered declaration.\nOnly present on duplicate_declaration errors.\n"
+        ),
+    ] = None
+    existing_actor: Annotated[
+        str | None,
+        Field(
+            description="Public key or DID of the actor that made the existing declaration.\nOnly present on duplicate_declaration errors.\n"
+        ),
+    ] = None
+    resource_type: Annotated[
+        str | None,
+        Field(
+            description="Type of the resource that was not found (e.g., declaration).\nOnly present on not_found errors.\n"
+        ),
+    ] = None
+    resource_id: Annotated[
+        str | None,
+        Field(description="Identifier of the resource that was not found.\nOnly present on not_found errors.\n"),
+    ] = None
 
 
 class ErrorResponse(Schema):
@@ -258,6 +280,56 @@ class FieldSchema1(StrEnum):
     http___purl_org_iscc_schema_iscc_note_delete_0_8_0_json = "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"
 
 
+class IsccQuery(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    iscc_id: Annotated[
+        str | None,
+        Field(
+            description="ISCC-ID of a known indexed asset to use as similarity reference\n(more-like-this query). Returns `404` if the ISCC-ID is not indexed.\n",
+            examples=["ISCC:MAIGIIFJRDGEQQAA"],
+            pattern="^ISCC:[A-Z2-7]{16}$",
+        ),
+    ] = None
+    iscc_code: Annotated[
+        str | None,
+        Field(
+            description="Composite ISCC-CODE combining multiple ISCC-UNITs. The backend extracts\nindividual units for parallel search across unit-specific indexes.\n",
+            examples=["ISCC:KADUHBUDQUT3LPWRJH6BUAG7HMBIXX6JRQRX3JH7EBIOSMXEVL5URBBUPOIOTU4HLSSQ"],
+            pattern="^ISCC:[A-Z2-7]{16,}$",
+        ),
+    ] = None
+    units: Annotated[
+        list[str] | None,
+        Field(
+            description="Explicit list of ISCC-UNITs for asset-level matching. Can be used instead\nof or in addition to `iscc_code`. Item contents are validated by the\nbackend, not the Hub.\n",
+            examples=[["ISCC:AAAUHBUDQUT3LPWR", "ISCC:CAAUT7A2ADPTWAUL", "ISCC:EAA57SMMEN62J7ZA"]],
+            min_length=1,
+        ),
+    ] = None
+
+
+class IsccMetadata(Schema):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    name: Annotated[
+        str | None,
+        Field(
+            description="Title or name of the work manifested by the asset",
+            examples=["Digital Philosophy: An Introduction"],
+        ),
+    ] = None
+    source: Annotated[
+        AnyUrl | None,
+        Field(
+            description="Absolute URI to the raw content that was used for ISCC generation.\n",
+            examples=["https://example.com/content/9788899445566.txt"],
+        ),
+    ] = None
+
+
 class DeclarationAck(Schema):
     model_config = ConfigDict(
         extra="forbid",
@@ -292,6 +364,42 @@ class IsccNoteDelete(Schema):
     timestamp: Timestamp | None = None
     nonce: Nonce
     signature: Signature
+
+
+class IsccGlobalMatch(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    iscc_id: Annotated[
+        str,
+        Field(
+            description="The matched ISCC-ID from the index",
+            examples=["ISCC:MAIGIIFJRDGEQQAA"],
+            pattern="^ISCC:[A-Z2-7]{16}$",
+        ),
+    ]
+    score: Annotated[
+        float,
+        Field(
+            description="Overall similarity score (0.0-1.0), computed as the average of matched\nunit similarities across all queried units. Higher is better.\n",
+            examples=[0.85],
+            ge=0.0,
+            le=1.0,
+        ),
+    ]
+    types: Annotated[
+        dict[str, float],
+        Field(
+            description='Per-unit-type similarity breakdown. Keys are unit type identifiers\n(e.g., "META_NONE_V0", "CONTENT_TEXT_V0"), values are similarity\nscores (0.0-1.0). Queried unit types not found in this asset are omitted.\n',
+            examples=[{"META_NONE_V0": 1.0, "CONTENT_TEXT_V0": 1.0, "DATA_NONE_V0": 0.5}],
+        ),
+    ]
+    metadata: Annotated[
+        IsccMetadata | None,
+        Field(
+            description="Optional asset metadata, denormalized from the index for convenience and\nforwarded whole by the Hub. `null` when the asset carries no metadata.\n"
+        ),
+    ] = None
 
 
 class IsccNote(Schema):
@@ -378,6 +486,16 @@ class IsccNote(Schema):
             pattern="^https?://[^\\s]+$",
         ),
     ] = None
+
+
+class IsccSearchResult(Schema):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    query: Annotated[IsccQuery, Field(description="The original query (may include a backend-resolved iscc_id)")]
+    global_matches: Annotated[
+        list[IsccGlobalMatch], Field(description="Asset-level matches, ordered by relevance (best first)")
+    ]
 
 
 class Declaration(Schema):

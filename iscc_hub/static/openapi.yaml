@@ -16,13 +16,13 @@ servers:
   - url: http://localhost:8000
     description: Development server (requires Accept application/json header)
 paths:
-  /search:
+  /lookup:
     get:
-      summary: Search Declarations
+      summary: Lookup Declarations
       description: |
-        Search for ISCC declarations by datahash or ISCC-CODE.
+        Exact-match lookup of ISCC declarations by datahash or ISCC-CODE.
 
-        **Search Parameters:** Provide exactly ONE of the following parameters:
+        **Lookup Parameters:** Provide exactly ONE of the following parameters:
         - `datahash` - Find all declarations for specific content (by blake3 hash)
         - `iscc_code` - Find all declarations with a specific ISCC-CODE
 
@@ -31,11 +31,14 @@ paths:
         **Use Cases:**
         - After calculating a file's blake3 hash client-side, construct the datahash
           (`1e20` + blake3_hex) and query for existing declarations
-        - Search by ISCC-CODE to find all timestamped instances of that code
+        - Lookup by ISCC-CODE to find all timestamped instances of that code
 
         **Note:** Multiple declarations (ISCC-IDs) may exist for the same datahash or
         ISCC-CODE if content was declared multiple times.
-      operationId: search
+
+        For similarity search (approximate matching), see `GET /search` and
+        `POST /search`.
+      operationId: lookup
       parameters:
         - name: datahash
           in: query
@@ -56,18 +59,18 @@ paths:
           required: false
           schema:
             type: string
-            pattern: "^ISCC:[A-Z0-9]{29,68}$"
+            pattern: "^ISCC:[A-Z2-7]{29,68}$"
             minLength: 34
             maxLength: 73
           description: |
             ISCC-CODE to search for.
 
-            **Format:** `ISCC:` followed by 29-68 alphanumeric characters
+            **Format:** `ISCC:` followed by 29-68 base32 characters
             **Mutually exclusive with:** `datahash`
           example: "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I"
       responses:
         '200':
-          description: Successful search - returns matching declarations (may be empty array)
+          description: Successful lookup - returns matching declarations (may be empty array)
           content:
             application/json:
               schema:
@@ -75,8 +78,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/IsccDeclaration'
               examples:
-                search_by_datahash:
-                  summary: Search by datahash - multiple declarations for same content
+                lookup_by_datahash:
+                  summary: Lookup by datahash - multiple declarations for same content
                   value:
                     - iscc_id: "ISCC:MAIGHFECJMOPMIAB"
                       iscc_code: "ISCC:KED572P4AOF5K6QXQA4T6OJD5UGX7UBPFW2TVQNTHBCKFRFCANCZARQ4K6NSFZQSH4GQ"
@@ -91,8 +94,8 @@ paths:
                       datahash: "1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c"
                       timestamp: "2025-01-19T09:15:42.789012Z"
                       pubkey: "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB"
-                search_by_iscc_code:
-                  summary: Search by ISCC-CODE - single declaration
+                lookup_by_iscc_code:
+                  summary: Lookup by ISCC-CODE - single declaration
                   value:
                     - iscc_id: "ISCC:MADKZ5PLNRXGTVQB"
                       iscc_code: "ISCC:KACTXL7PSZSWDVMQ2DPDF6FXHTKLM3Y5WNRQZQAJDKQRTXHIZXMIRJI"
@@ -126,7 +129,96 @@ paths:
                 invalid_iscc_code:
                   summary: Invalid ISCC-CODE format
                   value:
-                    detail: "Invalid iscc_code format. Expected: ISCC: followed by 29-68 alphanumeric characters"
+                    detail: "Invalid iscc_code format. Expected: ISCC: followed by 29-68 base32 characters"
+  /search:
+    get:
+      summary: Similarity Search by ISCC-CODE
+      description: |
+        Find indexed assets similar to the given ISCC-CODE.
+
+        Similarity search is **optional** Hub functionality, proxied to an external
+        iscc-search backend holding a hub-global index. Hubs that do not offer it
+        respond with `404` to every `/search` request.
+
+        For exact-match lookup of declarations on this Hub, see `GET /lookup`.
+      operationId: search
+      parameters:
+        - name: iscc_code
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^ISCC:[A-Z2-7]{16,}$"
+          description: Composite ISCC-CODE to find similar assets for
+          example: "ISCC:KADUHBUDQUT3LPWRJH6BUAG7HMBIXX6JRQRX3JH7EBIOSMXEVL5URBBUPOIOTU4HLSSQ"
+        - $ref: '#/components/parameters/SearchLimit'
+      responses:
+        '200':
+          description: Similarity matches, ordered by relevance (may be empty)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IsccSearchResult'
+        '400':
+          $ref: '#/components/responses/SearchBadRequest'
+        '404':
+          $ref: '#/components/responses/SearchNotFound'
+        '422':
+          $ref: '#/components/responses/SearchUnprocessable'
+        '503':
+          $ref: '#/components/responses/SearchUnavailable'
+    post:
+      summary: Similarity Search by Query
+      description: |
+        Find indexed assets similar to the given query (`IsccQuery`).
+
+        At least one of `iscc_id`, `iscc_code`, or `units` must be provided.
+        `iscc_id` takes precedence (more-like-this against an indexed asset) and
+        yields `404` when the reference is not indexed. Top-level body keys outside
+        the documented set — including `simprints` — are rejected with `400`.
+
+        Similarity search is **optional** Hub functionality, proxied to an external
+        iscc-search backend holding a hub-global index. Hubs that do not offer it
+        respond with `404` to every `/search` request.
+      operationId: search_by_query
+      parameters:
+        - $ref: '#/components/parameters/SearchLimit'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IsccQuery'
+            examples:
+              by_iscc_code:
+                summary: Similarity by composite ISCC-CODE
+                value:
+                  iscc_code: "ISCC:KADUHBUDQUT3LPWRJH6BUAG7HMBIXX6JRQRX3JH7EBIOSMXEVL5URBBUPOIOTU4HLSSQ"
+              by_units:
+                summary: Similarity by explicit ISCC-UNITs
+                value:
+                  units:
+                    - "ISCC:AAAUHBUDQUT3LPWR"
+                    - "ISCC:CAAUT7A2ADPTWAUL"
+              more_like_this:
+                summary: More-like-this by indexed ISCC-ID
+                value:
+                  iscc_id: "ISCC:MAIGIIFJRDGEQQAA"
+      responses:
+        '200':
+          description: Similarity matches, ordered by relevance (may be empty)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IsccSearchResult'
+        '400':
+          $ref: '#/components/responses/SearchBadRequest'
+        '404':
+          $ref: '#/components/responses/SearchNotFound'
+        '422':
+          $ref: '#/components/responses/SearchUnprocessable'
+        '503':
+          $ref: '#/components/responses/SearchUnavailable'
   /declaration:
     post:
       summary: Declare ISCC-CODE
@@ -319,6 +411,73 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 components:
+  parameters:
+    SearchLimit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+      description: |
+        Maximum number of matches to return (1-100). Defaults to the backend's
+        own default (100) when omitted. Out-of-range values yield a 400 error.
+      example: 10
+  responses:
+    SearchBadRequest:
+      description: |
+        Bad Request - malformed query, unknown top-level body key (including
+        `simprints`), or out-of-range `limit` (Hub error envelope), or a
+        deterministic bad-query response forwarded verbatim from the search
+        backend (free-form body, not a stable contract).
+      content:
+        application/json:
+          schema:
+            anyOf:
+              - $ref: '#/components/schemas/ErrorResponse'
+              - type: object
+                title: BackendErrorBody
+                description: Backend error body forwarded verbatim (passthrough)
+    SearchNotFound:
+      description: |
+        Not Found - similarity search is not configured on this Hub (Hub error
+        envelope), or the backend reports the queried `iscc_id` reference or
+        index as not found (free-form passthrough body, not a stable contract).
+      content:
+        application/json:
+          schema:
+            anyOf:
+              - $ref: '#/components/schemas/ErrorResponse'
+              - type: object
+                title: BackendErrorBody
+                description: Backend error body forwarded verbatim (passthrough)
+    SearchUnprocessable:
+      description: |
+        Unprocessable Entity - deterministic backend validation error forwarded
+        verbatim (free-form passthrough body, not a stable contract).
+      content:
+        application/json:
+          schema:
+            anyOf:
+              - $ref: '#/components/schemas/ErrorResponse'
+              - type: object
+                title: BackendErrorBody
+                description: Backend error body forwarded verbatim (passthrough)
+    SearchUnavailable:
+      description: |
+        Service Unavailable - all configured search backends are unavailable,
+        timed out, or the Hub's in-flight search capacity is saturated.
+        Carries a Retry-After header.
+      headers:
+        Retry-After:
+          schema:
+            type: string
+          description: Seconds to wait before retrying
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
     ErrorResponse:
       $ref: './schemas/ErrorResponse.yaml'
@@ -334,3 +493,11 @@ components:
       $ref: './schemas/IsccNote.yaml'
     IsccNoteDelete:
       $ref: './schemas/IsccNoteDelete.yaml'
+    IsccQuery:
+      $ref: './schemas/IsccQuery.yaml'
+    IsccSearchResult:
+      $ref: './schemas/IsccSearchResult.yaml'
+    IsccGlobalMatch:
+      $ref: './schemas/IsccGlobalMatch.yaml'
+    IsccMetadata:
+      $ref: './schemas/IsccMetadata.yaml'

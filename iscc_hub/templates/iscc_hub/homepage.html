@@ -937,10 +937,10 @@
                             setLoading(false);
                             return;
                         }
-                        searchUrl = `/search?datahash=${datahash}`;
+                        searchUrl = `/lookup?datahash=${datahash}`;
                     } else {
                         // Search by ISCC-CODE directly
-                        searchUrl = `/search?iscc_code=${encodeURIComponent(isccValue)}`;
+                        searchUrl = `/lookup?iscc_code=${encodeURIComponent(isccValue)}`;
                     }
 
                     console.log('Search URL:', searchUrl);

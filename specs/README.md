@@ -9,7 +9,7 @@ schemas.
 | -------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `idp-declaration.md` | Draft v0.1  | Declaration Profile — IsccNote submission, signature rules, IsccReceipt, deletion, submission API.                                                                         |
 | `iscc-log.md`        | Draft v0.1  | Transparency Log — tlog-tiles profile (SHA-256 RFC 6962 tree, hash/data tiles), C2SP signed-note checkpoint, 3 static HTTP endpoints. OTS + witnesses deferred post-pilot. |
-| `idp-lookup.md`      | *(planned)* | Lookup & Resolution — ISCC-ID resolution, W3C CID document format, service descriptors, exact-match search.                                                                |
+| `idp-lookup.md`      | *(planned)* | Lookup & Resolution — ISCC-ID resolution, W3C CID document format, service descriptors, exact-match lookup (`/lookup`), optional proxied similarity search (`/search`).    |
 
 The three specs are written to be read together. Cross-references are section-anchored where possible.
 

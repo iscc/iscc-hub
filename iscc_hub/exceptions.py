@@ -9,6 +9,7 @@ class BaseApiException(Exception):
     """
 
     status_code = 400  # Default to Bad Request
+    headers = None  # type: dict[str, str]|None  # Optional extra response headers
 
     def __init__(self, message, code=None, field=None):
         # type: (str, str|None, str|None) -> None
@@ -222,6 +223,23 @@ class NotFoundError(BaseApiException):
         if self.resource_id:
             err["resource_id"] = self.resource_id
         return resp
+
+
+class SearchUnavailableError(BaseApiException):
+    """Similarity search backend unavailable error."""
+
+    status_code = 503  # Service Unavailable
+
+    def __init__(self, message, retry_after=5):
+        # type: (str, int) -> None
+        """
+        Initialize search unavailable error with a Retry-After hint.
+
+        :param message: Human-readable error message
+        :param retry_after: Seconds the client should wait before retrying
+        """
+        super().__init__(message, "search_unavailable", None)
+        self.headers = {"Retry-After": str(retry_after)}
 
 
 class UnauthorizedError(BaseApiException):

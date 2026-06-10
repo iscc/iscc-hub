@@ -55,20 +55,23 @@ def run_smoke_tests():
     # Test health endpoint
     all_passed &= test_endpoint(f"{base_url}/health")
 
-    # Test search endpoint - no parameters (should return 400)
-    all_passed &= test_endpoint(f"{base_url}/search", expected_status=[400])
+    # Test lookup endpoint - no parameters (should return 400)
+    all_passed &= test_endpoint(f"{base_url}/lookup", expected_status=[400])
 
-    # Test search endpoint - with valid datahash
+    # Test lookup endpoint - with valid datahash
     all_passed &= test_endpoint(
-        f"{base_url}/search?datahash=1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
+        f"{base_url}/lookup?datahash=1e205ca7815adcb484e9a136c11efe69c1d530176d549b5d18d038eb5280b4b3470c",
         expected_status=[200],
     )
 
-    # Test search endpoint - with valid iscc_code
+    # Test lookup endpoint - with valid iscc_code
     all_passed &= test_endpoint(
-        f"{base_url}/search?iscc_code=ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
+        f"{base_url}/lookup?iscc_code=ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
         expected_status=[200],
     )
+
+    # Test similarity search endpoint - 404 when no backend configured, 400 when configured
+    all_passed &= test_endpoint(f"{base_url}/search", expected_status=[400, 404])
 
     # Test declaration endpoint - missing data (should return 400)
     all_passed &= test_endpoint(

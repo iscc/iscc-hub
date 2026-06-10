@@ -1,0 +1,37 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: "IsccSearchResult"
+type: object
+description: |
+  Similarity search result for a single query. Contains the original query and
+  whole-asset matches, projected by the Hub onto exactly this documented shape:
+  backend-internal fields (such as chunk-level matches) never appear; new
+  result fields surface only via `metadata` or a deliberate Hub release.
+required:
+  - query
+  - global_matches
+additionalProperties: false
+properties:
+  query:
+    $ref: "./IsccQuery.yaml"
+    description: The original query (may include a backend-resolved iscc_id)
+  global_matches:
+    type: array
+    description: Asset-level matches, ordered by relevance (best first)
+    items:
+      $ref: "./IsccGlobalMatch.yaml"
+examples:
+  - query:
+      iscc_code: "ISCC:KECYCMZIOY36XXGZ7S6QJQ2AEEXPOVEHZYPK6GMSFLU3WF54UPZMTPY"
+    global_matches:
+      - iscc_id: "ISCC:MAIGIIFJRDGEQQAA"
+        score: 0.97
+        types:
+          CONTENT_TEXT_V0: 1.0
+          DATA_NONE_V0: 0.5
+        metadata:
+          gateway: "https://example.com/articles/123"
+      - iscc_id: "ISCC:MAIGXXFZRDGEQQBB"
+        score: 0.75
+        types:
+          CONTENT_TEXT_V0: 1.0
+        metadata: null

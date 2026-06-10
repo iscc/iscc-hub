@@ -1,0 +1,47 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: "IsccQuery"
+type: object
+description: |
+  Similarity query for whole-asset matching, mirrored from the iscc-search
+  backend contract with simprint (chunk-level) fields removed.
+
+  **Requirement:** At least one of `iscc_id`, `iscc_code`, or `units` must be
+  provided (validated at runtime).
+
+  **Query precedence:** If `iscc_id` is provided, it takes precedence — all other
+  query fields are ignored by the backend ("find assets similar to this indexed
+  asset"). An `iscc_id` that is not indexed yields a `404` response.
+
+  **Unknown keys:** Any top-level key outside `iscc_id`, `iscc_code`, and `units`
+  — including `simprints` — is rejected with a `400` error.
+additionalProperties: false
+properties:
+  iscc_id:
+    type: string
+    description: |
+      ISCC-ID of a known indexed asset to use as similarity reference
+      (more-like-this query). Returns `404` if the ISCC-ID is not indexed.
+    pattern: "^ISCC:[A-Z2-7]{16}$"
+    examples:
+      - "ISCC:MAIGIIFJRDGEQQAA"
+  iscc_code:
+    type: string
+    description: |
+      Composite ISCC-CODE combining multiple ISCC-UNITs. The backend extracts
+      individual units for parallel search across unit-specific indexes.
+    pattern: "^ISCC:[A-Z2-7]{16,}$"
+    examples:
+      - "ISCC:KADUHBUDQUT3LPWRJH6BUAG7HMBIXX6JRQRX3JH7EBIOSMXEVL5URBBUPOIOTU4HLSSQ"
+  units:
+    type: array
+    description: |
+      Explicit list of ISCC-UNITs for asset-level matching. Can be used instead
+      of or in addition to `iscc_code`. Item contents are validated by the
+      backend, not the Hub.
+    items:
+      type: string
+    minItems: 1
+    examples:
+      - - "ISCC:AAAUHBUDQUT3LPWR"
+        - "ISCC:CAAUT7A2ADPTWAUL"
+        - "ISCC:EAA57SMMEN62J7ZA"

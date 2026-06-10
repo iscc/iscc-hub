@@ -1,5 +1,5 @@
 """
-Tests for /search endpoint.
+Tests for the /lookup exact-match endpoint.
 """
 
 import os
@@ -12,12 +12,12 @@ from tests.conftest import create_iscc_from_text, create_test_declaration, gener
 
 
 @pytest.mark.django_db
-def test_search_by_datahash_single_result(api_client):
-    """Test search by datahash returns single declaration."""
+def test_lookup_by_datahash_single_result(api_client):
+    """Test lookup by datahash returns single declaration."""
     datahash = "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c"
     decl = create_test_declaration(seq=1, datahash=datahash)
 
-    response = api_client.get(f"/search?datahash={datahash}")
+    response = api_client.get(f"/lookup?datahash={datahash}")
 
     assert response.status_code == 200
     data = response.json()
@@ -31,13 +31,13 @@ def test_search_by_datahash_single_result(api_client):
 
 
 @pytest.mark.django_db
-def test_search_by_datahash_multiple_results(api_client):
-    """Test search by datahash returns multiple declarations with same datahash."""
+def test_lookup_by_datahash_multiple_results(api_client):
+    """Test lookup by datahash returns multiple declarations with same datahash."""
     datahash = "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c"
     decl1 = create_test_declaration(seq=1, datahash=datahash)
     decl2 = create_test_declaration(seq=2, datahash=datahash)
 
-    response = api_client.get(f"/search?datahash={datahash}")
+    response = api_client.get(f"/lookup?datahash={datahash}")
 
     assert response.status_code == 200
     data = response.json()
@@ -49,12 +49,12 @@ def test_search_by_datahash_multiple_results(api_client):
 
 
 @pytest.mark.django_db
-def test_search_by_iscc_code(api_client):
-    """Test search by ISCC-CODE."""
+def test_lookup_by_iscc_code(api_client):
+    """Test lookup by ISCC-CODE."""
     iscc_code = "ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY"
     decl = create_test_declaration(seq=1, iscc_code=iscc_code)
 
-    response = api_client.get(f"/search?iscc_code={iscc_code}")
+    response = api_client.get(f"/lookup?iscc_code={iscc_code}")
 
     assert response.status_code == 200
     data = response.json()
@@ -65,9 +65,9 @@ def test_search_by_iscc_code(api_client):
 
 
 @pytest.mark.django_db
-def test_search_no_results(api_client):
-    """Test search returns empty array when no results found."""
-    response = api_client.get("/search?datahash=1e20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+def test_lookup_no_results(api_client):
+    """Test lookup returns empty array when no results found."""
+    response = api_client.get("/lookup?datahash=1e20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 
     assert response.status_code == 200
     data = response.json()
@@ -76,12 +76,12 @@ def test_search_no_results(api_client):
 
 
 @pytest.mark.django_db
-def test_search_excludes_redacted_declarations(api_client):
-    """Test search excludes redacted declarations."""
+def test_lookup_excludes_redacted_declarations(api_client):
+    """Test lookup excludes redacted declarations."""
     datahash = "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c"
     create_test_declaration(seq=1, datahash=datahash, redacted=True)
 
-    response = api_client.get(f"/search?datahash={datahash}")
+    response = api_client.get(f"/lookup?datahash={datahash}")
 
     assert response.status_code == 200
     data = response.json()
@@ -89,9 +89,9 @@ def test_search_excludes_redacted_declarations(api_client):
 
 
 @pytest.mark.django_db
-def test_search_error_no_parameters(api_client):
-    """Test search returns 400 when no parameters provided."""
-    response = api_client.get("/search")
+def test_lookup_error_no_parameters(api_client):
+    """Test lookup returns 400 when no parameters provided."""
+    response = api_client.get("/lookup")
 
     assert response.status_code == 400
     data = response.json()
@@ -100,10 +100,10 @@ def test_search_error_no_parameters(api_client):
 
 
 @pytest.mark.django_db
-def test_search_error_both_parameters(api_client):
-    """Test search returns 400 when both parameters provided."""
+def test_lookup_error_both_parameters(api_client):
+    """Test lookup returns 400 when both parameters provided."""
     response = api_client.get(
-        "/search?datahash=1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c"
+        "/lookup?datahash=1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c"
         "&iscc_code=ISCC:KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY"
     )
 
@@ -114,9 +114,9 @@ def test_search_error_both_parameters(api_client):
 
 
 @pytest.mark.django_db
-def test_search_error_invalid_datahash_format(api_client):
-    """Test search returns 400 for invalid datahash format."""
-    response = api_client.get("/search?datahash=invalid-hash")
+def test_lookup_error_invalid_datahash_format(api_client):
+    """Test lookup returns 400 for invalid datahash format."""
+    response = api_client.get("/lookup?datahash=invalid-hash")
 
     assert response.status_code == 400
     data = response.json()
@@ -125,9 +125,9 @@ def test_search_error_invalid_datahash_format(api_client):
 
 
 @pytest.mark.django_db
-def test_search_error_invalid_iscc_code_format(api_client):
-    """Test search returns 400 for invalid ISCC-CODE format."""
-    response = api_client.get("/search?iscc_code=INVALID:CODE")
+def test_lookup_error_invalid_iscc_code_format(api_client):
+    """Test lookup returns 400 for invalid ISCC-CODE format."""
+    response = api_client.get("/lookup?iscc_code=INVALID:CODE")
 
     assert response.status_code == 400
     data = response.json()
@@ -136,12 +136,12 @@ def test_search_error_invalid_iscc_code_format(api_client):
 
 
 @pytest.mark.django_db
-def test_search_omits_empty_optional_fields(api_client):
-    """Test search omits controller, gateway, metahash when empty/null."""
+def test_lookup_omits_empty_optional_fields(api_client):
+    """Test lookup omits controller, gateway, metahash when empty/null."""
     datahash = "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c"
     create_test_declaration(seq=1, datahash=datahash, controller="", gateway="", metahash=None)
 
-    response = api_client.get(f"/search?datahash={datahash}")
+    response = api_client.get(f"/lookup?datahash={datahash}")
 
     assert response.status_code == 200
     data = response.json()
@@ -159,8 +159,8 @@ def test_search_omits_empty_optional_fields(api_client):
 
 
 @pytest.mark.django_db
-def test_search_includes_non_empty_optional_fields(api_client):
-    """Test search includes controller, gateway, metahash when present."""
+def test_lookup_includes_non_empty_optional_fields(api_client):
+    """Test lookup includes controller, gateway, metahash when present."""
     datahash = "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c"
     create_test_declaration(
         seq=1,
@@ -170,7 +170,7 @@ def test_search_includes_non_empty_optional_fields(api_client):
         metahash="1e202335f74fc18e2f4f99f0ea6291de5803e579a2219e1b4a18004fc9890b94e598",
     )
 
-    response = api_client.get(f"/search?datahash={datahash}")
+    response = api_client.get(f"/lookup?datahash={datahash}")
 
     assert response.status_code == 200
     data = response.json()
@@ -182,8 +182,8 @@ def test_search_includes_non_empty_optional_fields(api_client):
 
 
 @pytest.mark.django_db
-def test_search_expands_gateway_url_template(api_client):
-    """Test search expands gateway URL template with lowercase ISCC-ID without prefix."""
+def test_lookup_expands_gateway_url_template(api_client):
+    """Test lookup expands gateway URL template with lowercase ISCC-ID without prefix."""
     datahash = "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c"
     iscc_id = generate_test_iscc_id(seq=1)
     create_test_declaration(
@@ -193,7 +193,7 @@ def test_search_expands_gateway_url_template(api_client):
         gateway="https://example.com/metadata/{iscc_id}",
     )
 
-    response = api_client.get(f"/search?datahash={datahash}")
+    response = api_client.get(f"/lookup?datahash={datahash}")
 
     assert response.status_code == 200
     data = response.json()
@@ -209,10 +209,10 @@ def test_search_expands_gateway_url_template(api_client):
 
 
 @pytest.mark.django_db
-def test_search_datahash_wrong_length(api_client):
-    """Test search with datahash of wrong length returns 400."""
+def test_lookup_datahash_wrong_length(api_client):
+    """Test lookup with datahash of wrong length returns 400."""
     # Too short
-    response = api_client.get("/search?datahash=1e203b49776")
+    response = api_client.get("/lookup?datahash=1e203b49776")
 
     assert response.status_code == 400
     data = response.json()
@@ -221,10 +221,10 @@ def test_search_datahash_wrong_length(api_client):
 
 
 @pytest.mark.django_db
-def test_search_datahash_wrong_prefix(api_client):
-    """Test search with datahash without correct prefix returns 400."""
+def test_lookup_datahash_wrong_prefix(api_client):
+    """Test lookup with datahash without correct prefix returns 400."""
     # Missing 1e20 prefix
-    response = api_client.get("/search?datahash=ffff3b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c")
+    response = api_client.get("/lookup?datahash=ffff3b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c")
 
     assert response.status_code == 400
     data = response.json()
@@ -233,9 +233,9 @@ def test_search_datahash_wrong_prefix(api_client):
 
 
 @pytest.mark.django_db
-def test_search_iscc_code_missing_prefix(api_client):
-    """Test search with ISCC-CODE missing prefix returns 400."""
-    response = api_client.get("/search?iscc_code=KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY")
+def test_lookup_iscc_code_missing_prefix(api_client):
+    """Test lookup with ISCC-CODE missing prefix returns 400."""
+    response = api_client.get("/lookup?iscc_code=KACYPXW445FTYNJ3CYSXHAFJMA2HUWULUNRFE3BLHRSCXYH2M5AEGQY")
 
     assert response.status_code == 400
     data = response.json()
@@ -244,9 +244,9 @@ def test_search_iscc_code_missing_prefix(api_client):
 
 
 @pytest.mark.django_db
-def test_search_error_empty_datahash(api_client):
-    """Test search returns 400 when datahash parameter is empty."""
-    response = api_client.get("/search?datahash=")
+def test_lookup_error_empty_datahash(api_client):
+    """Test lookup returns 400 when datahash parameter is empty."""
+    response = api_client.get("/lookup?datahash=")
 
     assert response.status_code == 400
     data = response.json()
@@ -255,9 +255,9 @@ def test_search_error_empty_datahash(api_client):
 
 
 @pytest.mark.django_db
-def test_search_error_empty_iscc_code(api_client):
-    """Test search returns 400 when iscc_code parameter is empty."""
-    response = api_client.get("/search?iscc_code=")
+def test_lookup_error_empty_iscc_code(api_client):
+    """Test lookup returns 400 when iscc_code parameter is empty."""
+    response = api_client.get("/lookup?iscc_code=")
 
     assert response.status_code == 400
     data = response.json()
@@ -266,8 +266,8 @@ def test_search_error_empty_iscc_code(api_client):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_search_by_datahash_after_sequencer(api_client):
-    """Test that declarations created via the sequencer are findable by datahash search.
+def test_lookup_by_datahash_after_sequencer(api_client):
+    """Test that declarations created via the sequencer are findable by datahash lookup.
 
     The sequencer uses raw SQL to insert declarations. This test verifies that
     the datahash is stored as binary (BLOB) so that HexField filtering works.
@@ -285,7 +285,7 @@ def test_search_by_datahash_after_sequencer(api_client):
     signed_note = icr.sign_json(note, keypair)
     seq, iscc_id_bytes = sequence_iscc_note(signed_note)
 
-    response = api_client.get(f"/search?datahash={iscc_data['datahash']}")
+    response = api_client.get(f"/lookup?datahash={iscc_data['datahash']}")
 
     assert response.status_code == 200
     data = response.json()
@@ -294,8 +294,8 @@ def test_search_by_datahash_after_sequencer(api_client):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_search_by_iscc_code_after_sequencer(api_client):
-    """Test that declarations created via the sequencer are findable by iscc_code search."""
+def test_lookup_by_iscc_code_after_sequencer(api_client):
+    """Test that declarations created via the sequencer are findable by iscc_code lookup."""
     iscc_data = create_iscc_from_text("Another searchable content")
     nonce_bytes = os.urandom(16)
     nonce_bytes = bytes([0x00, 0x10]) + nonce_bytes[2:]
@@ -309,7 +309,7 @@ def test_search_by_iscc_code_after_sequencer(api_client):
     signed_note = icr.sign_json(note, keypair)
     seq, iscc_id_bytes = sequence_iscc_note(signed_note)
 
-    response = api_client.get(f"/search?iscc_code={iscc_data['iscc']}")
+    response = api_client.get(f"/lookup?iscc_code={iscc_data['iscc']}")
 
     assert response.status_code == 200
     data = response.json()

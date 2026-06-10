@@ -9,7 +9,7 @@ from ninja import NinjaAPI
 from ninja.responses import Status, codes_4xx
 
 import iscc_hub
-from iscc_hub import log_tree
+from iscc_hub import log_tree, search_proxy
 from iscc_hub.exceptions import BaseApiException, DuplicateDeclarationError, NotFoundError, UnauthorizedError
 from iscc_hub.gateway import expand_gateway_url
 from iscc_hub.iscc_id import IsccID
@@ -37,11 +37,15 @@ def handle_api_exception(request, exc):
     :param exc: The exception instance
     :return: JSON response with error details and appropriate status code
     """
-    return api.create_response(
+    response = api.create_response(
         request,
         exc.to_error_response(),
         status=exc.status_code,
     )
+    if exc.headers:
+        for header, value in exc.headers.items():
+            response[header] = value
+    return response
 
 
 def declaration_to_dict(decl):
@@ -87,17 +91,17 @@ def declaration_to_dict(decl):
     return result
 
 
-@api.get("/search")
-def search(request: HttpRequest):
+@api.get("/lookup")
+def lookup(request: HttpRequest):
     # type: (HttpRequest) -> list[dict]
     """
-    Search for ISCC declarations by datahash or ISCC-CODE.
+    Exact-match lookup of ISCC declarations by datahash or ISCC-CODE.
 
     Exactly one search parameter must be provided (mutually exclusive).
 
     Query Parameters:
     - datahash: Blake3 multihash (format: 1e20 + 64 hex chars)
-    - iscc_code: ISCC-CODE (format: ISCC: + 29-68 alphanumeric)
+    - iscc_code: ISCC-CODE (format: ISCC: + 29-68 base32 characters)
 
     :param request: The incoming HTTP request
     :return: List of matching IsccDeclaration objects (may be empty)
@@ -129,14 +133,40 @@ def search(request: HttpRequest):
             raise BaseApiException("Invalid datahash format. Expected: 1e20 followed by 64 hex characters")
         results = IsccDeclaration.objects.filter(datahash=datahash, redacted=False)
     elif iscc_code:
-        if not re.match(r"^ISCC:[A-Z0-9]{29,68}$", iscc_code):
-            raise BaseApiException(
-                "Invalid iscc_code format. Expected: ISCC: followed by 29-68 alphanumeric characters"
-            )
+        if not re.match(r"^ISCC:[A-Z2-7]{29,68}$", iscc_code):
+            raise BaseApiException("Invalid iscc_code format. Expected: ISCC: followed by 29-68 base32 characters")
         results = IsccDeclaration.objects.filter(iscc_code=iscc_code, redacted=False)
 
     # Build response list
     return [declaration_to_dict(decl) for decl in results]
+
+
+@api.get("/search")
+def search(request: HttpRequest):
+    # type: (HttpRequest) -> object
+    """
+    Similarity search by ISCC-CODE, proxied to a configured iscc-search backend.
+
+    Returns 404 when similarity search is not enabled on this hub.
+
+    :param request: The incoming HTTP request
+    :return: Projected similarity matches or a passthrough backend error
+    """
+    return search_proxy.handle_get(request)
+
+
+@api.post("/search")
+def search_by_query(request: HttpRequest):
+    # type: (HttpRequest) -> object
+    """
+    Similarity search by IsccQuery body, proxied to a configured iscc-search backend.
+
+    Returns 404 when similarity search is not enabled on this hub.
+
+    :param request: The incoming HTTP request
+    :return: Projected similarity matches or a passthrough backend error
+    """
+    return search_proxy.handle_post(request)
 
 
 @api.post("/declaration", response={201: DeclarationAck, codes_4xx: ErrorResponse})

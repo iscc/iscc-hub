@@ -5,6 +5,7 @@ description: |
   W3C Verifiable Credential for ISCC declaration
 
   Issued by the ISCC-HUB as proof of declaration with timestamp and sequence number.
+additionalProperties: false
 required:
   - '@context'
   - type
@@ -40,6 +41,7 @@ properties:
     type: object
     description: |
       Claims about the subject of the credential
+    additionalProperties: false
     required:
       - id
       - declaration
@@ -54,6 +56,7 @@ properties:
         type: object
         description: |
           Declaration details including sequence number and ISCC-ID
+        additionalProperties: false
         required:
           - seq
           - iscc_id
@@ -78,6 +81,7 @@ properties:
 
       Uses **EdDSA-JCS-2022** cryptosuite with Ed25519 signatures.
       Contains copied @context from credential root per W3C spec.
+    additionalProperties: false
     required:
       - '@context'
       - type
@@ -125,6 +129,7 @@ properties:
       re-encodes the `{$schema, iscc_id, note}` log-entry envelope, computes its
       RFC 6962 leaf hash, combines it with `inclusionProof` to a root, and
       checks that root against the signed `checkpoint`.
+    additionalProperties: false
     required:
       - type
       - checkpoint

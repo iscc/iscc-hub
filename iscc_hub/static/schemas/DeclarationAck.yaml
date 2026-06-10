@@ -8,6 +8,7 @@ description: |
   ISCC-ID. The full signed `IsccReceipt` (W3C Verifiable Credential) is fetched
   separately from `GET /declaration/{iscc_id}/receipt`, keeping the submission
   hot path free of signing work.
+additionalProperties: false
 required:
   - iscc_id
   - seq

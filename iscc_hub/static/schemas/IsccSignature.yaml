@@ -5,6 +5,7 @@ description: |
   ISCC Signature object providing cryptographic integrity and optional identity attribution.
 
   The signature follows the **ISCC-SIG v1.0** specification for Ed25519 signatures.
+additionalProperties: false
 required:
   - version
   - proof

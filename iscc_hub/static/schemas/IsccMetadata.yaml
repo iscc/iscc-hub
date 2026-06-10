@@ -1,0 +1,26 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: "IsccMetadata"
+type: object
+description: |
+  Extensible metadata container for application-specific data, forwarded whole
+  from the search backend (the designated extension point of the search result).
+
+  For Hub-proxied results the aggregator stores the declaration's `gateway` URL
+  here as a concrete (template-expanded) URL.
+
+  **Standard fields:** All fields are optional and additional properties are
+  allowed. `name` and `source` are recommended for interoperability.
+additionalProperties: true
+properties:
+  name:
+    type: string
+    description: Title or name of the work manifested by the asset
+    examples:
+      - "Digital Philosophy: An Introduction"
+  source:
+    type: string
+    format: uri
+    description: |
+      Absolute URI to the raw content that was used for ISCC generation.
+    examples:
+      - "https://example.com/content/9788899445566.txt"

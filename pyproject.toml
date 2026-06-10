@@ -116,7 +116,6 @@ use-standard-collections = true
 use-annotated = true
 field-constraints = true
 use-union-operator = true
-extra-fields = "forbid"
 strict-nullable = true
 use-title-as-name = true
 formatters = []

@@ -1,0 +1,48 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: "IsccGlobalMatch"
+type: object
+description: |
+  A single whole-asset match from similarity search. Contains the matched
+  ISCC-ID, aggregated score, and per-unit-type bit-match breakdown.
+required:
+  - iscc_id
+  - score
+  - types
+additionalProperties: false
+properties:
+  iscc_id:
+    type: string
+    description: The matched ISCC-ID from the index
+    pattern: "^ISCC:[A-Z2-7]{16}$"
+    examples:
+      - "ISCC:MAIGIIFJRDGEQQAA"
+  score:
+    type: number
+    description: |
+      Overall similarity score (0.0-1.0), computed as the average of matched
+      unit similarities across all queried units. Higher is better.
+    minimum: 0.0
+    maximum: 1.0
+    examples:
+      - 0.85
+  types:
+    type: object
+    description: |
+      Per-unit-type similarity breakdown. Keys are unit type identifiers
+      (e.g., "META_NONE_V0", "CONTENT_TEXT_V0"), values are similarity
+      scores (0.0-1.0). Queried unit types not found in this asset are omitted.
+    additionalProperties:
+      type: number
+      minimum: 0.0
+      maximum: 1.0
+    examples:
+      - META_NONE_V0: 1.0
+        CONTENT_TEXT_V0: 1.0
+        DATA_NONE_V0: 0.5
+  metadata:
+    anyOf:
+      - $ref: "./IsccMetadata.yaml"
+      - type: "null"
+    description: |
+      Optional asset metadata, denormalized from the index for convenience and
+      forwarded whole by the Hub. `null` when the asset carries no metadata.
