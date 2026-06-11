@@ -101,9 +101,9 @@ paths:
                       iscc_code: "ISCC:KACTXL7PSZSWDVMQ2DPDF6FXHTKLM3Y5WNRQZQAJDKQRTXHIZXMIRJI"
                       datahash: "1e20abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
                       timestamp: "2025-01-18T21:47:33.456789Z"
-                      controller: "did:ipfs:QmX9dhRp..."
+                      controller: "did:web:archive.example.org"
                       pubkey: "z6MkfrQkTJTQzDNVbj7gPYGZvL89vVBEFfK4zePNKhRMPYBk"
-                      gateway: "https://ipfs.io/ipfs/madkz5plnrxgtvqb"
+                      gateway: "https://archive.example.org/iscc/madkz5plnrxgtvqb"
                 no_results:
                   summary: No declarations found
                   value: []

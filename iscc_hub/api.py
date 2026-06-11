@@ -59,11 +59,10 @@ def declaration_to_dict(decl):
     iscc_id_obj = IsccID(decl.iscc_id)
     iscc_id_canonical = str(iscc_id_obj)
 
-    # Prepare clean versions for template variable substitution (lowercase without prefix)
-    iscc_id_clean = (
-        iscc_id_canonical[5:].lower() if iscc_id_canonical.startswith("ISCC:") else iscc_id_canonical.lower()
-    )
-    iscc_code_clean = decl.iscc_code[5:].lower() if decl.iscc_code.startswith("ISCC:") else decl.iscc_code.lower()
+    # Template variables expand to the lowercase iscc: URI form (ISO 24138) without the ISCC: prefix —
+    # URI-unreserved characters only, so plain substitution and RFC 6570 engines agree byte-for-byte
+    iscc_id_clean = iscc_id_canonical.removeprefix("ISCC:").lower()
+    iscc_code_clean = decl.iscc_code.removeprefix("ISCC:").lower()
 
     template_vars = {
         "iscc_id": iscc_id_clean,

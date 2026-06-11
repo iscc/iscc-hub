@@ -42,17 +42,16 @@ def test_iscc_id_resolve_valid_with_gateway_template():
     )
 
     client = Client()
-    # Strip ISCC: prefix from the ID for the URL path - MUST BE LOWERCASE
-    iscc_id_path = (
-        declaration.iscc_id[5:].lower() if declaration.iscc_id.startswith("ISCC:") else declaration.iscc_id.lower()
-    )
+    # Request with an uppercase path to exercise case-insensitive input handling
+    iscc_id_path = declaration.iscc_id.removeprefix("ISCC:")
     response = client.get(f"/{iscc_id_path}")
 
     # Should redirect with 307 to expanded URL
     assert response.status_code == 307
-    # ISCC-CODE should have "ISCC:" prefix stripped for cleaner URLs
-    iscc_code_clean = declaration.iscc_code[5:] if declaration.iscc_code.startswith("ISCC:") else declaration.iscc_code
-    expected_url = f"https://registry.com/{iscc_code_clean}/details/{iscc_id_path}"
+    # Variables expand to the lowercase URI-form body with the "ISCC:" prefix stripped
+    iscc_id_clean = declaration.iscc_id.removeprefix("ISCC:").lower()
+    iscc_code_clean = declaration.iscc_code.removeprefix("ISCC:").lower()
+    expected_url = f"https://registry.com/{iscc_code_clean}/details/{iscc_id_clean}"
     assert response["Location"] == expected_url
 
 
@@ -168,17 +167,16 @@ def test_iscc_id_resolve_gateway_with_all_template_vars():
     )
 
     client = Client()
-    # Strip ISCC: prefix from the ID for the URL path - MUST BE LOWERCASE
-    iscc_id_path = (
-        declaration.iscc_id[5:].lower() if declaration.iscc_id.startswith("ISCC:") else declaration.iscc_id.lower()
-    )
+    # Request with an uppercase path to exercise case-insensitive input handling
+    iscc_id_path = declaration.iscc_id.removeprefix("ISCC:")
     response = client.get(f"/{iscc_id_path}")
 
     # Should redirect with all variables expanded
     assert response.status_code == 307
-    # ISCC-CODE should have "ISCC:" prefix stripped for cleaner URLs
-    iscc_code_clean = declaration.iscc_code[5:] if declaration.iscc_code.startswith("ISCC:") else declaration.iscc_code
-    expected_url = f"https://api.example.com/{iscc_id_path}/{iscc_code_clean}/{declaration.datahash}"
+    # Variables expand to the lowercase URI-form body with the "ISCC:" prefix stripped
+    iscc_id_clean = declaration.iscc_id.removeprefix("ISCC:").lower()
+    iscc_code_clean = declaration.iscc_code.removeprefix("ISCC:").lower()
+    expected_url = f"https://api.example.com/{iscc_id_clean}/{iscc_code_clean}/{declaration.datahash}"
     assert response["Location"] == expected_url
 
 
@@ -351,15 +349,15 @@ def test_iscc_id_resolve_forward_to_active_remote_hub():
 
     # Generate ISCC-ID with hub_id=2
     remote_iscc_id = generate_test_iscc_id(hub_id=2, seq=100)
-    # Extract just the ID part without ISCC: prefix for URL
-    iscc_id_path = remote_iscc_id[5:].lower() if remote_iscc_id.startswith("ISCC:") else remote_iscc_id.lower()
+    # Request with an uppercase path to exercise case-insensitive input handling
+    iscc_id_path = remote_iscc_id.removeprefix("ISCC:")
 
     client = Client()
     response = client.get(f"/{iscc_id_path}")
 
-    # Should redirect to remote hub
+    # Should redirect to the remote hub using the lowercase URI-form body
     assert response.status_code == 307
-    assert response["Location"] == f"https://hub2.example.com/{iscc_id_path}"
+    assert response["Location"] == f"https://hub2.example.com/{remote_iscc_id.removeprefix('ISCC:').lower()}"
 
 
 @pytest.mark.django_db
@@ -462,16 +460,16 @@ def test_iscc_id_resolve_remote_hub_preserves_query_params():
 
     # Generate ISCC-ID with hub_id=500
     remote_iscc_id = generate_test_iscc_id(hub_id=500, seq=5000)
-    # Extract just the ID part without ISCC: prefix for URL
-    iscc_id_path = remote_iscc_id[5:].lower() if remote_iscc_id.startswith("ISCC:") else remote_iscc_id.lower()
+    # Request with an uppercase path to exercise case-insensitive input handling
+    iscc_id_path = remote_iscc_id.removeprefix("ISCC:")
 
     client = Client()
     response = client.get(f"/{iscc_id_path}?serviceType=Foo&key=value")
 
-    # Should redirect to remote hub with query params preserved
+    # Should redirect to remote hub (lowercase URI-form body) with query params preserved
     assert response.status_code == 307
     location = response["Location"]
-    assert location.startswith(f"https://hub500.example.com/{iscc_id_path}")
+    assert location.startswith(f"https://hub500.example.com/{remote_iscc_id.removeprefix('ISCC:').lower()}")
     assert "serviceType=Foo" in location
     assert "key=value" in location
 
@@ -487,16 +485,14 @@ def test_iscc_id_resolve_gateway_template_preserves_query_params():
     )
 
     client = Client()
-    # Strip ISCC: prefix from the ID for the URL path - MUST BE LOWERCASE
-    iscc_id_path = (
-        declaration.iscc_id[5:].lower() if declaration.iscc_id.startswith("ISCC:") else declaration.iscc_id.lower()
-    )
+    # Request with an uppercase path to exercise case-insensitive input handling
+    iscc_id_path = declaration.iscc_id.removeprefix("ISCC:")
     response = client.get(f"/{iscc_id_path}?serviceType=CoreMetadata")
 
-    # Should redirect with query params preserved
+    # Should redirect (lowercase URI-form body) with query params preserved
     assert response.status_code == 307
     location = response["Location"]
-    assert location.startswith(f"https://registry.com/{iscc_id_path}")
+    assert location.startswith(f"https://registry.com/{declaration.iscc_id.removeprefix('ISCC:').lower()}")
     assert "serviceType=CoreMetadata" in location
 
 

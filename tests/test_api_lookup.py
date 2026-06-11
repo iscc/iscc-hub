@@ -183,7 +183,7 @@ def test_lookup_includes_non_empty_optional_fields(api_client):
 
 @pytest.mark.django_db
 def test_lookup_expands_gateway_url_template(api_client):
-    """Test lookup expands gateway URL template with lowercase ISCC-ID without prefix."""
+    """Test lookup expands gateway URL template with the lowercase URI-form ISCC-ID body, prefix stripped."""
     datahash = "1e203b49776cc59dc94dc1ce328e6c4a5777c7816ebf1e10e87ac3cb061ce1037c6c"
     iscc_id = generate_test_iscc_id(seq=1)
     create_test_declaration(
@@ -198,14 +198,9 @@ def test_lookup_expands_gateway_url_template(api_client):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
-    # Gateway should be expanded with lowercase iscc_id without prefix
+    # Gateway expands to the lowercase URI-form base32 body with the ISCC: prefix stripped
     gateway = data[0]["gateway"]
-    assert "https://example.com/metadata/" in gateway
-    assert "{iscc_id}" not in gateway  # Template should be expanded
-    # Extract the iscc_id part from the gateway URL
-    iscc_id_from_url = gateway.split("/metadata/")[1]
-    assert iscc_id_from_url.islower()  # Should be lowercase
-    assert not iscc_id_from_url.startswith("iscc:")  # Should not have prefix
+    assert gateway == f"https://example.com/metadata/{iscc_id.removeprefix('ISCC:').lower()}"
 
 
 @pytest.mark.django_db

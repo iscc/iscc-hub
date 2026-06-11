@@ -107,6 +107,11 @@ properties:
       Allowed operators: simple `{var}`, path-segment `{/var}`, label
       `{.var}`. Explode (`*`) and prefix (`:N`) modifiers are not
       permitted. No userinfo, query, or fragment components.
+
+      Variables expand to lowercase values with no `ISCC:` prefix:
+      the lowercase Base32 body (the `iscc:` URI form of ISO 24138)
+      for `{iscc_id}` and `{iscc_code}`, the lowercase hex multihash
+      for `{datahash}`.
     examples:
       - "https://example.com/iscc_id/{iscc_id}"
       - "https://registry.example.com/metadata"

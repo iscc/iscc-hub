@@ -88,10 +88,8 @@ def iscc_id_resolve(request, iscc_id):
         # Get canonical representation for database lookup
         iscc_id_canonical = ic.iscc_normalize(iscc_id)
 
-        # Extract just the code part (without ISCC: prefix) and lowercase for URLs
-        iscc_id_clean = (
-            iscc_id_canonical[5:].lower() if iscc_id_canonical.startswith("ISCC:") else iscc_id_canonical.lower()
-        )
+        # Extract the lowercase URI-form body (without ISCC: prefix, per ISO 24138) for URLs
+        iscc_id_clean = iscc_id_canonical.removeprefix("ISCC:").lower()
 
     except Exception:
         # Invalid format
@@ -149,10 +147,8 @@ def iscc_id_resolve(request, iscc_id):
         # Prepare template variables for gateway URL expansion
         expanded_gateway_url = None
         if declaration.gateway:
-            # Strip "ISCC:" prefix from iscc_code if present for cleaner URLs
-            iscc_code_clean = declaration.iscc_code
-            if iscc_code_clean.startswith("ISCC:"):
-                iscc_code_clean = iscc_code_clean[5:]
+            # Lowercase URI-form body (without ISCC: prefix, per ISO 24138), matching {iscc_id}
+            iscc_code_clean = declaration.iscc_code.removeprefix("ISCC:").lower()
 
             template_vars = {
                 "iscc_id": iscc_id_clean,  # Use clean version without ISCC: prefix

@@ -225,7 +225,13 @@ Field semantics:
 - If `gateway` is present, it **MUST** be either an absolute HTTPS URL or an RFC 6570 URI template using only
     `{iscc_id}`, `{iscc_code}`, or `{datahash}` as variables. The URI **MUST NOT** contain userinfo, query, or fragment
     components. Allowed operators are level-1 (simple), `{/var}`, and `{.var}`; explode and prefix modifiers are not
-    permitted.
+    permitted. A processor that expands a `gateway` template **MUST** substitute each variable with the lowercase URI
+    form of its value with no `ISCC:` prefix: `{iscc_id}` and `{iscc_code}` expand to the lowercase Base32 body of the
+    ISCC-ID ([§7.2](#72-encoded-form)) and ISCC-CODE respectively — the path of the `iscc:` URI encoding defined by
+    [[ISO-24138]](#iso-24138) — and `{datahash}` expands to the 68-character lowercase hexadecimal multihash. These
+    expansion values contain only URI-unreserved characters [[RFC3986]](#rfc3986), so literal string substitution and
+    full RFC 6570 processing produce byte-identical URLs. Gateway endpoints **SHOULD** match embedded ISCC values
+    case-insensitively.
 - If `metahash` is present, it **MUST** be a BLAKE3 multihash with the same format as `datahash`. The `metahash` commits
     to metadata bytes that the declarer may attach at submission time (see [§13](#13-metadata-forwarding)).
 - If `units` is present, it **MUST** contain between 1 and 4 ISCC-UNITs. The array **MUST NOT** include the
