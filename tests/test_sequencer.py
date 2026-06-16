@@ -29,7 +29,7 @@ import pytest
 from django.conf import settings
 from django.db import IntegrityError, connection, transaction
 
-from iscc_hub.exceptions import NonceError, SequencerError
+from iscc_hub.exceptions import DuplicateDeclarationError, NonceError, SequencerError
 from iscc_hub.iscc_id import IsccID
 from iscc_hub.models import IsccDeclaration, LogRecord, LogState
 from iscc_hub.sequencer import LOG_ENTRY_SCHEMA, MAX_RECORD_BYTES, sequence_iscc_delete, sequence_iscc_note
@@ -163,6 +163,43 @@ def test_nonce_reuse_rejected():
         sequence_iscc_note(make_signed_note("two", nonce=nonce))
     assert "Nonce already used" in str(exc_info.value)
     assert exc_info.value.code == "nonce_reuse"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_duplicate_datahash_rejected_under_lock():
+    """With check_duplicate set, a second declaration of the same datahash is rejected."""
+    first = make_signed_note("same content")
+    _, first_id = sequence_iscc_note(first, check_duplicate=True)  # no prior record -> admitted
+
+    second = make_signed_note("same content")  # identical datahash, fresh nonce
+    assert second["datahash"] == first["datahash"]
+
+    with pytest.raises(DuplicateDeclarationError) as exc_info:
+        sequence_iscc_note(second, check_duplicate=True)
+
+    err = exc_info.value
+    assert err.code == "duplicate_declaration"
+    assert err.field == "datahash"
+    assert err.existing_iscc_id == str(IsccID(first_id))
+    assert err.existing_actor == first["signature"]["pubkey"]
+    assert first["datahash"] in err.message
+
+    # Only the first declaration is committed; the rejected one burns nothing.
+    assert LogRecord.objects.filter(type=LogRecord.RecordType.DECLARATION).count() == 1
+    assert LogState.objects.get(pk=settings.ISCC_HUB_ID).tree_size == 1
+
+
+@pytest.mark.django_db(transaction=True)
+def test_duplicate_datahash_allowed_when_not_checked():
+    """With check_duplicate False (the forced path), a duplicate datahash is admitted twice."""
+    first = make_signed_note("same content")
+    _, id1 = sequence_iscc_note(first, check_duplicate=False)
+    second = make_signed_note("same content")
+    _, id2 = sequence_iscc_note(second, check_duplicate=False)
+
+    assert first["datahash"] == second["datahash"]
+    assert id1 != id2  # each forced duplicate gets its own distinct ISCC-ID
+    assert LogRecord.objects.filter(type=LogRecord.RecordType.DECLARATION).count() == 2
 
 
 @pytest.mark.django_db(transaction=True)
@@ -326,6 +363,44 @@ def test_concurrent_appends_are_gapless_and_monotonic():
     timestamps = [IsccID(bytes(IsccID(r.iscc_id))).timestamp_micros for r in records]
     for prev, nxt in zip(timestamps, timestamps[1:], strict=False):
         assert nxt > prev
+
+
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_duplicate_datahash_admits_exactly_one():
+    """Concurrent same-datahash declarations admit exactly one; the rest get DuplicateDeclarationError."""
+    num = 8
+    # Identical content -> one shared datahash; distinct nonces keep nonce-uniqueness from interfering.
+    notes = [make_signed_note("same content", nonce=icr.create_nonce(settings.ISCC_HUB_ID)) for _ in range(num)]
+    assert len({n["datahash"] for n in notes}) == 1
+    barrier = threading.Barrier(num)
+    created = []
+    duplicates = []
+    errors = []
+
+    def worker(note):
+        # type: (dict) -> None
+        try:
+            barrier.wait()
+            sequence_iscc_note(note, check_duplicate=True)
+            created.append(note["nonce"])
+        except DuplicateDeclarationError:
+            duplicates.append(note["nonce"])
+        except Exception as exc:  # pragma: no cover - only on unexpected failure
+            errors.append(exc)
+        finally:
+            connection.close()
+
+    threads = [threading.Thread(target=worker, args=(note,)) for note in notes]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert not errors, errors
+    assert len(created) == 1
+    assert len(duplicates) == num - 1
+    # Exactly one leaf is committed for the shared datahash.
+    assert LogRecord.objects.filter(type=LogRecord.RecordType.DECLARATION).count() == 1
 
 
 # --- Model string representations --------------------------------------------------------------

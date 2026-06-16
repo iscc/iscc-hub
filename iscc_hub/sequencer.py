@@ -26,7 +26,7 @@ import jcs
 from django.conf import settings
 from django.db import transaction
 
-from iscc_hub.exceptions import NonceError, SequencerError
+from iscc_hub.exceptions import DuplicateDeclarationError, NonceError, SequencerError
 from iscc_hub.iscc_id import IsccID
 from iscc_hub.models import IsccDeclaration, LogRecord, LogState
 
@@ -53,8 +53,8 @@ def _jcs(obj):
     return canonical
 
 
-def append_record(note, record_type, iscc_id_bytes=None, datahash_bytes=None):
-    # type: (dict, str, bytes|None, bytes|str|None) -> tuple[int, bytes]
+def append_record(note, record_type, iscc_id_bytes=None, datahash_bytes=None, check_duplicate=False):
+    # type: (dict, str, bytes|None, bytes|str|None, bool) -> tuple[int, bytes]
     """
     Atomically append one record to the log under the single-writer lock.
 
@@ -63,8 +63,11 @@ def append_record(note, record_type, iscc_id_bytes=None, datahash_bytes=None):
     :param iscc_id_bytes: 8-byte ISCC-ID to reuse (deletions); None mints a new one.
     :param datahash_bytes: Original datahash to record for deletions, as bytes or a hex
         string (HexField accepts both); None falls back to ``note["datahash"]``.
+    :param check_duplicate: When True, reject a prior declaration of the same datahash under
+        the write lock (race-free); deletions and forced declarations leave it False.
     :return: Tuple of (0-based leaf index, 8-byte ISCC-ID).
     :raises NonceError: If the nonce was already used.
+    :raises DuplicateDeclarationError: If check_duplicate is set and the datahash was already declared.
     :raises SequencerError: On a disallowed backward wall-clock jump.
     """
     hub_id = int(settings.ISCC_HUB_ID)
@@ -81,6 +84,25 @@ def append_record(note, record_type, iscc_id_bytes=None, datahash_bytes=None):
         # idempotent indexed-PK lookup and is race-safe under the write lock taken on the next line.
         LogState.objects.get_or_create(pk=hub_id)
         state = LogState.objects.select_for_update().get(pk=hub_id)
+
+        # Reject a duplicate datahash under the write lock so the check is race-free: holding the
+        # LogState lock, no concurrent declaration of the same content can slip between the read and
+        # the commit. Reads the append-only history, so a declared-then-deleted datahash stays
+        # blocked; X-Force-Declaration disables this by leaving check_duplicate False.
+        if check_duplicate:
+            existing = (
+                LogRecord.objects.filter(datahash=note["datahash"], type=LogRecord.RecordType.DECLARATION)
+                .order_by("index")
+                .first()
+            )
+            if existing:
+                # existing.pubkey is already the multibase string at runtime (PubkeyField.from_db_value);
+                # str() is only a cast for the type checker, which types this BinaryField subclass as bytes.
+                raise DuplicateDeclarationError(
+                    f"Duplicate declaration for datahash: {note['datahash']}",
+                    existing_iscc_id=str(IsccID(existing.iscc_id)),
+                    existing_actor=str(existing.pubkey),
+                )
 
         # `index` is the 0-based leaf index (== seq) and the public return value.
         index = state.tree_size
@@ -145,17 +167,20 @@ def append_record(note, record_type, iscc_id_bytes=None, datahash_bytes=None):
     return index, id_bytes
 
 
-def sequence_iscc_note(iscc_note):
-    # type: (dict) -> tuple[int, bytes]
+def sequence_iscc_note(iscc_note, check_duplicate=False):
+    # type: (dict, bool) -> tuple[int, bytes]
     """
     Atomically sequence a declaration, minting a new monotonic ISCC-ID.
 
     :param iscc_note: Pre-validated IsccNote dictionary.
+    :param check_duplicate: When True, reject a prior declaration of the same datahash (the
+        default Hub policy); the API passes False only when X-Force-Declaration is set.
     :return: Tuple of (0-based leaf index, iscc_id_bytes).
     :raises NonceError: If the nonce was already used.
+    :raises DuplicateDeclarationError: If check_duplicate is set and the datahash was already declared.
     :raises SequencerError: On a disallowed backward wall-clock jump.
     """
-    return append_record(iscc_note, LogRecord.RecordType.DECLARATION)
+    return append_record(iscc_note, LogRecord.RecordType.DECLARATION, check_duplicate=check_duplicate)
 
 
 def sequence_iscc_delete(iscc_note_delete, original_datahash):

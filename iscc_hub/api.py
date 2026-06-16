@@ -10,7 +10,7 @@ from ninja.responses import Status, codes_4xx
 
 import iscc_hub
 from iscc_hub import log_tree, search_proxy
-from iscc_hub.exceptions import BaseApiException, DuplicateDeclarationError, NotFoundError, UnauthorizedError
+from iscc_hub.exceptions import BaseApiException, NotFoundError, UnauthorizedError
 from iscc_hub.gateway import expand_gateway_url
 from iscc_hub.iscc_id import IsccID
 from iscc_hub.models import Hub, IsccDeclaration, LogRecord, PubKey
@@ -187,26 +187,13 @@ def declaration(request):
         if not pubkey_obj or not pubkey_obj.is_active:
             raise UnauthorizedError("Invalid or inactive pubkey")
 
-    # Check for duplicate declarations (only if force header not present).
-    # Dedup reads the append-only history (LogRecord), so a declared-then-deleted
-    # datahash stays blocked from re-declaration; X-Force-Declaration is the opt-in override.
+    # Reject duplicate declarations (same datahash) unless X-Force-Declaration opts out. The
+    # check runs inside the sequencer's single-writer transaction, so it is race-free; it reads
+    # the append-only history, so a declared-then-deleted datahash stays blocked from re-declaration.
     force_declaration = request.headers.get("X-Force-Declaration", "").lower() in ("true", "1")
-    if not force_declaration:
-        existing = (
-            LogRecord.objects.filter(datahash=valid_data["datahash"], type=LogRecord.RecordType.DECLARATION)
-            .order_by("index")
-            .first()
-        )
-        if existing:
-            message = f"Duplicate declaration for datahash: {valid_data['datahash']}"
-            # existing.pubkey is already the multibase string at runtime (PubkeyField.from_db_value);
-            # str() is only a cast for the type checker, which types this BinaryField subclass as bytes.
-            raise DuplicateDeclarationError(
-                message, existing_iscc_id=str(IsccID(existing.iscc_id)), existing_actor=str(existing.pubkey)
-            )
 
-    # Sequencing (now includes materialized view creation)
-    seq, iscc_id = sequence_iscc_note(valid_data)
+    # Sequencing (now includes duplicate rejection and materialized view creation)
+    seq, iscc_id = sequence_iscc_note(valid_data, check_duplicate=not force_declaration)
 
     # Return a minimal acknowledgement; the full signed IsccReceipt is built on demand
     # from the stored log record via GET /declaration/{iscc_id}/receipt.
