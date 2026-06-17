@@ -1,0 +1,11 @@
+version: 1
+network: mainnet
+hubs:
+    - hub_id: 1
+      pubkey: z6MkeVVrr1dmNL4VsAWuP4tK1QAbi9AeAghVfkiHqGYdmsFX
+      url: https://iscc.id
+      active: true
+    - hub_id: 2
+      pubkey: z6MkpautqPyziUVAZBNfCsmdrqwCN6V5v8nGqKB3uyV3UvnY
+      url: https://amlet.id
+      active: true
