@@ -62,8 +62,12 @@ jobs:
             echo "Starting updated deployment..."
             docker compose up -d
             
-            echo "Resetting sandbox database..."
-            docker exec iscc-hub-sb0 uv run python scripts/db_management.py reset
+            # NOTE: no DB reset here. The entrypoint runs migrate-only (production path) on every
+            # start, so the SQLite volume is durable across deploys. Do NOT run
+            # `db_management.py reset` / `loaddata test_data` against this volume — those fixtures
+            # are minted under hub_id 1 and collide with sb0's hub_id 0 log (the tlog leaf index is
+            # globally unique), which breaks every declaration with a 500 (see iscc-infra incident
+            # docs/runbooks: sb0-declaration-500-fixture-pollution).
             
             echo "Waiting for service to be healthy..."
             for i in {1..30}; do
