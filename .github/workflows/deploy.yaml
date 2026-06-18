@@ -27,6 +27,21 @@ jobs:
     environment: sandbox
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Ship the versioned sandbox compose to the box so the running config can never drift from
+      # the repo. Secrets stay in the box's root-only /opt/iscc-hub/.env (never committed).
+      - name: Sync sandbox compose to the box
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: sb0.iscc.id
+          username: root
+          key: ${{ secrets.SANDBOX_SSH_KEY }}
+          source: compose.sandbox.yaml
+          target: /opt/iscc-hub/
+          overwrite: true
+
       - name: Deploy to Digital Ocean Sandbox
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -34,13 +49,16 @@ jobs:
           username: root
           key: ${{ secrets.SANDBOX_SSH_KEY }}
           script: |
+            cd /opt/iscc-hub
+            # Use the just-synced repo file as the active compose (keeps `docker compose` defaults working).
+            cp compose.sandbox.yaml docker-compose.yml
+
             echo "Pulling latest Docker image..."
             docker pull ghcr.io/iscc/iscc-hub:dev
-            
+
             echo "Stopping current deployment..."
-            cd /opt/iscc-hub
             docker compose down || true
-            
+
             echo "Starting updated deployment..."
             docker compose up -d
             

@@ -1,0 +1,44 @@
+# Sandbox deployment — sb0.iscc.id (testnet, hub_id 0, realm 0).
+#
+# Canonical, versioned compose for the DigitalOcean sandbox. The deploy workflow
+# (.github/workflows/deploy.yaml) syncs this file to the box on every push to `develop`, so the
+# running sandbox can no longer drift from the repo. The bundled compose.yaml is dev-only.
+#
+# Secrets are NOT committed: DJANGO_SECRET_KEY, ISCC_HUB_SECKEY and ISCC_HUB_ADMIN_PWD are
+# interpolated from a root-only /opt/iscc-hub/.env on the box (see .env.example, "Sandbox deploy").
+# Everything else is non-secret sandbox config and is intentionally inline for reviewability.
+#
+# Joins the box's existing external `caddy` network (caddy-docker-proxy terminates TLS by label).
+
+services:
+  iscc-hub:
+    image: ghcr.io/iscc/iscc-hub:dev
+    container_name: iscc-hub-sb0
+    environment:
+      - DJANGO_DEBUG=false
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DJANGO_ALLOWED_HOSTS=sb0.iscc.id,localhost,127.0.0.1
+      - ISCC_HUB_DB_NAME=iscc_hub.db
+      - ISCC_HUB_DOMAIN=sb0.iscc.id
+      - ISCC_HUB_SECKEY=${ISCC_HUB_SECKEY}
+      - ISCC_HUB_ID=0
+      - ISCC_HUB_REALM=0
+      - ISCC_HUB_SYNC_MODE=NORMAL
+      - ISCC_HUB_ADMIN_PWD=${ISCC_HUB_ADMIN_PWD}
+      - MAX_REQUESTS=0
+      # Similarity-search proxy -> testnet aggregator. Realm 0 derives the index name `idptest`,
+      # matching the search-test.iscc.id aggregator. Unset would make /search return 404.
+      - ISCC_HUB_SEARCH_URLS=https://search-test.iscc.id
+    networks:
+      - caddy
+    volumes:
+      - ./data:/app/data
+      - ./data/media:/app/iscc_hub/static/media
+    labels:
+      caddy: sb0.iscc.id
+      caddy.reverse_proxy: "{{upstreams 8000}}"
+    restart: unless-stopped
+
+networks:
+  caddy:
+    external: true
