@@ -58,27 +58,43 @@ def percentiles(values_ms):
     }
 
 
-async def send_one(client, sem, body):
-    # type: (httpx.AsyncClient, asyncio.Semaphore, bytes) -> tuple[int|None, float, str|None]
-    """POST a single declaration body and return (status, latency_ms, error)."""
+async def send_one(client, sem, body, retries, backoff):
+    # type: (httpx.AsyncClient, asyncio.Semaphore, bytes, int, float) -> tuple[int|None, float, str|None, int]
+    """POST one declaration, retrying transient transport errors and 5xx responses.
+
+    Returns ``(status, latency_ms, error, attempts)``. A transient SQLite write-lock surfaces
+    as HTTP 500 and a dropped connection as a transport error; both are retried up to ``retries``
+    times with a linear ``backoff`` so a declaration is never silently lost. A 409 duplicate (and
+    every other <500 response) is a terminal, expected outcome and is returned on the first try.
+    """
     async with sem:
         start = time.perf_counter()
-        try:
-            resp = await client.post("/declaration", content=body, headers={"content-type": "application/json"})
-            return resp.status_code, (time.perf_counter() - start) * 1000.0, None
-        except Exception as exc:  # network/timeout errors are recorded, not raised
-            return None, (time.perf_counter() - start) * 1000.0, type(exc).__name__
+        attempts = 0
+        status = None  # type: int|None
+        error = None  # type: str|None
+        while attempts <= retries:
+            attempts += 1
+            try:
+                resp = await client.post("/declaration", content=body, headers={"content-type": "application/json"})
+                status, error = resp.status_code, None
+                if status < 500:
+                    break
+            except Exception as exc:  # network/timeout errors are transient and retried
+                status, error = None, type(exc).__name__
+            if attempts <= retries:
+                await asyncio.sleep(backoff * attempts)
+        return status, (time.perf_counter() - start) * 1000.0, error, attempts
 
 
-async def ingest(url, bodies, concurrency):
-    # type: (str, list[bytes], int) -> tuple[list[tuple[int|None, float, str|None]], float]
+async def ingest(url, bodies, concurrency, retries, backoff):
+    # type: (str, list[bytes], int, int, float) -> tuple[list[tuple[int|None, float, str|None, int]], float]
     """Replay all bodies against the Hub with at most ``concurrency`` requests in flight."""
     limits = httpx.Limits(max_connections=concurrency, max_keepalive_connections=concurrency)
     timeout = httpx.Timeout(120.0)
     sem = asyncio.Semaphore(concurrency)
     async with httpx.AsyncClient(base_url=url, limits=limits, timeout=timeout) as client:
         start = time.perf_counter()
-        results = await asyncio.gather(*(send_one(client, sem, b) for b in bodies))
+        results = await asyncio.gather(*(send_one(client, sem, b, retries, backoff) for b in bodies))
         wall = time.perf_counter() - start
     return results, wall
 
@@ -90,7 +106,10 @@ def summarize(results, wall, concurrency):
     errors = {}  # type: dict[str, int]
     latencies = []  # type: list[float]
     created = 0
-    for status, latency_ms, error in results:
+    retried = 0
+    for status, latency_ms, error, attempts in results:
+        if attempts > 1:
+            retried += 1
         if status is None:
             errors[error] = errors.get(error, 0) + 1
             continue
@@ -107,6 +126,7 @@ def summarize(results, wall, concurrency):
         "total": total,
         "created": created,
         "failed": total - created,
+        "retried": retried,
         "wall_seconds": wall,
         "throughput_decl_s": created / wall if wall > 0 else 0.0,
         "latency_ms": percentiles(latencies),
@@ -124,6 +144,7 @@ def print_report(report):
     print(f"  declarations:  {report['total']}")
     print(f"  created (201): {report['created']}")
     print(f"  failed:        {report['failed']}")
+    print(f"  retried:       {report['retried']}")
     print(f"  wall time:     {report['wall_seconds']:.2f} s")
     print(f"  throughput:    {report['throughput_decl_s']:.1f} decl/s")
     latency = "  ".join(f"{k} {pct[k]:.0f}" for k in ("avg", "p50", "p95", "p99", "max"))
@@ -156,8 +177,8 @@ async def run(args):
         raise SystemExit(f"No *.iscc.sig.json files found in {args.dir}")
     print(f"Loaded {len(bodies)} signed declarations from {args.dir}")
     await wait_healthy(args.url)
-    print(f"Ingesting into {args.url} at concurrency {args.concurrency} ...")
-    results, wall = await ingest(args.url, bodies, args.concurrency)
+    print(f"Ingesting into {args.url} at concurrency {args.concurrency} (retries {args.retries}) ...")
+    results, wall = await ingest(args.url, bodies, args.concurrency, args.retries, args.retry_backoff)
     report = summarize(results, wall, args.concurrency)
     print_report(report)
     if args.out:
@@ -176,6 +197,12 @@ def main():
         "--url", default="http://localhost:8000", help="Base URL of the running Hub (default: http://localhost:8000)"
     )
     parser.add_argument("--concurrency", type=int, default=16, help="Max simultaneous in-flight requests")
+    parser.add_argument(
+        "--retries", type=int, default=5, help="Max retries per request on transport errors / 5xx (default 5)"
+    )
+    parser.add_argument(
+        "--retry-backoff", type=float, default=0.25, help="Linear backoff seconds per retry attempt (default 0.25)"
+    )
     parser.add_argument("--limit", type=int, default=None, help="Ingest only the first N files (probe runs)")
     parser.add_argument("--out", default=None, help="Optional path to write the JSON report")
     args = parser.parse_args()
