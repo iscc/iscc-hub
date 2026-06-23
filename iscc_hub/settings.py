@@ -74,6 +74,12 @@ ISCC_HUB_SEARCH_API_KEY = env.str("ISCC_HUB_SEARCH_API_KEY", default="")
 ISCC_HUB_SEARCH_CB_FAILS = env.int("ISCC_HUB_SEARCH_CB_FAILS", default=5)
 ISCC_HUB_SEARCH_CB_COOLDOWN = env.int("ISCC_HUB_SEARCH_CB_COOLDOWN", default=15)
 
+# ISCC generator backend (iscc-web). When set, the homepage uploads a dropped file to this service
+# and generates a full ISCC-CODE (Meta/Semantic/Content/Data/Instance) instead of only a local
+# client-side Instance-Code. An empty value disables generation: the homepage falls back to the
+# local-only Instance-Code plus exact datahash lookup, and the file never leaves the browser.
+ISCC_HUB_GENERATOR_URL = env.str("ISCC_HUB_GENERATOR_URL", default="https://web.iscc.io")
+
 # Optional co-branding (rendered into HTML pages only). ISCC_HUB_ORG_LOGO is a full URL or a
 # path to a static/mounted asset (not an upload).
 ISCC_HUB_ORG_NAME = env.str("ISCC_HUB_ORG_NAME", default="")

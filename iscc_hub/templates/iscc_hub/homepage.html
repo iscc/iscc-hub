@@ -10,6 +10,15 @@
                     background-position: 40px 0;
                 }
             }
+            /* Indeterminate sweep shown while the generator backend processes the upload */
+            @keyframes indeterminate {
+                0% {
+                    left: -40%;
+                }
+                100% {
+                    left: 100%;
+                }
+            }
         </style>
 {% endblock %}
 
@@ -59,7 +68,7 @@
                                 <h3 class="text-2xl md:text-3xl font-semibold text-white mb-3">ISCC Lookup & Search</h3>
                             </div>
 
-                            <form class="space-y-6" id="iscc-lookup-form">
+                            <form class="space-y-6" id="iscc-lookup-form" data-generator-url="{{ generator_url }}">
                                 <div class="relative">
                                     <div class="relative flex border-2 border-white/20 rounded-xl focus-within:border-iscc-coral transition-all duration-300">
                                         <input
@@ -511,6 +520,13 @@
                 const dropArea = document.getElementById('uppy-drop-area');
                 const inputWrapper = isccInput.parentNode;
 
+                // When configured (defaults to https://web.iscc.io), dropped files are uploaded to
+                // this iscc-web backend for full ISCC-CODE generation. Empty = local-only fallback.
+                const GENERATOR_URL = (document.getElementById('iscc-lookup-form').dataset.generatorUrl || '').trim();
+
+                // Original placeholder, hidden while the progress bar overlays the input.
+                const ORIGINAL_PLACEHOLDER = isccInput.placeholder;
+
                 let currentFile = null;
                 let isGenerating = false;
 
@@ -578,12 +594,12 @@
                     isccInput.classList.add('text-red-400', 'placeholder-red-400');
                     setTimeout(() => {
                         isccInput.classList.remove('text-red-400', 'placeholder-red-400');
-                        isccInput.placeholder = 'ISCC:KED572P4A0F5K60... or drop a file';
+                        isccInput.placeholder = ORIGINAL_PLACEHOLDER;
                     }, 5000);
                 }
 
-                // Update progress bar
-                function updateProgress(percentage) {
+                // Create (once) and reveal the progress overlay that fills the input area.
+                function ensureProgressOverlay() {
                     let progressOverlay = document.getElementById('progress-overlay');
                     if (!progressOverlay) {
                         progressOverlay = document.createElement('div');
@@ -593,21 +609,48 @@
                         inputWrapper.style.position = 'relative';
                         inputWrapper.appendChild(progressOverlay);
                     }
+                    progressOverlay.style.display = 'block';
+                    return progressOverlay;
+                }
 
+                // Determinate green bar: a bright fill over a muted green track, with animated diagonal
+                // stripes across the whole bar. Used for local hashing and for the generator upload.
+                function updateProgress(percentage) {
+                    const progressOverlay = ensureProgressOverlay();
                     progressOverlay.innerHTML = `
-                        <div class="absolute inset-0 bg-iscc-green/20"></div>
-                        <div class="absolute inset-0 bg-gradient-to-r from-iscc-green/40 via-iscc-green/60 to-iscc-green/40"
+                        <div class="absolute inset-0 bg-iscc-green/25"></div>
+                        <div class="absolute inset-y-0 left-0 bg-iscc-green/70"
                              style="width: ${percentage}%; transition: width 0.3s ease;"></div>
                         <div class="absolute inset-0"
                              style="background-image: repeating-linear-gradient(
                                45deg,
                                transparent,
                                transparent 10px,
-                               rgba(166, 219, 80, 0.1) 10px,
-                               rgba(166, 219, 80, 0.1) 20px
+                               rgba(255, 255, 255, 0.15) 10px,
+                               rgba(255, 255, 255, 0.15) 20px
                              ); animation: stripes 1s linear infinite;"></div>
                     `;
-                    progressOverlay.style.display = 'block';
+                }
+
+                // Indeterminate cyan bar: upload finished, the generator is computing the ISCC. Keeps the
+                // striped track but swaps green for cyan and sweeps a bright highlight left to right.
+                function setProgressIndeterminate() {
+                    const progressOverlay = ensureProgressOverlay();
+                    progressOverlay.innerHTML = `
+                        <div class="absolute inset-0 bg-iscc-cyan/25"></div>
+                        <div class="absolute inset-0"
+                             style="background-image: repeating-linear-gradient(
+                               45deg,
+                               transparent,
+                               transparent 10px,
+                               rgba(255, 255, 255, 0.12) 10px,
+                               rgba(255, 255, 255, 0.12) 20px
+                             ); animation: stripes 1s linear infinite;"></div>
+                        <div class="absolute inset-0 overflow-hidden">
+                            <div class="absolute top-0 bottom-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                                 style="width: 40%; left: -40%; animation: indeterminate 1.1s ease-in-out infinite;"></div>
+                        </div>
+                    `;
                 }
 
                 // Clear progress bar
@@ -615,6 +658,9 @@
                     const progressOverlay = document.getElementById('progress-overlay');
                     if (progressOverlay) {
                         progressOverlay.style.display = 'none';
+                        // Drop the inner bar so its infinite CSS animations stop and no stale fill
+                        // flashes when the overlay is revealed for the next file.
+                        progressOverlay.innerHTML = '';
                     }
                 }
 
@@ -651,28 +697,62 @@
                     fileName.textContent = file.name;
                     fileInfo.classList.remove('hidden');
 
-                    // Clear any existing value
+                    // Clear any existing value and hide the placeholder behind the progress bar
                     isccInput.value = '';
+                    isccInput.placeholder = '';
 
                     // Start loading
                     setLoading(true);
 
                     try {
-                        // Calculate ISCC Instance Code with progress
-                        const isccCode = await calculateInstanceCode(file, (percentage) => {
-                            updateProgress(percentage);
-                        });
+                        let isccCode;
+                        let usedGenerator = false;
+                        if (GENERATOR_URL) {
+                            try {
+                                // Upload to the iscc-web backend for a full ISCC-CODE (Meta/Semantic/
+                                // Content/Data/Instance). NOTE: this sends the file to the generator service.
+                                const metadata = await generateFullIscc(file);
+                                isccCode = metadata && metadata.iscc;
+                                if (!isccCode) {
+                                    // A 2xx body without an `iscc` field (or a null/non-JSON body):
+                                    // treat as a generator failure so the local fallback runs.
+                                    throw new Error('Generator returned no ISCC-CODE');
+                                }
+                                usedGenerator = true;
+                                console.log('Full ISCC-CODE:', isccCode);
+                            } catch (genError) {
+                                // Generator unreachable / stalled (timeout) / malformed response:
+                                // degrade to the local Instance-Code so exact datahash lookup still
+                                // works without the generator service.
+                                console.warn('Generator unavailable, falling back to local Instance-Code:', genError);
+                                clearProgress();
+                                isccCode = await calculateInstanceCode(file, (percentage) => {
+                                    updateProgress(percentage);
+                                });
+                                console.log('ISCC Instance Code (fallback):', isccCode);
+                            }
+                        } else {
+                            // Local-only: compute the Instance-Code client-side; the file never
+                            // leaves the browser.
+                            isccCode = await calculateInstanceCode(file, (percentage) => {
+                                updateProgress(percentage);
+                            });
+                            console.log('ISCC Instance Code:', isccCode);
+                        }
 
-                        console.log('ISCC Instance Code:', isccCode);
-
-                        // Update input with ISCC Instance Code
+                        // Update input with the generated code; clear the bar and restore the
+                        // placeholder (now hidden behind the populated value).
                         isccInput.value = isccCode;
-
-                        // Clear progress before searching
+                        isccInput.placeholder = ORIGINAL_PLACEHOLDER;
                         clearProgress();
 
-                        // Automatically trigger search after successful generation
-                        await performSearch(isccCode);
+                        // A full generated code drives similarity search; a local Instance-Code
+                        // (including the generator-failure fallback) drives the exact datahash lookup.
+                        if (usedGenerator) {
+                            await performSimilaritySearch(isccCode);
+                        } else {
+                            await performSearch(isccCode);
+                        }
 
                     } catch (error) {
                         console.error('Error processing file:', error);
@@ -695,7 +775,7 @@
                         currentFile = null;
                         isccInput.value = '';
                         fileInfo.classList.add('hidden');
-                        isccInput.placeholder = 'ISCC:KED572P4A0F5K60... or drop a file';
+                        isccInput.placeholder = ORIGINAL_PLACEHOLDER;
                     });
                 }
 
@@ -939,7 +1019,7 @@
                         }
                         searchUrl = `/lookup?datahash=${datahash}`;
                     } else {
-                        // Search by ISCC-CODE directly
+                        // Search by ISCC-CODE directly (exact match)
                         searchUrl = `/lookup?iscc_code=${encodeURIComponent(isccValue)}`;
                     }
 
@@ -975,6 +1055,169 @@
                     } finally {
                         setLoading(false);
                     }
+                }
+
+                // Generate a full ISCC-CODE by uploading the file to the configured iscc-web backend.
+                // Sends the raw file bytes (not multipart) with the filename base64-encoded in the
+                // X-Upload-Filename header, requesting Semantic-Code generation. Returns the parsed
+                // IsccMetadata; its `iscc` field is the composite ISCC-CODE.
+                // Uses XMLHttpRequest (not fetch) so the upload exposes progress events: a determinate
+                // green bar fills as the file uploads, then flips to an indeterminate cyan sweep while
+                // the backend computes the ISCC.
+                function generateFullIscc(file) {
+                    const b64Filename = btoa(String.fromCharCode(...new TextEncoder().encode(file.name)));
+                    const endpoint = GENERATOR_URL.replace(/\/+$/, '') + '/api/v1/iscc?semantic=true';
+
+                    return new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('POST', endpoint);
+                        xhr.responseType = 'json';
+                        // Bound a stalled generator so the indeterminate sweep never runs forever;
+                        // a timeout rejects and handleFile falls back to the local Instance-Code.
+                        xhr.timeout = 120000;
+                        xhr.setRequestHeader('Accept', 'application/json');
+                        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+                        xhr.setRequestHeader('X-Upload-Filename', b64Filename);
+
+                        // Determinate fill while the file bytes upload.
+                        xhr.upload.addEventListener('progress', (e) => {
+                            if (e.lengthComputable) {
+                                updateProgress(Math.round((e.loaded / e.total) * 100));
+                            }
+                        });
+                        // Upload complete -> backend is now generating: switch to the indeterminate sweep.
+                        xhr.upload.addEventListener('load', () => {
+                            updateProgress(100);
+                            setProgressIndeterminate();
+                        });
+
+                        xhr.addEventListener('load', () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                resolve(xhr.response);
+                            } else {
+                                reject(new Error(`ISCC generation failed (${xhr.status})`));
+                            }
+                        });
+                        xhr.addEventListener('error', () => reject(new Error('ISCC generation request failed')));
+                        xhr.addEventListener('timeout', () => reject(new Error('ISCC generation timed out')));
+
+                        xhr.send(file);
+                    });
+                }
+
+                // Similarity search against /search; renders ranked matches or a graceful fallback.
+                async function performSimilaritySearch(isccCode) {
+                    if (!isccCode) {
+                        return;
+                    }
+
+                    console.log('Similarity search for:', isccCode);
+                    setLoading(true);
+
+                    try {
+                        const url = `/search?iscc_code=${encodeURIComponent(isccCode)}&limit=20`;
+                        const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+
+                        // Similarity search is opt-in (ISCC_HUB_SEARCH_URLS); 404 = not enabled here.
+                        if (response.status === 404) {
+                            renderSimilarityUnavailable(isccCode);
+                            return;
+                        }
+
+                        if (!response.ok) {
+                            let message = 'Search failed';
+                            try {
+                                const errorData = await response.json();
+                                message = errorData.error?.message || message;
+                            } catch (e) { /* non-JSON error body */ }
+                            showError(message);
+                            return;
+                        }
+
+                        const data = await response.json();
+                        renderSimilarityResults(data.global_matches || []);
+
+                    } catch (error) {
+                        console.error('Similarity search error:', error);
+                        showError('Failed to search for similar content');
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+
+                // Render ranked similarity matches from /search. Each match links to its ISCC-ID,
+                // which the hub resolves (redirecting to the owning hub for remote declarations).
+                function renderSimilarityResults(matches) {
+                    const resultsContainer = document.getElementById('results-container');
+                    const resultsSection = document.getElementById('results-section');
+
+                    if (!matches.length) {
+                        resultsContainer.innerHTML = `
+                            <div class="text-center py-12">
+                                <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <p class="text-gray-600 text-lg">No similar content found</p>
+                                <p class="text-gray-500 text-sm mt-2">No declarations match this content yet</p>
+                            </div>
+                        `;
+                        resultsSection.classList.remove('hidden');
+                        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        return;
+                    }
+
+                    const cardsHTML = matches.map(match => {
+                        const isccIdClean = match.iscc_id.replace(/^ISCC:/i, '').toLowerCase();
+                        const pct = Math.round((match.score || 0) * 100);
+                        const name = (match.metadata && typeof match.metadata.name === 'string') ? match.metadata.name : '';
+                        const typeTags = (match.types ? Object.keys(match.types) : []).map(t =>
+                            `<span class="inline-block bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded">${escapeHtml(t)}</span>`
+                        ).join(' ');
+
+                        return `
+                            <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 p-6">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div class="min-w-0">
+                                        <a href="/${isccIdClean}" target="_blank" rel="noopener noreferrer"
+                                           class="font-mono text-sm text-iscc-blue hover:text-blue-700 break-all">${match.iscc_id}</a>
+                                        ${name ? `<p class="text-sm text-gray-700 mt-1">${escapeHtml(name)}</p>` : ''}
+                                        ${typeTags ? `<div class="flex flex-wrap gap-1 mt-2">${typeTags}</div>` : ''}
+                                    </div>
+                                    <div class="flex-shrink-0 text-right">
+                                        <div class="text-2xl font-semibold text-iscc-green">${pct}%</div>
+                                        <div class="text-xs text-gray-500 uppercase tracking-wider">match</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    resultsContainer.innerHTML = cardsHTML;
+                    resultsSection.classList.remove('hidden');
+                    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+
+                // Surface the generated ISCC-CODE when similarity search is not enabled on this hub.
+                function renderSimilarityUnavailable(isccCode) {
+                    const resultsContainer = document.getElementById('results-container');
+                    const resultsSection = document.getElementById('results-section');
+
+                    resultsContainer.innerHTML = `
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <h4 class="text-sm font-medium text-gray-600 mb-1">Generated ISCC-CODE</h4>
+                            <p class="font-mono text-xs text-gray-700 bg-gray-50 px-3 py-2 rounded border border-gray-200 break-all">${escapeHtml(isccCode)}</p>
+                            <p class="text-sm text-gray-500 mt-3">Similarity search is not enabled on this hub.</p>
+                        </div>
+                    `;
+                    resultsSection.classList.remove('hidden');
+                    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+
+                // Escape a string for safe insertion as HTML text content.
+                function escapeHtml(value) {
+                    const div = document.createElement('div');
+                    div.textContent = value;
+                    return div.innerHTML;
                 }
 
                 // Handle form submission

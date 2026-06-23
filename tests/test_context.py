@@ -100,3 +100,21 @@ def test_hub_context_with_short_commit():
 
     assert result["build_commit"] == "abc"
     assert result["build_commit_short"] == "abc"
+
+
+@override_settings(ISCC_HUB_GENERATOR_URL="https://web.iscc.io")
+def test_hub_context_generator_url_configured():
+    # type: () -> None
+    """A configured generator URL flows through for the homepage to upload to."""
+    result = hub_context(None)
+
+    assert result["generator_url"] == "https://web.iscc.io"
+
+
+@override_settings(ISCC_HUB_GENERATOR_URL="")
+def test_hub_context_generator_url_empty():
+    # type: () -> None
+    """An empty generator URL disables full-code generation (local-only fallback)."""
+    result = hub_context(None)
+
+    assert result["generator_url"] == ""

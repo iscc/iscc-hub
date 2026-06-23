@@ -29,6 +29,8 @@ def hub_context(request):
     return {
         "hub_id": getattr(settings, "ISCC_HUB_ID", 0),
         "debug_mode": getattr(settings, "DEBUG", False),
+        # ISCC generator backend (iscc-web); empty string disables client-side full-code generation
+        "generator_url": getattr(settings, "ISCC_HUB_GENERATOR_URL", ""),
         "build_commit": build_commit,
         "build_commit_short": build_commit_short,
         "build_tag": build_tag,

@@ -202,17 +202,18 @@ IDs you issue.
 The required variables are listed under [Deployment](#required-configuration). The most relevant optional variables are
 below; `.env.example` documents the full set (including search-proxy tuning and HTML co-branding).
 
-| Variable                               | Default            | Description                                                                   |
-| -------------------------------------- | ------------------ | ----------------------------------------------------------------------------- |
-| `DJANGO_ALLOWED_HOSTS`                 | `ISCC_HUB_DOMAIN`  | Comma-separated allowed hostnames.                                            |
-| `DJANGO_CSRF_TRUSTED_ORIGINS`          | `https://$DOMAIN`  | Comma-separated CSRF-trusted origins (scheme + host).                         |
-| `ISCC_HUB_DB_ENGINE`                   | `sqlite`           | Database backend: `sqlite` or `postgres`.                                     |
-| `ISCC_HUB_DB_NAME`                     | `iscc-hub-<ID>.db` | SQLite database filename under `/app/data`.                                   |
-| `ISCC_HUB_OPEN_ACCESS`                 | `true`             | `false` = permissioned mode: only registered public keys may declare.         |
-| `ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP`    | `false`            | `true` = reject declarations without a client-supplied timestamp.             |
-| `ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS` | `600`              | Max deviation (s) for a provided timestamp; `<=0` disables the check.         |
-| `ISCC_HUB_LIST_INITIAL_SYNC`           | `true`             | Sync the Hub-List from GitHub on startup.                                     |
-| `ISCC_HUB_SEARCH_URLS`                 | _(unset)_          | Comma-separated iscc-search backends; unset disables `/search` (returns 404). |
+| Variable                               | Default               | Description                                                                                                                                                                                                               |
+| -------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DJANGO_ALLOWED_HOSTS`                 | `ISCC_HUB_DOMAIN`     | Comma-separated allowed hostnames.                                                                                                                                                                                        |
+| `DJANGO_CSRF_TRUSTED_ORIGINS`          | `https://$DOMAIN`     | Comma-separated CSRF-trusted origins (scheme + host).                                                                                                                                                                     |
+| `ISCC_HUB_DB_ENGINE`                   | `sqlite`              | Database backend: `sqlite` or `postgres`.                                                                                                                                                                                 |
+| `ISCC_HUB_DB_NAME`                     | `iscc-hub-<ID>.db`    | SQLite database filename under `/app/data`.                                                                                                                                                                               |
+| `ISCC_HUB_OPEN_ACCESS`                 | `true`                | `false` = permissioned mode: only registered public keys may declare.                                                                                                                                                     |
+| `ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP`    | `false`               | `true` = reject declarations without a client-supplied timestamp.                                                                                                                                                         |
+| `ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS` | `600`                 | Max deviation (s) for a provided timestamp; `<=0` disables the check.                                                                                                                                                     |
+| `ISCC_HUB_LIST_INITIAL_SYNC`           | `true`                | Sync the Hub-List from GitHub on startup.                                                                                                                                                                                 |
+| `ISCC_HUB_SEARCH_URLS`                 | _(unset)_             | Comma-separated iscc-search backends; unset disables `/search` (returns 404).                                                                                                                                             |
+| `ISCC_HUB_GENERATOR_URL`               | `https://web.iscc.io` | iscc-web backend the homepage uploads dropped files to for full ISCC-CODE generation. **Default-on: dropped files are sent to this third party**; set empty to keep file-drop fully local (Instance-Code + exact lookup). |
 
 The declaration-policy variables (`ISCC_HUB_OPEN_ACCESS`, `ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP`,
 `ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS`) are read on the declaration write path and are effectively set-once: changing
