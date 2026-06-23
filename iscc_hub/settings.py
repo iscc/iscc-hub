@@ -84,6 +84,10 @@ ISCC_HUB_SEARCH_MAX_INFLIGHT = env.int("ISCC_HUB_SEARCH_MAX_INFLIGHT", default=2
 ISCC_HUB_SEARCH_API_KEY = env.str("ISCC_HUB_SEARCH_API_KEY", default="")
 ISCC_HUB_SEARCH_CB_FAILS = env.int("ISCC_HUB_SEARCH_CB_FAILS", default=5)
 ISCC_HUB_SEARCH_CB_COOLDOWN = env.int("ISCC_HUB_SEARCH_CB_COOLDOWN", default=15)
+# Reorder/rescore proxied similarity matches by Tiered Semantic Ranking (iscc_hub/rerank.py)
+# before serving them, so a single strong signal no longer outranks broad corroborating
+# evidence. Set false to serve the backend's raw scores and order verbatim.
+ISCC_HUB_SEARCH_RERANK = env.bool("ISCC_HUB_SEARCH_RERANK", default=True)
 
 # ISCC generator backend (iscc-web). When set, the homepage uploads a dropped file to this service
 # and generates a full ISCC-CODE (Meta/Semantic/Content/Data/Instance) instead of only a local

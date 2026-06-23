@@ -20,6 +20,7 @@ from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 
 from iscc_hub.exceptions import BaseApiException, NotFoundError, SearchUnavailableError
+from iscc_hub.rerank import rerank_matches
 
 # Retry-After seconds on 503 responses (module constant by design; not server config)
 RETRY_AFTER = 5
@@ -359,6 +360,10 @@ def _proxied_search(method, params, body):
             if verdict == "ok":
                 projected = project_result(content or b"")
                 if projected is not None:
+                    # Rerank the projected matches before serving; project_result stays a pure
+                    # shape projection, ranking is a separate, flag-gated policy step.
+                    if settings.ISCC_HUB_SEARCH_RERANK:
+                        projected["global_matches"] = rerank_matches(projected["global_matches"])
                     _record_success(state, base_url)
                     return JsonResponse(projected)
                 verdict = "retryable"  # malformed 2xx body: not servable as a conformant 200

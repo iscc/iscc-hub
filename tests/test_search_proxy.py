@@ -51,6 +51,25 @@ EXPECTED_PROJECTION = {
 }
 
 
+def assert_reranked_stub_body(data):
+    # type: (dict) -> None
+    """
+    Assert the served body is the projected stub success after TSR reranking.
+
+    Both stub matches are single-signal (CONTENT-dominant), so TSR tiers them
+    isolated (T7) and clamps both scores to the isolated cap (0.7 * 0.9),
+    preserving input order on the per-unit tiebreak. The projection still holds:
+    only documented keys survive and metadata is forwarded whole.
+    """
+    assert data["query"] == {"iscc_code": VALID_CODE}
+    matches = data["global_matches"]
+    assert [m["iscc_id"] for m in matches] == ["ISCC:MAIGIIFJRDGEQQAA", "ISCC:MAIGXXFZRDGEQQBB"]
+    assert all(set(m) == {"iscc_id", "score", "types", "metadata"} for m in matches)
+    assert all(m["score"] == pytest.approx(0.7 * 0.9) for m in matches)
+    assert matches[0]["metadata"]["custom_ext"] == "kept"
+    assert matches[1]["metadata"] is None
+
+
 def unused_port_url():
     # type: () -> str
     """Return a URL on a local port with no listener (fast connection refused)."""
@@ -258,7 +277,7 @@ def test_search_get_happy_projection(api_client, search_stub):
         response = api_client.get(f"/search?iscc_code={VALID_CODE}")
 
     assert response.status_code == 200
-    assert response.json() == EXPECTED_PROJECTION
+    assert_reranked_stub_body(response.json())
     assert len(search_stub.requests) == 1
     recorded = search_stub.requests[0]
     assert recorded["method"] == "GET"
@@ -276,7 +295,7 @@ def test_search_post_happy_forwards_body_verbatim(api_client, search_stub):
         response = api_client.post("/search", data=body)
 
     assert response.status_code == 200
-    assert response.json() == EXPECTED_PROJECTION
+    assert_reranked_stub_body(response.json())
     recorded = search_stub.requests[0]
     assert recorded["method"] == "POST"
     assert recorded["body"] == body.encode("utf-8")
@@ -290,6 +309,17 @@ def test_search_post_query_modes(api_client, search_stub):
         for body in ({"iscc_id": VALID_ID}, {"units": ["ISCC:AAAUHBUDQUT3LPWR"]}):
             response = api_client.post("/search", data=json.dumps(body))
             assert response.status_code == 200
+
+
+@pytest.mark.django_db
+def test_search_rerank_disabled_serves_raw_projection(api_client, search_stub):
+    # type: (object, object) -> None
+    """With ISCC_HUB_SEARCH_RERANK off, the backend's projected order and scores serve verbatim."""
+    with override_settings(ISCC_HUB_SEARCH_URLS=[search_stub.url], ISCC_HUB_SEARCH_RERANK=False):
+        response = api_client.get(f"/search?iscc_code={VALID_CODE}")
+
+    assert response.status_code == 200
+    assert response.json() == EXPECTED_PROJECTION
 
 
 @pytest.mark.django_db
@@ -413,7 +443,7 @@ def test_search_failover_to_second_backend(api_client, search_stub, search_stub2
         response = api_client.get(f"/search?iscc_code={VALID_CODE}")
 
     assert response.status_code == 200
-    assert response.json() == EXPECTED_PROJECTION
+    assert_reranked_stub_body(response.json())
     assert len(search_stub.requests) == 1
     assert len(search_stub2.requests) == 1
 
