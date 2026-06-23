@@ -282,9 +282,10 @@ def main():
     # type: () -> None
     """Main entry point for the script."""
     if len(sys.argv) < 2:
-        print("Usage: python scripts/db_management.py [init|reset]")
-        print("  init  - Initialize database if it doesn't exist")
-        print("  reset - Force reset database (deletes existing)")
+        print("Usage: python scripts/db_management.py [init|reset|create-superuser]")
+        print("  init             - Initialize database if it doesn't exist")
+        print("  reset            - Force reset database (deletes existing)")
+        print("  create-superuser - Create the admin superuser if missing (idempotent)")
         sys.exit(1)
 
     command = sys.argv[1].lower()
@@ -294,9 +295,11 @@ def main():
             init_database()
         elif command == "reset":
             reset_database()
+        elif command == "create-superuser":
+            create_superuser()
         else:
             print(f"Unknown command: {command}")
-            print("Use 'init' or 'reset'")
+            print("Use 'init', 'reset' or 'create-superuser'")
             sys.exit(1)
     except KeyboardInterrupt:
         print("\n\n⚠️  Operation interrupted by user")

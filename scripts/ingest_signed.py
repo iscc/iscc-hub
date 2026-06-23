@@ -100,7 +100,7 @@ async def ingest(url, bodies, concurrency, retries, backoff):
 
 
 def summarize(results, wall, concurrency):
-    # type: (list[tuple[int|None, float, str|None]], float, int) -> dict
+    # type: (list[tuple[int|None, float, str|None, int]], float, int) -> dict
     """Aggregate per-request results into a throughput + status/error report."""
     status_codes = {}  # type: dict[str, int]
     errors = {}  # type: dict[str, int]

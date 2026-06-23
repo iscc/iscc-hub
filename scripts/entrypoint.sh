@@ -28,6 +28,17 @@ else
     echo "  Applying database migrations..."
     python manage.py migrate --no-input
 
+    # Ensure the admin superuser exists when a password is configured. Idempotent: skips when the
+    # user already exists (durable volume) and recreates it on a clean DB. Non-fatal so a bootstrap
+    # hiccup never blocks startup. Replaces the superuser side effect of the removed deploy-time
+    # `db_management.py reset`.
+    if [ -n "${ISCC_HUB_ADMIN_PWD:-}" ]; then
+        echo "  Ensuring admin superuser exists..."
+        if ! python scripts/db_management.py create-superuser; then
+            echo "  Admin superuser bootstrap failed; continuing."
+        fi
+    fi
+
     # Perform initial hub sync if enabled. Non-fatal under `set -e`: hub-list sync is not
     # load-bearing and the periodic loop is the retry path.
     if [ "${ISCC_HUB_LIST_INITIAL_SYNC:-true}" = "true" ]; then

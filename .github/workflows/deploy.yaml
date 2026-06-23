@@ -50,14 +50,17 @@ jobs:
           key: ${{ secrets.SANDBOX_SSH_KEY }}
           script: |
             cd /opt/iscc-hub
-            # Use the just-synced repo file as the active compose (keeps `docker compose` defaults working).
-            cp compose.sandbox.yaml docker-compose.yml
 
             echo "Pulling latest Docker image..."
             docker pull ghcr.io/iscc/iscc-hub:dev
 
             echo "Stopping current deployment..."
             docker compose down || true
+
+            # Swap in the just-synced repo file as the active compose only AFTER tearing down the
+            # previous stack, so `docker compose down` runs against the old file and leaves no
+            # orphaned container to collide with the fixed container_name on `up`.
+            cp compose.sandbox.yaml docker-compose.yml
 
             echo "Starting updated deployment..."
             docker compose up -d

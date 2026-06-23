@@ -23,7 +23,7 @@ services:
       - ISCC_HUB_SECKEY=${ISCC_HUB_SECKEY}
       - ISCC_HUB_ID=0
       - ISCC_HUB_REALM=0
-      - ISCC_HUB_SYNC_MODE=NORMAL
+      - ISCC_HUB_SQLITE_SYNC_MODE=NORMAL
       - ISCC_HUB_ADMIN_PWD=${ISCC_HUB_ADMIN_PWD}
       - MAX_REQUESTS=0
       # Similarity-search proxy -> testnet aggregator. Realm 0 derives the index name `idptest`,
