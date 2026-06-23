@@ -15,7 +15,10 @@ from urllib.parse import urlsplit
 import django
 import iscc_core as ic
 import iscc_crypto as icr
+import niquests
 import pytest
+from django.core.cache import cache
+from iscc_crypto.resolve import ResolutionError
 
 # Add project root to Python path
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -194,6 +197,102 @@ class StubSearchBackend:
         self.server.server_close()
 
 
+class _DidWebHandler(BaseHTTPRequestHandler):
+    """Request handler serving a DidWebServer's controller document (or a configured failure)."""
+
+    def log_message(self, format, *args):
+        # type: (str, object) -> None
+        """Silence request logging to keep test output clean."""
+
+    def do_GET(self):
+        # type: () -> None
+        """Record the request path and reply per the backend's current configuration."""
+        backend = self.server.backend  # type: ignore[attr-defined]
+        backend.requests.append(self.path)
+        if backend.redirect_to is not None:
+            self.send_response(302)
+            self.send_header("Location", backend.redirect_to)
+            self.end_headers()
+            return
+        if backend.status != 200:
+            self._respond(backend.status, b'{"error": "did server failure"}')
+            return
+        payload = backend.body if backend.body is not None else json.dumps(backend.document).encode("utf-8")
+        self._respond(200, payload)
+
+    def _respond(self, status, payload):
+        # type: (int, bytes) -> None
+        """Send a JSON response with the given status and payload."""
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+
+class DidWebServer:
+    """
+    In-process HTTP stand-in serving a DID controller document for did:web resolution tests.
+
+    Models the real iscc-search StubSearchBackend pattern: a real ThreadingHTTPServer on a random
+    local port. Tests mutate status/body to drive 404/5xx/malformed-doc scenarios and inspect
+    ``requests`` to assert the positive cache prevents a second fetch.
+    """
+
+    def __init__(self, document):
+        # type: (dict) -> None
+        """Bind the server to a random local port and serve the given controller document."""
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), _DidWebHandler)
+        self.server.backend = self  # type: ignore[attr-defined]
+        self.base_url = f"http://127.0.0.1:{self.server.server_address[1]}"
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.document = document
+        self.status = 200
+        self.body = None  # type: bytes|None  # None -> serialized document; set bytes for malformed-doc
+        self.redirect_to = None  # type: str|None  # set a URL to make every GET reply 302 -> Location
+        self.requests = []  # type: list[str]
+
+    def start(self):
+        # type: () -> None
+        """Start serving in a background thread."""
+        self.thread.start()
+
+    def stop(self):
+        # type: () -> None
+        """Stop the server and release the port."""
+        self.server.shutdown()
+        self.server.server_close()
+
+
+class LocalDidHttpClient:
+    """
+    Real HttpClient (``async get_json``) that maps did:web HTTPS URLs onto a local test server.
+
+    Policy B builds an ``https://example.com/.well-known/did.json`` URL from the controller; this
+    client rewrites the host:port to the local DidWebServer and performs a real niquests fetch
+    (real crypto, no mocks). A ``fail_hosts`` set lets a test simulate a fail-closed transport
+    error instantly by raising, instead of waiting on a real socket timeout.
+    """
+
+    def __init__(self, base_url, fail_hosts=()):
+        # type: (str, tuple) -> None
+        """Target the given local base URL; raise for any host listed in fail_hosts."""
+        self.base_url = base_url.rstrip("/")
+        self.fail_hosts = set(fail_hosts)
+        self.requests = []  # type: list[str]
+
+    async def get_json(self, url):
+        # type: (str) -> dict
+        """Fetch JSON from the local server, rewriting the did:web HTTPS URL's host."""
+        parts = urlsplit(url)
+        if parts.hostname in self.fail_hosts:
+            raise ResolutionError(f"simulated transport failure for {parts.hostname}")
+        self.requests.append(parts.path)
+        response = await niquests.aget(f"{self.base_url}{parts.path}", timeout=(5, 10))
+        response.raise_for_status()
+        return response.json()
+
+
 @pytest.fixture
 def proxy_state_reset():
     """Rebuild search-proxy I/O state from current settings around a test."""
@@ -241,13 +340,17 @@ def create_iscc_from_text(text="Hello World!"):
     return result
 
 
+# Fixed secret pinning the test signing identity, bound to controller did:web:example.com.
+# Deterministic so the did:web controller document a DID server serves (and the pubkey embedded
+# in every signed fixture note) are stable across runs.
+EXAMPLE_SECKEY = "z3u2XXtFjKC5s442BV6i9mT6V2G8mcYkNW9BxZCuiC74RMuf"
+
+
 @pytest.fixture
 def example_keypair():
     # type: () -> icr.KeyPair
-    """Generate a deterministic test keypair."""
-    # Use a fixed controller for deterministic output
-    controller = "did:web:example.com"
-    return icr.key_generate(controller=controller)
+    """Return a deterministic test keypair bound to controller did:web:example.com."""
+    return icr.key_from_secret(EXAMPLE_SECKEY, controller="did:web:example.com")
 
 
 def generate_test_iscc_id(hub_id=1, seq=1):
@@ -308,6 +411,62 @@ def minimal_iscc_note(example_nonce, example_timestamp, example_keypair, example
     # Sign the note
     signed_note = icr.sign_json(minimal_note, example_keypair)
     return signed_note
+
+
+@pytest.fixture
+def declarable_iscc_note(example_nonce, example_timestamp, example_keypair, example_iscc_data):
+    # type: (str, str, icr.KeyPair, dict) -> dict
+    """
+    Create a signed IsccNote that satisfies the default-ON acceptance policies.
+
+    Minimal note plus 256-bit ``units`` (Policy C) signed by the did:web-controlled
+    example keypair (Policy A); pair with the ``did_resolved`` fixture so Policy B passes.
+    Use this for default-ON POST /declaration success tests; ``minimal_iscc_note`` stays the
+    units-less negative/validator fixture.
+    """
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": example_timestamp,
+        "units": example_iscc_data["units"],
+    }
+    return icr.sign_json(note, example_keypair)
+
+
+@pytest.fixture
+def did_web_server(example_keypair):
+    # type: (icr.KeyPair) -> DidWebServer
+    """Run a local DID server serving the example keypair's controller document (did.json)."""
+    server = DidWebServer(example_keypair.controller_document)
+    server.start()
+    yield server
+    server.stop()
+
+
+@pytest.fixture
+def did_resolved(settings, did_web_server):
+    # type: (object, DidWebServer) -> DidWebServer
+    """
+    Make Policy B resolve did:web:example.com offline against the local DID server.
+
+    Injects a real ``LocalDidHttpClient`` (bypassing the production SSRF-guarded client so the
+    loopback test server is reachable) via the ``ISCC_HUB_DID_HTTP_CLIENT`` setting, and clears
+    the per-process DID cache around the test so resolved documents do not leak between tests.
+    """
+    cache.clear()
+    settings.ISCC_HUB_DID_HTTP_CLIENT = LocalDidHttpClient(did_web_server.base_url)
+    yield did_web_server
+    cache.clear()
+
+
+@pytest.fixture
+def clear_did_cache():
+    """Clear the per-process DID document cache around a test (request explicitly in B tests)."""
+    cache.clear()
+    yield
+    cache.clear()
 
 
 @pytest.fixture

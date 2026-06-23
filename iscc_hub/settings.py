@@ -62,6 +62,17 @@ ISCC_HUB_OPEN_ACCESS = env.bool("ISCC_HUB_OPEN_ACCESS", default=True)
 ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP = env.bool("ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP", default=False)
 ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS = env.int("ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS", default=600)
 
+# Identity & unit acceptance policies (default-ON; see iscc_hub/identity.py and validators.py).
+# A: require a did:web controller. B: resolve it and require it to authorize the signing key
+# (strict fail-closed, one outbound HTTPS request per uncached controller). C: require a 256-bit
+# body for every provided ISCC-UNIT. Live hubs may set these false until their declarer complies.
+ISCC_HUB_REQUIRE_DID = env.bool("ISCC_HUB_REQUIRE_DID", default=True)  # Policy A
+ISCC_HUB_VERIFY_DID = env.bool("ISCC_HUB_VERIFY_DID", default=True)  # Policy B
+ISCC_HUB_REQUIRE_FULL_UNITS = env.bool("ISCC_HUB_REQUIRE_FULL_UNITS", default=True)  # Policy C
+ISCC_HUB_DID_CACHE_TTL = env.int("ISCC_HUB_DID_CACHE_TTL", default=3600)  # B positive-cache TTL (s)
+# Injection seam for B's DID HTTP client; None -> the SSRF-guarded production client (see identity.py).
+ISCC_HUB_DID_HTTP_CLIENT = None
+
 # Similarity search proxy (opt-in; an empty ISCC_HUB_SEARCH_URLS disables /search entirely).
 # The Hub proxies similarity queries to external iscc-search backends hosting the hub-global
 # index. The target index name derives from the Hub's network: realm 0 (testnet) -> idptest,

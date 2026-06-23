@@ -12,6 +12,19 @@ ISCC_NOTE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-0.8.0.json"
 ISCC_NOTE_DELETE_SCHEMA = "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"
 
 
+@pytest.fixture(autouse=True)
+def _default_on_did(did_resolved):
+    """
+    Run this module under the default-ON identity policy with a resolvable controller.
+
+    Declarations and deletions here are signed by the did:web example keypair (Policy A passes);
+    ``did_resolved`` injects a local DID server so Policy B resolves offline. POSTed declarations
+    carry 256-bit ``units`` for Policy C. Deletions that fail before the ownership check
+    (not-found, mismatch, missing schema, proof-only) never trigger DID resolution.
+    """
+    yield did_resolved
+
+
 @pytest.mark.django_db(transaction=True)
 def test_delete_declaration_success(api_client, example_keypair, example_iscc_data, current_timestamp):
     # type: (object, icr.KeyPair, dict, str) -> None
@@ -27,6 +40,7 @@ def test_delete_declaration_success(api_client, example_keypair, example_iscc_da
         "datahash": example_iscc_data["datahash"],
         "nonce": icr.create_nonce(1),
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
 
     # Sign the declaration
@@ -107,6 +121,7 @@ def test_redeclaration_after_deletion_is_blocked(api_client, example_keypair, ex
             "datahash": example_iscc_data["datahash"],
             "nonce": icr.create_nonce(1),
             "timestamp": current_timestamp,
+            "units": example_iscc_data["units"],
         }
         signed = icr.sign_json(note, example_keypair)
         return api_client.post(
@@ -163,6 +178,7 @@ def test_delete_declaration_without_timestamp(api_client, example_keypair, examp
         "datahash": example_iscc_data["datahash"],
         "nonce": icr.create_nonce(1),
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
     signed_declaration = icr.sign_json(declaration_note, example_keypair)
     response = api_client.post(
@@ -207,6 +223,7 @@ def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, exampl
         "datahash": example_iscc_data["datahash"],
         "nonce": icr.create_nonce(1),
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
 
     signed_declaration1 = icr.sign_json(declaration_note1, example_keypair)
@@ -229,6 +246,7 @@ def test_delete_declaration_iscc_id_mismatch(api_client, example_keypair, exampl
         "datahash": different_iscc_data["datahash"],
         "nonce": icr.create_nonce(1),
         "timestamp": current_timestamp,
+        "units": different_iscc_data["units"],
     }
 
     signed_declaration2 = icr.sign_json(declaration_note2, example_keypair)
@@ -313,6 +331,7 @@ def test_delete_declaration_unauthorized(api_client, example_keypair, example_is
         "datahash": example_iscc_data["datahash"],
         "nonce": icr.create_nonce(1),
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
 
     signed_declaration = icr.sign_json(declaration_note, example_keypair)

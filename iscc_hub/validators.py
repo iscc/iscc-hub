@@ -14,6 +14,7 @@ from iscc_hub.exceptions import (
     FieldValidationError,
     HashError,
     HexFormatError,
+    IdentityError,
     IsccCodeError,
     IsccIdError,
     LengthError,
@@ -34,6 +35,8 @@ MAX_HUB_ID = 4095  # 12-bit maximum (2^12 - 1)
 SIGNATURE_VERSION = "ISCC-SIG v1.0"
 MAX_UNITS_ARRAY_SIZE = 4  # Prevent DOS attacks
 MAX_STRING_LENGTH = 2048  # Maximum length for string fields
+DID_WEB_PREFIX = "did:web:"
+FULL_UNIT_BITS = 256  # Policy C: required body length for every non-Instance ISCC-UNIT
 
 # Allowlists for the declared `$schema` wire value (matches the published schemas' const)
 SUPPORTED_ISCC_NOTE_SCHEMAS = {"http://purl.org/iscc/schema/iscc-note-0.8.0.json"}
@@ -67,21 +70,31 @@ def deserialize_request(data, max_size=8192):
 
 
 def validate_iscc_note(
-    data, verify_signature=True, verify_hub_id=None, require_timestamp=False, timestamp_tolerance_seconds=0
+    data,
+    verify_signature=True,
+    verify_hub_id=None,
+    require_timestamp=False,
+    timestamp_tolerance_seconds=0,
+    require_did=False,
+    require_full_units=False,
 ):
-    # type: (bytes, bool, int|None, bool, int) -> dict
+    # type: (bytes, bool, int|None, bool, int, bool, bool) -> dict
     """
     Validate an IsccNote request body with comprehensive security checks.
 
     Performs format validation, cryptographic verification, and security checks on ISCC
     declaration data before notarization. Validates field formats, timestamps, signatures,
-    and ensures data integrity between related fields.
+    and ensures data integrity between related fields. The DID-presence (A) and full-length
+    units (C) policies are pure, no-I/O checks applied only when enabled, after the signature
+    is proven valid so an invalid signature still reports a signature error.
 
     :param data: Raw request body bytes
     :param verify_signature: Whether to verify the cryptographic signature (default: True)
     :param verify_hub_id: Hub ID to validate nonce against (0-4095, default: None)
     :param require_timestamp: Whether a declarer-supplied timestamp is required (default: False)
     :param timestamp_tolerance_seconds: Max deviation (s) for a provided timestamp; ≤0 disables (default: 0)
+    :param require_did: Policy A — require a ``did:web`` controller in the signature (default: False)
+    :param require_full_units: Policy C — require a 256-bit body for every provided unit (default: False)
     :return: Validated IsccNote data ready for notarization
     :raises ValidationError: If validation fails with detailed error information
     """
@@ -134,13 +147,25 @@ def validate_iscc_note(
     if verify_signature:
         verify_signature_cryptographically(data_dict)
 
+    # Policy A (DID presence) and C (full-length units) run after the signature is proven
+    # valid: an invalid signature must still report a signature error, not a policy error.
+    if require_did:
+        validate_controller_present_did_web(data_dict["signature"])
+    if require_full_units:
+        validate_units_present_full_length(data_dict)
+
     return data_dict
 
 
 def validate_iscc_note_delete(
-    data, verify_signature=True, verify_hub_id=None, require_timestamp=False, timestamp_tolerance_seconds=0
+    data,
+    verify_signature=True,
+    verify_hub_id=None,
+    require_timestamp=False,
+    timestamp_tolerance_seconds=0,
+    require_did=False,
 ):
-    # type: (bytes, bool, int|None, bool, int) -> dict
+    # type: (bytes, bool, int|None, bool, int, bool) -> dict
     """
     Validate an IsccNoteDelete request body for ISCC-ID deletion.
 
@@ -148,13 +173,15 @@ def validate_iscc_note_delete(
     requests. Validates required fields, timestamps, signatures, and ensures
     the ISCC-ID format is correct. ``timestamp`` follows the same server policy
     as IsccNote: optional unless ``require_timestamp`` is set, and range-checked
-    against the tolerance when present.
+    against the tolerance when present. The DID-presence policy (A) is enforced
+    after the signature is proven valid when ``require_did`` is set.
 
     :param data: Raw request body bytes
     :param verify_signature: Whether to verify the cryptographic signature (default: True)
     :param verify_hub_id: Hub ID to validate nonce against (0-4095, default: None)
     :param require_timestamp: Whether a missing timestamp is rejected (default: False)
     :param timestamp_tolerance_seconds: Max deviation (s) for the provided timestamp; ≤0 disables (default: 0)
+    :param require_did: Policy A — require a ``did:web`` controller in the signature (default: False)
     :return: Validated IsccNoteDelete data ready for deletion processing
     :raises ValidationError: If validation fails with detailed error information
     """
@@ -188,7 +215,75 @@ def validate_iscc_note_delete(
     if verify_signature:
         verify_signature_cryptographically(data_dict)
 
+    # Policy A (DID presence) — after the signature is proven valid, so a missing pubkey
+    # (PROOF_ONLY) still reports a signature error rather than a controller error.
+    if require_did:
+        validate_controller_present_did_web(data_dict["signature"])
+
     return data_dict
+
+
+def is_did_web(controller):
+    # type: (object) -> bool
+    """
+    Report whether a signature ``controller`` is a ``did:web:`` URI.
+
+    Underpins the DID-presence (A) and DID-verification (B) policies. A ``did:key``,
+    an https CID URL, or a missing/empty value does not qualify.
+
+    :param controller: The controller value carried in an IsccSignature
+    :return: True iff controller is a string ``did:web:<non-empty method-specific id>``
+    """
+    return (
+        isinstance(controller, str) and controller.startswith(DID_WEB_PREFIX) and len(controller) > len(DID_WEB_PREFIX)
+    )
+
+
+def validate_controller_present_did_web(signature):
+    # type: (dict) -> None
+    """
+    Require the signature to carry a ``did:web`` controller (Policy A).
+
+    :param signature: The validated signature dictionary
+    :raises IdentityError: If controller is missing or not a ``did:web`` URI (did_required, 422)
+    """
+    if not is_did_web(signature.get("controller")):
+        raise IdentityError("signature.controller must be a did:web URI", code="did_required", status_code=422)
+
+
+def validate_units_present_full_length(data):
+    # type: (dict) -> None
+    """
+    Require ``units`` to be present and every provided unit to be full length (Policy C).
+
+    Coverage and correspondence are already guaranteed by ``validate_units_reconstruction``
+    (it rebuilds the exact composite from ``units + datahash``); this layers the one invariant
+    reconstruction does not enforce — every provided non-Instance unit carries a 256-bit body.
+
+    :param data: The parsed IsccNote dictionary
+    :raises FieldValidationError: If units are missing or any provided unit is shorter than 256-bit
+    """
+    if "units" not in data:
+        raise FieldValidationError("units", "units is required by server policy", code="validation_failed")
+    validate_units_full_length(data["units"])
+
+
+def validate_units_full_length(units):
+    # type: (list) -> None
+    """
+    Require every provided ISCC-UNIT to carry a full 256-bit body (Policy C).
+
+    :param units: List of pre-validated ISCC-UNIT strings (excluding the Instance-Code)
+    :raises FieldValidationError: If any unit's body is not exactly 256 bits, naming its MainType
+    """
+    for unit in units:
+        mtype, _, _, _, body = ic.iscc_decode(unit)
+        if len(body) * 8 != FULL_UNIT_BITS:
+            raise FieldValidationError(
+                "units",
+                f"{ic.MT(mtype).name} unit must be {FULL_UNIT_BITS}-bit, got {len(body) * 8}-bit",
+                code="invalid_length",
+            )
 
 
 def validate_structure(data, allowed_fields):

@@ -18,7 +18,7 @@ class ErrorDetail(Schema):
     code: Annotated[
         str | None,
         Field(
-            description="Machine-readable error code for programmatic handling.\nCommon codes: invalid_iscc, timestamp_out_of_range, invalid_signature,\nduplicate_declaration, validation_failed, nonce_mismatch, invalid_length,\ninvalid_format, invalid_hex, nonce_reuse, duplicate_datahash\n"
+            description="Machine-readable error code for programmatic handling.\nCommon codes: invalid_iscc, timestamp_out_of_range, invalid_signature,\nduplicate_declaration, validation_failed, nonce_mismatch, invalid_length,\ninvalid_format, invalid_hex, nonce_reuse, duplicate_datahash,\ndid_required, did_unauthorized, did_unresolvable\n"
         ),
     ] = None
     field: Annotated[

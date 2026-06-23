@@ -9,7 +9,7 @@ from ninja import NinjaAPI
 from ninja.responses import Status, codes_4xx
 
 import iscc_hub
-from iscc_hub import log_tree, search_proxy
+from iscc_hub import identity, log_tree, search_proxy
 from iscc_hub.exceptions import BaseApiException, NotFoundError, UnauthorizedError
 from iscc_hub.gateway import expand_gateway_url
 from iscc_hub.iscc_id import IsccID
@@ -178,6 +178,8 @@ def declaration(request):
         settings.ISCC_HUB_ID,
         require_timestamp=settings.ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP,
         timestamp_tolerance_seconds=settings.ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS,
+        require_did=settings.ISCC_HUB_REQUIRE_DID,
+        require_full_units=settings.ISCC_HUB_REQUIRE_FULL_UNITS,
     )
 
     # Check for permission
@@ -186,6 +188,12 @@ def declaration(request):
         pubkey_obj = PubKey.objects.filter(pubkey=pubkey).first()
         if not pubkey_obj or not pubkey_obj.is_active:
             raise UnauthorizedError("Invalid or inactive pubkey")
+
+    # Verify DID identity (Policy B) only for otherwise-authorized writes — after the permission
+    # gate and before sequencing, never inside the sequencer transaction. One outbound HTTPS
+    # request per uncached controller; strict fail-closed.
+    if settings.ISCC_HUB_VERIFY_DID:
+        identity.verify_note_identity(valid_data)
 
     # Reject duplicate declarations (same datahash) unless X-Force-Declaration opts out. The
     # check runs inside the sequencer's single-writer transaction, so it is race-free; it reads
@@ -262,6 +270,7 @@ def delete_declaration(request, iscc_id: str):
         settings.ISCC_HUB_ID,
         require_timestamp=settings.ISCC_HUB_REQUIRE_CLIENT_TIMESTAMP,
         timestamp_tolerance_seconds=settings.ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS,
+        require_did=settings.ISCC_HUB_REQUIRE_DID,
     )
 
     # Check that the ISCC-ID from the URL matches the one in the body
@@ -290,6 +299,11 @@ def delete_declaration(request, iscc_id: str):
 
     if original.pubkey != request_pubkey:
         raise UnauthorizedError("Not authorized to delete this declaration")
+
+    # Verify DID identity (Policy B) only after the ownership check, so only the legitimate
+    # owner triggers outbound DID resolution. Never inside the sequencer transaction.
+    if settings.ISCC_HUB_VERIFY_DID:
+        identity.verify_note_identity(valid_data)
 
     # Sequence the deletion event (now includes materialized view deletion)
     sequence_iscc_delete(valid_data, original.datahash)

@@ -140,6 +140,34 @@ class SignatureError(ValidationError):
         super().__init__(message, "invalid_signature", None)
 
 
+class IdentityError(ValidationError):
+    """
+    DID identity policy error for the `controller` carried in an IsccSignature.
+
+    Covers the three outcomes of the DID presence/verification policies (A and B):
+    a missing or non-``did:web`` controller, a controller whose document does not
+    authorize the signing key, and a controller that cannot be resolved. The HTTP
+    status is carried per-instance because the failure mode determines whether the
+    client should retry: definitive client/identity errors are 422, the transient
+    can't-tell resolution failure is 503 with a ``Retry-After`` hint.
+    """
+
+    def __init__(self, message, code, status_code=422, retry_after=None):
+        # type: (str, str, int, int|None) -> None
+        """
+        Initialize a DID identity error.
+
+        :param message: Human-readable error message
+        :param code: Machine-readable error code (did_required, did_unauthorized, did_unresolvable)
+        :param status_code: HTTP status code for this failure mode (default: 422)
+        :param retry_after: Seconds hint for a transient failure; sets a Retry-After header when given
+        """
+        super().__init__(message, code, "controller")
+        self.status_code = status_code
+        if retry_after is not None:
+            self.headers = {"Retry-After": str(retry_after)}
+
+
 class HashError(FieldValidationError):
     """Hash validation error (datahash/metahash)."""
 

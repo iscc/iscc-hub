@@ -2017,3 +2017,164 @@ def test_validate_iscc_note_delete_schema_in_signature_scope(example_nonce, exam
 
     with pytest.raises(ValueError, match="Invalid signature"):
         validators.validate_iscc_note_delete(to_bytes(tampered))
+
+
+# ---------------------------------------------------------------------------------------------
+# Policy A (DID presence) and Policy C (full-length units) — pure validators
+# ---------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "controller,expected",
+    [
+        ("did:web:example.com", True),
+        ("did:web:sub.example.com:path", True),
+        ("did:web:", False),  # empty method-specific id
+        ("did:key:z6Mk", False),
+        ("https://example.com/issuer", False),
+        ("", False),
+        (None, False),
+        (123, False),
+    ],
+)
+def test_is_did_web(controller, expected):
+    # type: (object, bool) -> None
+    """is_did_web only accepts a did:web URI with a non-empty method-specific id."""
+    assert validators.is_did_web(controller) is expected
+
+
+def test_validate_controller_present_did_web_accepts():
+    # type: () -> None
+    """A did:web controller passes the presence check."""
+    validators.validate_controller_present_did_web({"controller": "did:web:example.com"})
+
+
+@pytest.mark.parametrize("controller", [None, "did:key:z6Mk", "https://example.com"])
+def test_validate_controller_present_did_web_rejects(controller):
+    # type: (object) -> None
+    """A missing or non-did:web controller is rejected with did_required (422)."""
+    from iscc_hub.exceptions import IdentityError
+
+    signature = {} if controller is None else {"controller": controller}
+    with pytest.raises(IdentityError) as exc:
+        validators.validate_controller_present_did_web(signature)
+    assert exc.value.code == "did_required"
+    assert exc.value.status_code == 422
+    assert exc.value.field == "controller"
+
+
+def test_validate_units_full_length_accepts_256(example_iscc_data):
+    # type: (dict) -> None
+    """A set of 256-bit units passes the full-length check."""
+    validators.validate_units_full_length(example_iscc_data["units"])
+
+
+def test_validate_units_full_length_rejects_short_naming_maintype():
+    # type: () -> None
+    """A 64-bit unit is rejected and the error names the offending unit's MainType."""
+    import iscc_core as ic
+
+    meta64 = ic.gen_meta_code("Hello World!", "Test Description", bits=64)["iscc"]
+    with pytest.raises(validators.FieldValidationError) as exc:
+        validators.validate_units_full_length([meta64])
+    assert exc.value.field == "units"
+    assert exc.value.code == "invalid_length"
+    assert "META" in exc.value.message
+    assert "256-bit" in exc.value.message
+
+
+def test_validate_units_present_full_length_requires_units():
+    # type: () -> None
+    """Policy C rejects a note without a units array."""
+    with pytest.raises(validators.FieldValidationError) as exc:
+        validators.validate_units_present_full_length({"datahash": "1e20"})
+    assert exc.value.field == "units"
+
+
+def test_validate_iscc_note_require_did_rejects_self_verifying(
+    example_nonce, example_timestamp, example_keypair, example_iscc_data
+):
+    # type: (str, str, object, dict) -> None
+    """require_did rejects a valid SELF_VERIFYING note (pubkey, no controller) after signature check."""
+    import iscc_crypto as icr
+
+    from iscc_hub.exceptions import IdentityError
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": example_timestamp,
+    }
+    signed = icr.sign_json(note, example_keypair, sigtype=icr.SigType.SELF_VERIFYING)
+    with pytest.raises(IdentityError) as exc:
+        validators.validate_iscc_note(to_bytes(signed), verify_hub_id=1, require_did=True)
+    assert exc.value.code == "did_required"
+
+
+def test_validate_iscc_note_require_full_units_rejects_missing(minimal_iscc_note):
+    # type: (dict) -> None
+    """require_full_units rejects a note that omits the units array."""
+    with pytest.raises(validators.FieldValidationError) as exc:
+        validators.validate_iscc_note(to_bytes(minimal_iscc_note), verify_hub_id=1, require_full_units=True)
+    assert exc.value.field == "units"
+
+
+def test_validate_iscc_note_require_full_units_rejects_short(
+    example_nonce, example_timestamp, example_keypair, example_iscc_data
+):
+    # type: (str, str, object, dict) -> None
+    """require_full_units rejects 64-bit units that still reconstruct the composite."""
+    from io import BytesIO
+
+    import iscc_core as ic
+    import iscc_crypto as icr
+
+    text = "Hello World!"
+    units64 = [
+        ic.gen_meta_code(text, "Test Description", bits=64)["iscc"],
+        ic.gen_text_code(text, bits=64)["iscc"],
+        ic.gen_data_code(BytesIO(text.encode("utf-8")), bits=64)["iscc"],
+    ]
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": example_iscc_data["iscc"],
+        "datahash": example_iscc_data["datahash"],
+        "nonce": example_nonce,
+        "timestamp": example_timestamp,
+        "units": units64,
+    }
+    signed = icr.sign_json(note, example_keypair)
+    with pytest.raises(validators.FieldValidationError) as exc:
+        validators.validate_iscc_note(to_bytes(signed), verify_hub_id=1, require_full_units=True)
+    assert exc.value.field == "units"
+    assert exc.value.code == "invalid_length"
+
+
+def test_validate_iscc_note_require_full_units_accepts_256(declarable_iscc_note):
+    # type: (dict) -> None
+    """require_did + require_full_units accept a note with a did:web controller and 256-bit units."""
+    result = validators.validate_iscc_note(
+        to_bytes(declarable_iscc_note), verify_hub_id=1, require_did=True, require_full_units=True
+    )
+    assert result["units"] == declarable_iscc_note["units"]
+
+
+def test_validate_iscc_note_delete_require_did_rejects_self_verifying(example_nonce, example_keypair):
+    # type: (str, object) -> None
+    """require_did on the delete path rejects a valid SELF_VERIFYING deletion (no controller)."""
+    import iscc_crypto as icr
+
+    from iscc_hub.exceptions import IdentityError
+
+    delete_note = {
+        "$schema": ISCC_NOTE_DELETE_SCHEMA,
+        "iscc_id": "ISCC:MAIGFKM3UDDAAEAB",
+        "nonce": example_nonce,
+        "timestamp": "2025-01-15T12:00:00.000Z",
+    }
+    signed = icr.sign_json(delete_note, example_keypair, sigtype=icr.SigType.SELF_VERIFYING)
+    with pytest.raises(IdentityError) as exc:
+        validators.validate_iscc_note_delete(to_bytes(signed), verify_hub_id=1, require_did=True)
+    assert exc.value.code == "did_required"

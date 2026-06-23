@@ -34,6 +34,19 @@ def clear_database():
     _wipe_log_tables()
 
 
+@pytest.fixture(autouse=True)
+def _default_on_did(did_resolved):
+    """
+    Run this module under the default-ON identity policy with a resolvable controller.
+
+    Every signed note here uses the did:web example keypair, so Policy A passes; ``did_resolved``
+    injects a local DID server so Policy B resolves offline. Notes that must pass validation also
+    carry 256-bit ``units`` for Policy C. Tests that fail before the signature is verified
+    (bad JSON, missing fields, invalid signature) never reach the identity/units checks.
+    """
+    yield did_resolved
+
+
 @pytest.mark.django_db(transaction=False)
 def test_declaration_permission_denied_no_pubkey(
     live_server, current_timestamp, example_nonce, example_keypair, example_iscc_data
@@ -51,6 +64,7 @@ def test_declaration_permission_denied_no_pubkey(
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
 
     # Sign the note
@@ -90,6 +104,7 @@ def test_declaration_permission_denied_inactive_pubkey(
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
 
     # Sign the note
@@ -133,6 +148,7 @@ def test_declaration_permission_allowed_with_active_pubkey(
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
 
     # Sign the note
@@ -167,13 +183,14 @@ def test_declaration_success_minimal(
     """Test successful declaration with minimal IsccNote returns the minimal ack."""
     import iscc_crypto as icr
 
-    # Create a minimal note with current timestamp
+    # Create a minimal note with current timestamp (256-bit units satisfy the default units policy)
     minimal_note = {
         "$schema": ISCC_NOTE_SCHEMA,
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
 
     # Sign the note
@@ -210,6 +227,7 @@ def test_declaration_receipt_endpoint(
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
     signed_note = icr.sign_json(note, example_keypair)
 
@@ -317,6 +335,7 @@ def test_declaration_duplicate_rejected(
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
     signed_first = icr.sign_json(first_note, example_keypair)
 
@@ -333,6 +352,7 @@ def test_declaration_duplicate_rejected(
             "datahash": example_iscc_data["datahash"],  # Same datahash
             "nonce": second_nonce,
             "timestamp": current_timestamp,
+            "units": example_iscc_data["units"],
         }
         signed_second = icr.sign_json(second_note, example_keypair)
 
@@ -364,6 +384,7 @@ def test_declaration_duplicate_forced(
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
     signed_first = icr.sign_json(first_note, example_keypair)
 
@@ -380,6 +401,7 @@ def test_declaration_duplicate_forced(
             "datahash": example_iscc_data["datahash"],  # Same datahash
             "nonce": second_nonce,
             "timestamp": current_timestamp,
+            "units": example_iscc_data["units"],
         }
         signed_second = icr.sign_json(second_note, example_keypair)
 
@@ -408,6 +430,7 @@ def test_declaration_duplicate_force_variations(
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
     signed_first = icr.sign_json(first_note, example_keypair)
 
@@ -424,6 +447,7 @@ def test_declaration_duplicate_force_variations(
             "datahash": example_iscc_data["datahash"],
             "nonce": second_nonce,
             "timestamp": current_timestamp,
+            "units": example_iscc_data["units"],
         }
         signed_second = icr.sign_json(second_note, example_keypair)
 
@@ -439,6 +463,7 @@ def test_declaration_duplicate_force_variations(
             "datahash": example_iscc_data["datahash"],
             "nonce": third_nonce,
             "timestamp": current_timestamp,
+            "units": example_iscc_data["units"],
         }
         signed_third = icr.sign_json(third_note, example_keypair)
 
@@ -454,6 +479,7 @@ def test_declaration_duplicate_force_variations(
             "datahash": example_iscc_data["datahash"],
             "nonce": fourth_nonce,
             "timestamp": current_timestamp,
+            "units": example_iscc_data["units"],
         }
         signed_fourth = icr.sign_json(fourth_note, example_keypair)
 
@@ -476,6 +502,7 @@ def test_declaration_nonce_reuse_error(
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
 
     # Sign the note
@@ -624,6 +651,7 @@ def test_issued_iscc_id_passes_iscc_core_validation(
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
         "timestamp": current_timestamp,
+        "units": example_iscc_data["units"],
     }
 
     # Sign the note
@@ -671,6 +699,7 @@ def test_declaration_without_timestamp_succeeds(live_server, example_nonce, exam
         "iscc_code": example_iscc_data["iscc"],
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
+        "units": example_iscc_data["units"],
     }
     signed_note = icr.sign_json(note, example_keypair)
 
@@ -735,6 +764,7 @@ def test_declaration_timestamp_tolerance_disabled(live_server, example_nonce, ex
         "datahash": example_iscc_data["datahash"],
         "nonce": example_nonce,
         "timestamp": "2020-01-01T00:00:00.000Z",
+        "units": example_iscc_data["units"],
     }
     signed_note = icr.sign_json(note, example_keypair)
 

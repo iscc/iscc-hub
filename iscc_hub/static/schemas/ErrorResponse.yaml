@@ -27,7 +27,8 @@ properties:
           Machine-readable error code for programmatic handling.
           Common codes: invalid_iscc, timestamp_out_of_range, invalid_signature,
           duplicate_declaration, validation_failed, nonce_mismatch, invalid_length,
-          invalid_format, invalid_hex, nonce_reuse, duplicate_datahash
+          invalid_format, invalid_hex, nonce_reuse, duplicate_datahash,
+          did_required, did_unauthorized, did_unresolvable
       field:
         type: string
         description: |

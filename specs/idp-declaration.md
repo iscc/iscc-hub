@@ -181,10 +181,13 @@ The normative JSON binding is specified in [§6](#6-json-representation).
 
 A conforming declaration **MUST** validate against the published `iscc-note-0.8.0` schema. The Hub additionally enforces
 a **stricter admission profile**: it forbids `@context`/`@type`, requires an embedded `pubkey` (PROOF_ONLY signatures
-are rejected), and requires strict 3-digit-millisecond timestamps when a timestamp is present. Every Hub deviation only
-narrows what the published schema permits, so any declaration the Hub accepts remains valid under `iscc-note-0.8.0`. The
-wire `$schema` value references the published schema; the Hub publishes no separate schema, and its admission rules are
-documented here as Hub policy.
+are rejected), and requires strict 3-digit-millisecond timestamps when a timestamp is present. Beyond these structural
+rules, a Hub applies a set of **configurable, default-ON acceptance policies** — a `did:web` controller requirement
+(`REQUIRE_DID`), DID identity verification (`VERIFY_DID`), and a full-length-units requirement (`REQUIRE_FULL_UNITS`) —
+described where the relevant field is defined ([§5.1](#51-iscc-note), [§5.2](#52-iscc-signature)) and applied in the
+validation procedure ([§9.3](#93-validation-procedure)). Every Hub deviation only narrows what the published schema
+permits, so any declaration the Hub accepts remains valid under `iscc-note-0.8.0`. The wire `$schema` value references
+the published schema; the Hub publishes no separate schema, and its admission rules are documented here as Hub policy.
 
 ### 5.1 IsccNote
 
@@ -235,7 +238,12 @@ Field semantics:
 - If `metahash` is present, it **MUST** be a BLAKE3 multihash with the same format as `datahash`. The `metahash` commits
     to metadata bytes that the declarer may attach at submission time (see [§13](#13-metadata-forwarding)).
 - If `units` is present, it **MUST** contain between 1 and 4 ISCC-UNITs. The array **MUST NOT** include the
-    Instance-Code, which is derivable from `datahash`.
+    Instance-Code, which is derivable from `datahash`. The provided units together with the Instance-Code derived from
+    `datahash` **MUST** reconstruct the declared `iscc_code`. Under the default full-length-units policy
+    (`REQUIRE_FULL_UNITS`) a Hub additionally **REQUIRES** `units` to be present and **REQUIRES** every contained
+    ISCC-UNIT to carry a full 256-bit body; a Hub **MUST** reject a declaration whose `units` are absent or whose units
+    are shorter than 256 bits, naming the offending unit's MainType. A Hub **MAY** disable this policy, in which case
+    `units` remains optional and any length permitted by the wire schema is accepted.
 
 ### 5.2 IsccSignature
 
@@ -255,7 +263,11 @@ Field semantics:
 - `pubkey` **MUST** decode to a 32-byte Ed25519 public key after multibase and multicodec prefix removal.
 - `proof` **MUST** decode to a 64-byte Ed25519 signature value.
 - `controller`, if present, **MUST** be a DID URI (e.g., `did:key:`, `did:web:`) or an absolute HTTPS URL that resolves
-    to a W3C Controlled Identifier Document [[CID]](#cid).
+    to a W3C Controlled Identifier Document [[CID]](#cid). Under the default DID-presence policy (`REQUIRE_DID`) a Hub
+    **REQUIRES** `controller` to be present and to be a `did:web:` URI; `did:key:` and HTTPS controller URLs do not
+    satisfy this policy. Under the default DID-verification policy (`VERIFY_DID`) the Hub additionally resolves the
+    controller and **REQUIRES** the resolved document to authorize `pubkey` ([§8.4](#84-controller-resolution)). A Hub
+    **MAY** disable either policy, in which case `controller` is optional and **MAY** use any of the listed schemes.
 - `keyid`, if present, identifies a specific verification method within the controller document.
 
 ### 5.3 IsccReceipt
@@ -356,6 +368,11 @@ microsecond timestamp to the deletion at sequencing time regardless of any decla
 Authorization rule: the `signature.pubkey` of an IsccNoteDelete **MUST** equal the `signature.pubkey` of the original
 IsccNote that produced the `iscc_id` being deleted. A Hub **MUST** reject any deletion request whose signing key does
 not match.
+
+The DID-presence (`REQUIRE_DID`) and DID-verification (`VERIFY_DID`) policies ([§5.2](#52-iscc-signature),
+[§8.4](#84-controller-resolution)) apply to deletions exactly as they do to declarations: a deletion is itself a signed
+log entry and its signer **MUST** prove identity under the same policy. The full-length-units policy does not apply to a
+deletion, which carries no `iscc_code` or `units`.
 
 ## 6. JSON representation
 
@@ -491,8 +508,27 @@ is currently authorized to sign on behalf of that controller. Resolution behavio
 - HTTPS controller URLs **MAY** be resolved by fetching a W3C Controlled Identifier Document [[CID]](#cid) at the given
     URL. The same verification-method check applies.
 
-A Hub **MAY** choose, as an operational policy, whether to perform controller resolution during declaration validation.
-The choice does not affect interoperability of correctly signed IsccNotes.
+Controller resolution during declaration validation is governed by configurable Hub policy. Under the default
+DID-verification policy (`VERIFY_DID`, default ON) a Hub performs `did:web` resolution and applies it **strictly,
+fail-closed**:
+
+- The Hub **MUST** require a `did:web` controller (the DID-presence policy is a precondition); a missing or
+    non-`did:web` controller is rejected with HTTP 422 and error code `DID_REQUIRED`.
+- The Hub resolves the controller's DID document and **MUST** require `signature.pubkey` to be authorized by it. A
+    document that does not authorize the key is rejected with HTTP 422 and error code `DID_UNAUTHORIZED`.
+- If the controller cannot be resolved — DNS failure, TLS error, timeout, connection refusal, an HTTP 4xx/5xx response,
+    or a malformed document — the Hub **MUST** reject the declaration with HTTP 503, error code `DID_UNRESOLVABLE`, and
+    a `Retry-After` header. This is the **can't-tell** case: resolution is treated as transient and the request is
+    rejected (fail-closed) rather than admitted.
+
+A Hub **SHOULD** resolve controllers only over globally-routable hosts (rejecting loopback, private, link-local, and
+other non-public addresses) to avoid server-side request forgery, since the controller is declarer-controlled. A Hub
+**MAY** cache positive resolution results for a bounded period (`DID_CACHE_TTL`); it **SHOULD NOT** negatively cache
+failures, so recovery is immediate once the controller host is reachable. To avoid outbound resolution for unauthorized
+requests, a Hub **MUST** run this resolution only after the permission check ([§9.3](#93-validation-procedure) step 11
+for declarations; the ownership check for deletions). A Hub **MAY** disable `VERIFY_DID`, in which case a correctly
+signed IsccNote with a valid `did:web` controller (under `REQUIRE_DID`) is accepted without any network resolution, and
+interoperability of correctly signed IsccNotes is unaffected.
 
 ### 8.5 IsccReceipt signature procedure
 
@@ -597,26 +633,37 @@ step that fails determines the error response per [§9.5](#95-error-responses).
     (default ±600 s; `0` disables) and return HTTP 422 with error code `TIMESTAMP_OUT_OF_RANGE` if the value is
     outside the tolerance.
 6. **Verify declarer signature.** Run the verification procedure from [§8.3](#83-verification-procedure). If the
-    signature does not verify, return HTTP 401 with error code `INVALID_SIGNATURE`.
-7. **Verify controller (optional).** If `signature.controller` is present and the Hub performs controller resolution
-    per [§8.4](#84-controller-resolution), return HTTP 401 with error code `CONTROLLER_KEY_NOT_AUTHORIZED` on
-    mismatch.
-8. **Verify metadata binding.** If the request uses the envelope shape and includes `metadata`, compute
+    signature does not verify, return HTTP 401 with error code `INVALID_SIGNATURE`. The DID-presence (step 7) and
+    full-length-units (step 8) policies are evaluated only after the signature is proven valid, so an invalid
+    signature always reports a signature error rather than a policy error.
+7. **Enforce DID-presence policy (A).** If the Hub's `REQUIRE_DID` policy is enabled and `signature.controller` is
+    absent or is not a `did:web:` URI, return HTTP 422 with error code `DID_REQUIRED`.
+8. **Enforce full-length-units policy (C).** If the Hub's `REQUIRE_FULL_UNITS` policy is enabled, require `units` to be
+    present and every contained ISCC-UNIT to carry a 256-bit body; otherwise return HTTP 422 with error code
+    `INVALID_NOTE` and a `field` identifier of `units` (the message naming the offending unit's MainType for a short
+    unit). The `units`-and-`datahash` reconstruction of `iscc_code` is checked whenever `units` is present,
+    independently of this policy.
+9. **Verify metadata binding.** If the request uses the envelope shape and includes `metadata`, compute
     `BLAKE3(JCS(metadata))` and confirm it matches the IsccNote's `metahash`. On mismatch, return HTTP 422 with error
     code `METAHASH_MISMATCH`.
-9. **Check nonce uniqueness.** If `nonce` has previously been used in a declaration accepted by this Hub, return HTTP
+10. **Check nonce uniqueness.** If `nonce` has previously been used in a declaration accepted by this Hub, return HTTP
     409 with error code `NONCE_REUSED`.
-10. **Check duplicate-declaration policy.** If the Hub enforces a soft duplicate check on `datahash` and a prior
+11. **Check duplicate-declaration policy.** If the Hub enforces a soft duplicate check on `datahash` and a prior
     declaration exists, and the request does not include the header `X-Force-Declaration: true`, return HTTP 409 with
     error code `DUPLICATE_DATAHASH`. See [§9.6](#96-duplicate-declarations).
-11. **Check permission mode.** If the Hub operates in permissioned mode (see [§12](#12-permission-modes)) and the
+12. **Check permission mode.** If the Hub operates in permissioned mode (see [§12](#12-permission-modes)) and the
     declarer's `pubkey` is not in the Hub's authorized-key list, return HTTP 401 with error code `KEY_NOT_AUTHORIZED`.
-12. **Atomically commit.** Within a single atomic transaction:
+13. **Verify DID identity (B).** If the Hub's `VERIFY_DID` policy is enabled, resolve `signature.controller` and require
+    the resolved document to authorize `pubkey` per [§8.4](#84-controller-resolution). Return HTTP 422 with error code
+    `DID_UNAUTHORIZED` if the document does not authorize the key, or HTTP 503 with error code `DID_UNRESOLVABLE` and
+    a `Retry-After` header if the controller cannot be resolved (fail-closed). This step **MUST** run after the
+    permission check (step 12) so that only authorized writes trigger outbound DID resolution.
+14. **Atomically commit.** Within a single atomic transaction:
     - Assign a microsecond-precision Hub timestamp strictly greater than the most recent prior Hub timestamp.
     - Compose the ISCC-ID from the timestamp and the Hub's `hub_id`.
     - Compose the canonical log entry per [§5.4](#54-log-entry).
     - Append the log entry to the Hub's transparency log.
-13. **Return a DeclarationAck.** Return HTTP status `201 Created` with a DeclarationAck body per [§9.4](#94-response).
+15. **Return a DeclarationAck.** Return HTTP status `201 Created` with a DeclarationAck body per [§9.4](#94-response).
     The Hub does not build or sign the IsccReceipt on this path; the receipt is composed on demand when retrieved per
     [§9.7](#97-receipt-retrieval).
 
@@ -663,14 +710,15 @@ The following HTTP status codes are used.
 | `400 Bad Request`           | Malformed request (invalid JSON, missing Accept header, etc.).                               |
 | `401 Unauthorized`          | Signature invalid, controller unauthorized, or key not authorized.                           |
 | `409 Conflict`              | Duplicate declaration (with `X-Force-Declaration` not set), or nonce reuse.                  |
-| `422 Unprocessable Entity`  | Validation failure (field encoding, nonce hub mismatch, timestamp bounds, etc.).             |
+| `422 Unprocessable Entity`  | Validation failure (field encoding, nonce hub mismatch, timestamp bounds, DID/units policy). |
 | `500 Internal Server Error` | Sequencer or log failure. Implementations **SHOULD** retry idempotently using a fresh nonce. |
+| `503 Service Unavailable`   | DID controller resolution failed transiently (fail-closed); carries a `Retry-After` header.  |
 
 Error code values defined by this specification:
 
 `INVALID_JSON`, `INVALID_NOTE`, `NONCE_HUB_MISMATCH`, `TIMESTAMP_OUT_OF_RANGE`, `INVALID_SIGNATURE`,
-`CONTROLLER_KEY_NOT_AUTHORIZED`, `METAHASH_MISMATCH`, `NONCE_REUSED`, `DUPLICATE_DATAHASH`, `KEY_NOT_AUTHORIZED`,
-`INTERNAL_ERROR`.
+`CONTROLLER_KEY_NOT_AUTHORIZED`, `DID_REQUIRED`, `DID_UNAUTHORIZED`, `DID_UNRESOLVABLE`, `METAHASH_MISMATCH`,
+`NONCE_REUSED`, `DUPLICATE_DATAHASH`, `KEY_NOT_AUTHORIZED`, `INTERNAL_ERROR`.
 
 Implementations **MAY** define additional error codes provided they are distinct from the values above.
 
@@ -742,17 +790,24 @@ A conforming Hub **MUST** perform the following steps in order.
     return HTTP 404, `DECLARATION_NOT_FOUND`.
 6. **Verify declarer signature.** Run the verification procedure from [§8.3](#83-verification-procedure) over the
     IsccNoteDelete.
-7. **Verify deletion authorization.** Confirm that the `signature.pubkey` of the IsccNoteDelete equals the
+7. **Enforce DID-presence policy (A).** As in [§9.3](#93-validation-procedure) step 7: if the Hub's `REQUIRE_DID`
+    policy is enabled and `signature.controller` is absent or is not a `did:web:` URI, return HTTP 422 with error code
+    `DID_REQUIRED`. Evaluated after the signature is proven valid.
+8. **Verify deletion authorization.** Confirm that the `signature.pubkey` of the IsccNoteDelete equals the
     `signature.pubkey` of the original IsccNote that produced the `iscc_id`. On mismatch, return HTTP 401,
     `NOT_AUTHORIZED_TO_DELETE`.
-8. **Check nonce uniqueness.** As in [§9.3](#93-validation-procedure) step 9.
-9. **Atomically commit.** Within a single atomic transaction:
+9. **Verify DID identity (B).** If the Hub's `VERIFY_DID` policy is enabled, resolve `signature.controller` and require
+    it to authorize `pubkey` per [§8.4](#84-controller-resolution) (HTTP 422 `DID_UNAUTHORIZED`, or HTTP 503
+    `DID_UNRESOLVABLE` with a `Retry-After` header). This step **MUST** run after the deletion-authorization check
+    (step 8) so that only the legitimate owner triggers outbound DID resolution.
+10. **Check nonce uniqueness.** As in [§9.3](#93-validation-procedure) step 10.
+11. **Atomically commit.** Within a single atomic transaction:
     - Assign a microsecond-precision Hub timestamp strictly greater than the most recent prior Hub timestamp.
     - Compose the deletion log entry per [§5.4](#54-log-entry) (a deletion entry carries an IsccNoteDelete in `note`).
     - Append the entry to the Hub's transparency log.
     - Remove or mark redacted the materialized declaration record so that subsequent lookups by `iscc_id` reflect the
         deletion.
-10. **Return success.** HTTP 204 No Content, with no response body.
+12. **Return success.** HTTP 204 No Content, with no response body.
 
 ### 10.3 Log effects of deletion
 

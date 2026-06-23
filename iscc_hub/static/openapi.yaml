@@ -233,6 +233,26 @@ paths:
         **Duplicate Protection:** By default, the server rejects duplicate declarations
         (same datahash) with a 409 Conflict error. To force a duplicate declaration,
         include the `X-Force-Declaration: true` header.
+
+        **Acceptance policy (server defaults, configurable per deployment):** the wire
+        schema is intentionally permissive, but the reference server enforces three
+        default-ON acceptance policies on the write path:
+
+        - **DID identity required.** `signature.controller` MUST be a `did:web:` URI
+          (`ISCC_HUB_REQUIRE_DID`). A missing or non-`did:web` controller is rejected
+          with **422** (`did_required`).
+        - **DID identity verified.** The controller's DID document is resolved and MUST
+          authorize the signing `pubkey` (`ISCC_HUB_VERIFY_DID`, strict fail-closed). A
+          document that does not authorize the key is rejected with **422**
+          (`did_unauthorized`); a controller that cannot be resolved (DNS/TLS/timeout/
+          4xx/5xx/malformed document) is rejected with **503** (`did_unresolvable`) and a
+          `Retry-After` header, since the failure is transient and the client should
+          retry.
+        - **Full-length units required.** Every ISCC-UNIT in `units` MUST carry a 256-bit
+          body (`ISCC_HUB_REQUIRE_FULL_UNITS`); a shorter unit is rejected with **422**.
+
+        Deployments may disable any of these policies via configuration; when disabled the
+        permissive wire schema applies.
       operationId: declare
       parameters:
         - name: X-Force-Declaration
@@ -308,7 +328,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: Unprocessable Entity - Validation failed. Returns the first validation error encountered.
+          description: |
+            Unprocessable Entity - Validation failed. Returns the first validation error
+            encountered. Identity/unit policy failures use the codes `did_required`,
+            `did_unauthorized` (field `controller`), and `invalid_length` (field `units`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: |
+            Service Unavailable - The signature `controller`'s DID document could not be
+            resolved (transient: DNS/TLS/timeout/4xx/5xx/malformed document). Fail-closed:
+            the declaration is rejected with code `did_unresolvable` and a `Retry-After`
+            header. Only emitted while DID verification (`ISCC_HUB_VERIFY_DID`) is enabled.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying.
           content:
             application/json:
               schema:
@@ -350,6 +388,15 @@ paths:
       description: |
         Delete a previously timestamped ISCC declaration. The deletion request must be signed
         by the same controller that created the original declaration.
+
+        **Acceptance policy (server defaults, configurable per deployment):** the DID
+        identity policies apply to deletions as well. The signature `controller` MUST be a
+        `did:web:` URI (`ISCC_HUB_REQUIRE_DID`; **422** `did_required` otherwise), and when
+        DID verification is enabled (`ISCC_HUB_VERIFY_DID`) the controller is resolved and
+        MUST authorize the signing key — this resolution runs only after the ownership check
+        passes, so only the legitimate owner triggers it. An unresolvable controller yields
+        **503** (`did_unresolvable`) with a `Retry-After` header. The full-length units
+        policy does not apply to deletions (a deletion carries no `iscc_code`).
 
         **Side Effects:**
         - A deletion record is appended to the transparency log with a new sequence number
@@ -405,7 +452,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: Unprocessable Entity - Validation failed
+          description: |
+            Unprocessable Entity - Validation failed. Identity policy failures use the code
+            `did_required` (field `controller`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: |
+            Service Unavailable - The signature `controller`'s DID document could not be
+            resolved (transient). Fail-closed: the deletion is rejected with code
+            `did_unresolvable` and a `Retry-After` header. Only emitted while DID
+            verification (`ISCC_HUB_VERIFY_DID`) is enabled.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying.
           content:
             application/json:
               schema:
