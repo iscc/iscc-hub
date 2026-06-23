@@ -213,13 +213,33 @@ def test_iscc_id_resolve_gateway_ending_with_equals():
 @pytest.mark.django_db
 def test_homepage_view():
     # type: () -> None
-    """Test homepage view returns successfully."""
+    """Test homepage view returns successfully and embeds the active-hub map."""
+    from iscc_hub.models import Hub
+
+    Hub.objects.create(
+        hub_id=7,
+        pubkey="z6MkfrVYbLejh9Hv7Qmx4B2P681wBfPFkcHFaLwWDmSj8Kzv",
+        url="https://hub7.example.net/",
+        active=True,
+    )
+    # Inactive hubs are excluded from the embedded map.
+    Hub.objects.create(
+        hub_id=8,
+        pubkey="z6MkmQZLN5yNPa8vAeViKY6kPtYVLrzFsFCr2cgEdVDPmVbt",
+        url="https://hub8.example.net/",
+        active=False,
+    )
+
     client = Client()
     response = client.get("/")
 
     assert response.status_code == 200
     assert b"ISCC" in response.content
     assert b"Universal Content" in response.content
+    # Active-hub map is embedded as a json_script for client-side issuing-hub resolution.
+    assert b'id="iscc-hubs-data"' in response.content
+    assert b"hub7.example.net" in response.content
+    assert b"hub8.example.net" not in response.content
 
 
 @pytest.mark.django_db

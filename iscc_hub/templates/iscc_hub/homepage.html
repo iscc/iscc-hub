@@ -19,6 +19,56 @@
                     left: 100%;
                 }
             }
+
+            /* ==========================================================================
+               Search-result "Question Rail" cards — progressive-enhancement design.
+               Tokens + component styles ported from cauldron/design/result-cards.html so
+               inline styles in the card builders can reference var(--rc-*).
+               ========================================================================== */
+            :root {
+                --rc-navy: #123663;
+                --rc-blue: #0054b2;
+                --rc-light-blue: #4596f5;
+                --rc-cyan: #7ac2f7;
+                --rc-coral: #f56169;
+                --rc-green-text: #5a8a10;       /* legible green for "verified identity" on white */
+                --rc-red-text: #cf3b43;         /* legible coral-red for "anonymous" caution */
+                --rc-off-white: #f8f9fa;
+                --rc-gray-100: #f1f3f5;
+                --rc-gray-200: #e9ecef;
+                --rc-gray-300: #dee2e6;
+                --rc-gray-500: #adb5bd;
+                --rc-fg-2: #495057;
+                --rc-fg-3: #6c757d;
+                --rc-font-mono: "JetBrains Mono", "SF Mono", Monaco, Consolas, monospace;
+                --rc-shadow-sm: 0 1px 2px 0 rgba(18, 54, 99, 0.06);
+                --rc-shadow-md: 0 4px 12px -2px rgba(18, 54, 99, 0.10), 0 2px 4px -2px rgba(18, 54, 99, 0.06);
+                --rc-shadow-lg: 0 10px 24px -4px rgba(18, 54, 99, 0.14), 0 4px 8px -4px rgba(18, 54, 99, 0.08);
+                --rc-ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+            }
+            @keyframes rc-shimmer { 0% { background-position: -260px 0; } 100% { background-position: 260px 0; } }
+            @keyframes rc-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+            @keyframes rc-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+            /* Shimmer skeleton shown while a tier is still resolving */
+            .rc-skel { background: linear-gradient(90deg, #e9edf1 0px, #f4f7fa 90px, #e9edf1 180px); background-size: 260px 100%; animation: rc-shimmer 1.25s infinite linear; border-radius: 5px; }
+            /* Diagonal-stripe frame standing in for an absent thumbnail */
+            .rc-stripe { background-image: repeating-linear-gradient(135deg, #e7ecf2 0 7px, #eff3f7 7px 14px); }
+            /* "Why it matched" facet bar fills in from the left */
+            .rc-mfill { transform-origin: left; animation: rc-grow .6s var(--rc-ease-out) both; }
+            .rc-rail { flex: 0 0 280px; }
+            .rc-card { transition: box-shadow .22s var(--rc-ease-out), transform .22s var(--rc-ease-out), border-color .22s var(--rc-ease-out); }
+            .rc-card:hover { box-shadow: var(--rc-shadow-lg); transform: translateY(-2px); border-color: var(--rc-gray-300); }
+            .rc-gwbtn:focus-visible, .rc-openlink:focus-visible { outline: 2px solid var(--rc-blue); outline-offset: 2px; }
+            .rc-gwbtn:hover { background: #003d80; }
+            .rc-openlink:hover { background: #fff5f5; }
+            @media (max-width: 780px) {
+                .rc-split { flex-direction: column !important; }
+                .rc-rail { flex: 1 1 auto !important; border-left: 0 !important; border-top: 1px solid var(--rc-gray-200) !important; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .rc-skel, .rc-mfill { animation: none !important; }
+                .rc-card:hover { transform: none; }
+            }
         </style>
 {% endblock %}
 
@@ -192,193 +242,32 @@
         </section>
         {% endif %}
 
-        <!-- Results Section -->
+        <!-- Active-hub map for client-side issuing-hub (Tier-1) resolution -->
+        {{ hubs|json_script:"iscc-hubs-data" }}
+
+        <!-- Results Section (cards rendered + progressively hydrated by JS) -->
         <section id="results-section" class="py-16 hidden">
-            <div class="max-w-7xl mx-auto px-6">
-                <div class="mb-6 flex items-center justify-between">
-                    <h2 class="text-2xl font-semibold text-gray-900">Search Results</h2>
-                    <button id="clear-results" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                        Clear Results ×
-                    </button>
+            <div class="mx-auto px-6" style="max-width: 1060px;">
+                <!-- Results header — filled by renderResultsHeader() -->
+                <div id="results-header" class="mb-5"></div>
+
+                <!-- Rail explainer -->
+                <div role="note" class="flex items-start gap-3 bg-white border border-gray-200 rounded-xl mb-6"
+                     style="padding: 13px 16px; box-shadow: var(--rc-shadow-sm);">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--rc-blue)" stroke-width="1.7"
+                         style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 8h.01"></path>
+                    </svg>
+                    <p class="m-0" style="font-size: 13px; font-weight: 300; line-height: 1.55; color: var(--rc-fg-2);">
+                        Each result's right-hand rail answers three questions in plain language —
+                        <b style="font-weight: 600; color: var(--rc-navy);">who signed it</b>,
+                        <b style="font-weight: 600; color: var(--rc-navy);">where it's logged</b>, and
+                        <b style="font-weight: 600; color: var(--rc-navy);">whether richer metadata can be fetched</b>.
+                        No legend required.
+                    </p>
                 </div>
 
-                <div id="results-container" class="space-y-4">
-                    <!-- Dummy Result Card 1 (with controller) -->
-                    <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 overflow-hidden relative group">
-                        <!-- Top Section with Blue Background -->
-                        <div class="bg-iscc-light-blue h-20 relative" style="background-image: url('/img/grain.png'); background-size: 256px 256px; background-blend-mode: overlay;">
-                            <!-- Certificate Icon -->
-                            <div class="absolute top-1/2 -translate-y-1/2 right-4 z-10">
-                                <div class="w-10 h-10 bg-iscc-green/20 rounded-lg flex items-center justify-center" title="Verified with Controller">
-                                    <svg class="w-6 h-6 text-iscc-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                                    </svg>
-                                </div>
-                            </div>
-
-                            <!-- ISCC-ID Tab -->
-                            <div class="absolute top-1/2 -translate-y-1/2 -left-1 z-10">
-                                <div class="bg-gray-700 text-gray-100 px-4 py-2 rounded-r-lg shadow-lg">
-                                    <span class="font-mono text-xs tracking-tight">ISCC:MAIGHFECJMOPMIAB</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card Content -->
-                        <div class="p-6">
-                            <!-- ISCC-CODE Section - Full Width -->
-                            <div class="mb-4">
-                                <h4 class="text-sm font-medium text-gray-600 mb-1">ISCC-CODE</h4>
-                                <p class="font-mono text-xs text-gray-700 bg-gray-50 px-3 py-2 rounded border border-gray-200 break-all">ISCC:KED572P4AOF5K6QXQA4T6OJD5UGX7UBPFW2TVQNTHBCKFRFCANCZARQ4K6NSFZQSH4GQ</p>
-                            </div>
-
-                            <!-- Meta Information Grid -->
-                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                <!-- Timestamp -->
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Registered</h4>
-                                    <p class="text-sm text-gray-800">2025-01-20 14:32:18 UTC</p>
-                                </div>
-
-                                <!-- Controller/Signature -->
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Controller</h4>
-                                    <p class="text-sm text-gray-800 font-mono break-all">did:web:example.com</p>
-                                </div>
-
-                                <!-- Resolver -->
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Gateway</h4>
-                                    <a href="https://example.com/metadata/ISCC:MAIGHFECJMOPMIAB"
-                                       class="text-sm text-iscc-blue hover:text-blue-700 transition-colors inline-flex items-center gap-1"
-                                       target="_blank"
-                                       rel="noopener noreferrer">
-                                        example.com/metadata
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            <path d="M15 3H21V9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Dummy Result Card 2 (pubkey only, no resolver) -->
-                    <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 overflow-hidden relative group">
-                        <!-- Top Section with Blue Background -->
-                        <div class="bg-iscc-light-blue h-20 relative" style="background-image: url('/img/grain.png'); background-size: 256px 256px; background-blend-mode: overlay;">
-                            <!-- Certificate Icon (Coral for no controller, no resolver) -->
-                            <div class="absolute top-1/2 -translate-y-1/2 right-4 z-10">
-                                <div class="w-10 h-10 bg-iscc-coral/20 rounded-lg flex items-center justify-center" title="Basic Signature">
-                                    <svg class="w-6 h-6 text-iscc-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                                    </svg>
-                                </div>
-                            </div>
-
-                            <!-- ISCC-ID Tab -->
-                            <div class="absolute top-1/2 -translate-y-1/2 -left-1 z-10">
-                                <div class="bg-gray-700 text-gray-100 px-4 py-2 rounded-r-lg shadow-lg">
-                                    <span class="font-mono text-xs tracking-tight">ISCC:MABXW23FQLCYPKIZ</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card Content -->
-                        <div class="p-6">
-                            <!-- ISCC-CODE Section - Full Width -->
-                            <div class="mb-4">
-                                <h4 class="text-sm font-medium text-gray-600 mb-1">ISCC-CODE</h4>
-                                <p class="font-mono text-xs text-gray-700 bg-gray-50 px-3 py-2 rounded border border-gray-200 break-all">ISCC:KACT3NRHBQXWJKXV6OJ7XR7B62NJXMYQDNHCNZQZLW4L2UXBCJIZERA</p>
-                            </div>
-
-                            <!-- Meta Information Grid -->
-                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                <!-- Timestamp -->
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Registered</h4>
-                                    <p class="text-sm text-gray-800">2025-01-19 09:15:42 UTC</p>
-                                </div>
-
-                                <!-- Public Key -->
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Public Key</h4>
-                                    <p class="text-sm text-gray-800 font-mono break-all" title="z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB">z6MknNWEmX1z...2g5EkFrB</p>
-                                </div>
-
-                                <!-- Resolver -->
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Resolver</h4>
-                                    <p class="text-sm text-gray-500">Not specified</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Dummy Result Card 3 (with controller and resolver) -->
-                    <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 overflow-hidden relative group">
-                        <!-- Top Section with Blue Background -->
-                        <div class="bg-iscc-light-blue h-20 relative" style="background-image: url('/img/grain.png'); background-size: 256px 256px; background-blend-mode: overlay;">
-                            <!-- Certificate Icon (Yellow for controller with resolver) -->
-                            <div class="absolute top-1/2 -translate-y-1/2 right-4 z-10">
-                                <div class="w-10 h-10 bg-iscc-yellow/20 rounded-lg flex items-center justify-center" title="Verified with Controller">
-                                    <svg class="w-6 h-6 text-iscc-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                                    </svg>
-                                </div>
-                            </div>
-
-                            <!-- ISCC-ID Tab -->
-                            <div class="absolute top-1/2 -translate-y-1/2 -left-1 z-10">
-                                <div class="bg-gray-700 text-gray-100 px-4 py-2 rounded-r-lg shadow-lg">
-                                    <span class="font-mono text-xs tracking-tight">ISCC:MADKZ5PLNRXGTVQB</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card Content -->
-                        <div class="p-6">
-                            <!-- ISCC-CODE Section - Full Width -->
-                            <div class="mb-4">
-                                <h4 class="text-sm font-medium text-gray-600 mb-1">ISCC-CODE</h4>
-                                <p class="font-mono text-xs text-gray-700 bg-gray-50 px-3 py-2 rounded border border-gray-200 break-all">ISCC:KACTXL7PSZSWDVMQ2DPDF6FXHTKLM3Y5WNRQZQAJDKQRTXHIZXMIRJI</p>
-                            </div>
-
-                            <!-- Meta Information Grid -->
-                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                <!-- Timestamp -->
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Registered</h4>
-                                    <p class="text-sm text-gray-800">2025-01-18 21:47:33 UTC</p>
-                                </div>
-
-                                <!-- Controller -->
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Controller</h4>
-                                    <p class="text-sm text-gray-800 font-mono break-all">did:ipfs:QmX9dhRp...</p>
-                                </div>
-
-                                <!-- Resolver -->
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Resolver</h4>
-                                    <a href="https://ipfs.io/ipfs/ISCC:MADKZ5PLNRXGTVQB"
-                                       class="text-sm text-iscc-blue hover:text-blue-700 transition-colors inline-flex items-center gap-1"
-                                       target="_blank"
-                                       rel="noopener noreferrer">
-                                        ipfs.io/ipfs
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            <path d="M15 3H21V9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div id="results-container" role="list" class="flex flex-col" style="gap: 24px;"></div>
             </div>
         </section>
 
@@ -835,162 +724,555 @@
                     return new Uint8Array(output);
                 }
 
-                // Render search results
-                function renderResults(declarations) {
-                    const resultsContainer = document.getElementById('results-container');
-                    const resultsSection = document.getElementById('results-section');
+                // ============================================================================
+                // Search-result "Question Rail" cards with progressive enhancement.
+                // Tier 0 (instant): aggregator hit + ISCC-ID decode (id, score, matched units,
+                // time, issuing hub, gateway link). Tier 1 (one fetch): issuing-hub declaration
+                // -> trust (controller / pubkey / iscc_code). Tier 2 (best-effort): owner gateway
+                // -> rich metadata (thumbnail, name, form, identifiers). Each tier fails
+                // independently; the card stays useful at whatever tier it reaches.
+                // Design: cauldron/design/result-cards.html · contract: cauldron/search-result-fields.md
+                // ============================================================================
 
-                    if (declarations.length === 0) {
-                        resultsContainer.innerHTML = `
-                            <div class="text-center py-12">
-                                <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <p class="text-gray-600 text-lg">No declarations found</p>
-                                <p class="text-gray-500 text-sm mt-2">Try a different ISCC code or file</p>
-                            </div>
-                        `;
-                        resultsSection.classList.remove('hidden');
+                // This hub's own id; matches issuing IDs we can resolve same-origin (no CORS, no
+                // external leak).
+                const SELF_HUB_ID = {{ hub_id|default:0 }};
+
+                // hub_id -> {url, host, self} from the embedded active-hub map, plus this hub from
+                // the current origin. Drives "where is it logged?" and the Tier-1 resolve target.
+                const HUB_MAP = (function () {
+                    const map = {};
+                    try {
+                        const el = document.getElementById('iscc-hubs-data');
+                        const rows = el ? JSON.parse(el.textContent) : [];
+                        rows.forEach(function (h) {
+                            try {
+                                map[h.hub_id] = { url: String(h.url).replace(/\/+$/, ''), host: new URL(h.url).host };
+                            } catch (e) {
+                                map[h.hub_id] = { url: String(h.url || '').replace(/\/+$/, ''), host: String(h.url || '') };
+                            }
+                        });
+                    } catch (e) { /* no/invalid hub map: cross-hub resolve simply isn't attempted */ }
+                    map[SELF_HUB_ID] = map[SELF_HUB_ID] || { url: window.location.origin, host: window.location.host };
+                    map[SELF_HUB_ID].self = true;
+                    return map;
+                })();
+
+                // Facet vocabulary: a `types` key's first token -> {name, bar fill, legible label}.
+                // Colors mirror the ISCC Generator facet palette (discovery brief 3).
+                const FACETS = {
+                    META:     { name: 'Meta',     bar: '#4596f5', label: '#2f7fd6' },
+                    SEMANTIC: { name: 'Semantic', bar: '#6c757d', label: '#6c757d' },
+                    CONTENT:  { name: 'Content',  bar: '#0054b2', label: '#0054b2' },
+                    DATA:     { name: 'Data',     bar: '#7ac2f7', label: '#4ba0d8' },
+                    INSTANCE: { name: 'Instance', bar: '#123663', label: '#123663' },
+                };
+                const FACET_ORDER = ['INSTANCE', 'DATA', 'CONTENT', 'META', 'SEMANTIC'];
+
+                // Session-scoped card models (PII: gateway metadata is held here only and cleared on
+                // each new search) plus the lazy-hydration observer.
+                const cardModels = {};
+                let cardObserver = null;
+
+                // Decode an ISCC-ID to {hubId, tsIso}. Base32 body -> 10 bytes (2 header + 8 body);
+                // the 8-byte body's top 52 bits are microseconds since epoch, low 12 bits the hub id.
+                // Mirrors iscc_hub/iscc_id.py.
+                function decodeIsccId(isccId) {
+                    try {
+                        const body = String(isccId).replace(/^ISCC:/i, '').toUpperCase();
+                        const bytes = decodeBase32(body);
+                        if (bytes.length < 10) return null;
+                        let uint = 0n;
+                        for (let i = 2; i < 10; i++) uint = (uint << 8n) | BigInt(bytes[i]);
+                        const hubId = Number(uint & 0xfffn);
+                        const tsMs = Number((uint >> 12n) / 1000n);
+                        return { hubId: hubId, tsIso: new Date(tsMs).toISOString() };
+                    } catch (e) {
+                        return null;
+                    }
+                }
+
+                // Confidence band from a 0..1 score; null/exact -> Exact match (navy).
+                function confidenceBand(score, isExact) {
+                    if (isExact || score === null || score >= 0.999) {
+                        return { label: 'Exact match', color: 'var(--rc-navy)', sub: 'byte-identical' };
+                    }
+                    if (score >= 0.90) return { label: 'Near-duplicate', color: 'var(--rc-blue)', sub: '' };
+                    if (score >= 0.75) return { label: 'Strong match', color: 'var(--rc-blue)', sub: '' };
+                    return { label: 'Similar', color: 'var(--rc-light-blue)', sub: '' };
+                }
+
+                // A present controller is an identified, hub-verified signer (the Hub resolves and
+                // verifies the controller DID at declaration time). Its absence is a valid-but-
+                // anonymous signature, where identity falls back to did:key:<pubkey>.
+                function hasVerifiedController(model) {
+                    return !!(model.controller && String(model.controller).trim());
+                }
+
+                // Human label for a controller: did:web:elsevier.com -> elsevier.com ; an https
+                // controller -> its host ; anything else -> the (possibly truncated) raw value.
+                function controllerLabel(controller) {
+                    const c = String(controller);
+                    if (c.indexOf('did:web:') === 0) {
+                        const host = c.slice('did:web:'.length).split(':')[0];
+                        try { return decodeURIComponent(host); } catch (e) { return host; }
+                    }
+                    try { return new URL(c).host; } catch (e) { /* not a URL */ }
+                    return c.length > 28 ? c.slice(0, 26) + '…' : c;
+                }
+
+                // URL host, defensively (returns the raw input if it does not parse).
+                function hostOf(url) {
+                    try { return new URL(url).host; } catch (e) { return String(url); }
+                }
+
+                // Normalize a URL and accept only http(s) (and optionally data:) so a hostile gateway
+                // cannot smuggle a javascript: link or src. Returns the normalized URL or null.
+                function safeUrl(value, allowData) {
+                    try {
+                        const p = new URL(value, window.location.origin);
+                        if (p.protocol === 'http:' || p.protocol === 'https:') return p.href;
+                        if (allowData && p.protocol === 'data:') return p.href;
+                    } catch (e) { /* fall through */ }
+                    return null;
+                }
+
+                // "ScholarlyArticle" -> "Scholarly Article" for human display.
+                function humanForm(form) {
+                    return String(form).replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+                }
+
+                // Render up to three identifier chips from a string | {scheme,code} | array.
+                function identifierChips(identifier) {
+                    if (!identifier) return '';
+                    const arr = Array.isArray(identifier) ? identifier : [identifier];
+                    return arr.slice(0, 3).map(function (id) {
+                        let text;
+                        if (typeof id === 'string') text = id;
+                        else if (id && typeof id === 'object' && id.code) text = (id.scheme ? String(id.scheme).toUpperCase() + ':' : '') + id.code;
+                        else return '';
+                        return '<span style="font-family:var(--rc-font-mono); font-size:11px; color:var(--rc-blue); background:rgba(0,84,178,.07); padding:2px 7px; border-radius:4px;">' + escapeHtml(text) + '</span>';
+                    }).filter(Boolean).join(' ');
+                }
+
+                // Short file-type label + icon for the no-thumbnail placeholder, derived from mediatype.
+                function fileGlyph(model) {
+                    const mt = String(model.mediatype || '').toLowerCase();
+                    const docIcon = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"></path><path d="M14 4v5h5"></path></svg>';
+                    const imgIcon = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="8.5" cy="10" r="1.5"></circle><path d="M21 16l-5-5L5 19"></path></svg>';
+                    let label = 'no preview', icon = docIcon;
+                    if (mt.indexOf('pdf') !== -1) label = 'PDF';
+                    else if (mt.indexOf('image/') === 0) { label = (mt.split('/')[1] || 'image').toUpperCase().slice(0, 4); icon = imgIcon; }
+                    else if (mt.indexOf('xml') !== -1) label = 'XML';
+                    else if (mt.indexOf('text/') === 0) label = 'TXT';
+                    else if (mt) label = (mt.split('/').pop() || 'file').toUpperCase().slice(0, 4);
+                    return { label: label, icon: icon };
+                }
+
+                // ---- Tier-0 (static) regions ----------------------------------------------
+
+                function scoreBlockHTML(model) {
+                    const band = confidenceBand(model.score, model.exact);
+                    const pct = (model.exact || model.score === null) ? 100 : Math.round(model.score * 100);
+                    const facetCount = model.types ? Object.keys(model.types).length : 0;
+                    const sub = band.sub || (facetCount + ' facet' + (facetCount === 1 ? '' : 's'));
+                    return ''
+                        + '<div style="display:flex; flex-direction:column; gap:2px; min-width:134px;">'
+                        + '<span style="font-family:var(--rc-font-mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:' + band.color + '; font-weight:600;">' + band.label + '</span>'
+                        + '<span style="font-size:42px; font-weight:700; line-height:1; color:' + band.color + '; letter-spacing:-.03em;">' + pct + '<span style="font-size:22px;">%</span></span>'
+                        + '<span style="font-size:11.5px; font-weight:300; color:var(--rc-fg-3);">' + sub + '</span>'
+                        + '</div>';
+                }
+
+                function whyMatchedHTML(model) {
+                    const types = model.types || {};
+                    const rows = Object.keys(types).map(function (k) {
+                        const prefix = k.split('_')[0].toUpperCase();
+                        const f = FACETS[prefix] || { name: prefix.charAt(0) + prefix.slice(1).toLowerCase(), bar: '#6c757d', label: '#6c757d' };
+                        return { name: f.name, bar: f.bar, label: f.label, score: types[k], order: FACET_ORDER.indexOf(prefix) };
+                    }).sort(function (a, b) { return (b.score - a.score) || (a.order - b.order); });
+                    const bars = rows.map(function (r) {
+                        const sc = Math.max(0, Math.min(1, r.score));
+                        return ''
+                            + '<div style="display:flex; align-items:center; gap:10px;">'
+                            + '<span style="font-family:var(--rc-font-mono); font-size:10px; width:60px; color:' + r.label + ';">' + escapeHtml(r.name) + '</span>'
+                            + '<div style="flex:1; height:6px; border-radius:4px; background:var(--rc-gray-200); overflow:hidden;"><div class="rc-mfill" style="width:' + (sc * 100).toFixed(0) + '%; height:100%; background:' + r.bar + ';"></div></div>'
+                            + '<span style="font-family:var(--rc-font-mono); font-size:10px; width:28px; text-align:right; color:var(--rc-fg-2);">' + sc.toFixed(2) + '</span>'
+                            + '</div>';
+                    }).join('');
+                    return '<span style="font-family:var(--rc-font-mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--rc-fg-3);">Why it matched</span>' + bars;
+                }
+
+                function logHTML(model) {
+                    const hub = HUB_MAP[model.hubId];
+                    const host = hub ? hub.host : ('Hub #' + model.hubId);
+                    const caption = (hub && hub.self) ? 'this hub' : 'transparency log';
+                    return ''
+                        + '<span style="font-size:11.5px; font-weight:600; color:var(--rc-navy);">Where is it logged?</span>'
+                        + '<div style="display:flex; align-items:center; gap:9px; margin-top:7px;">'
+                        + '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#6c757d" stroke-width="1.7" style="flex-shrink:0;" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1"></rect><rect x="3" y="14" width="18" height="6" rx="1"></rect><path d="M7 7h.01M7 17h.01"></path></svg>'
+                        + '<div style="display:flex; flex-direction:column; gap:1px;"><span style="font-family:var(--rc-font-mono); font-size:12.5px; font-weight:500; color:var(--rc-navy);">' + escapeHtml(host) + '</span><span style="font-size:10.5px; font-weight:300; color:var(--rc-fg-3);">' + caption + '</span></div>'
+                        + '</div>';
+                }
+
+                // ---- Dynamic regions (re-rendered as tiers land) --------------------------
+
+                function thumbHTML(model) {
+                    const img = safeUrl(model.thumbnail, true);
+                    if (img) {
+                        // The stripe frame shows through if the image 404s (onerror removes the img),
+                        // so a broken thumbnail never shows a broken-image glyph.
+                        return '<div class="rc-stripe" style="flex:0 0 84px; height:84px; border-radius:9px; overflow:hidden;"><img src="' + img + '" alt="" loading="lazy" onerror="this.remove()" style="width:100%; height:100%; object-fit:cover;"></div>';
+                    }
+                    const ft = fileGlyph(model);
+                    return '<div class="rc-stripe" role="img" aria-label="' + escapeHtml(ft.label) + ', no preview available" style="flex:0 0 84px; height:84px; border-radius:9px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:#9fb0c4;">' + ft.icon + '<span style="font-family:var(--rc-font-mono); font-size:8px;">' + escapeHtml(ft.label) + '</span></div>';
+                }
+
+                function bodyTextHTML(model) {
+                    const dateStr = model.tsIso ? ('&middot; declared ' + model.tsIso.slice(0, 10)) : '';
+                    if (model.name) {
+                        const formChip = model.form ? '<span style="font-family:var(--rc-font-mono); font-size:10px; color:var(--rc-fg-3); background:var(--rc-gray-100); padding:2px 7px; border-radius:4px;">' + escapeHtml(humanForm(model.form)) + '</span>' : '';
+                        return ''
+                            + '<div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:7px;">'
+                            + '<div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;">'
+                            + '<span style="font-size:16.5px; font-weight:600; color:var(--rc-navy); letter-spacing:-.01em; line-height:1.25;">' + escapeHtml(model.name) + '</span>' + formChip
+                            + '</div>'
+                            + '<div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">'
+                            + identifierChips(model.identifier)
+                            + '<span style="font-family:var(--rc-font-mono); font-size:11px; color:var(--rc-fg-2);">' + escapeHtml(model.isccId) + '</span>'
+                            + '<span style="font-family:var(--rc-font-mono); font-size:10.5px; color:var(--rc-fg-3);">' + dateStr + '</span>'
+                            + '</div></div>';
+                    }
+                    const lead = model.iscc_code || model.isccId;
+                    const note = model.gateway ? 'Open the gateway for richer metadata.' : 'Match &amp; signature are all this record carries.';
+                    return ''
+                        + '<div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:7px; justify-content:center;">'
+                        + '<a href="/' + model.iid + '" target="_blank" rel="noopener noreferrer" style="font-family:var(--rc-font-mono); font-size:14px; font-weight:500; color:var(--rc-navy); word-break:break-all; text-decoration:none;">' + escapeHtml(lead) + '</a>'
+                        + '<div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">'
+                        + '<span style="font-size:11.5px; font-weight:300; color:var(--rc-fg-3);">' + note + '</span>'
+                        + '<span style="font-family:var(--rc-font-mono); font-size:10.5px; color:var(--rc-fg-3);">' + dateStr + '</span>'
+                        + '</div></div>';
+                }
+
+                function bodySkeletonHTML(model) {
+                    const dateStr = model.tsIso ? ('&middot; declared ' + model.tsIso.slice(0, 10)) : '';
+                    return ''
+                        + '<div class="rc-skel" style="flex:0 0 84px; height:84px; border-radius:9px;"></div>'
+                        + '<div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:10px; justify-content:center;">'
+                        + '<div class="rc-skel" style="height:15px; width:68%;"></div>'
+                        + '<div style="display:flex; align-items:center; gap:8px;"><div class="rc-skel" style="height:11px; width:32%;"></div><span style="font-family:var(--rc-font-mono); font-size:10.5px; color:var(--rc-fg-3);">' + dateStr + '</span></div>'
+                        + '</div>';
+                }
+
+                function bodyHTML(model) {
+                    // Skeleton only while a tier that could fill the body is genuinely in flight.
+                    if (model.t1 === 'pending' || model.t2 === 'pending') return bodySkeletonHTML(model);
+                    return thumbHTML(model) + bodyTextHTML(model);
+                }
+
+                function signerHTML(model) {
+                    const title = '<span style="font-size:11.5px; font-weight:600; color:var(--rc-navy);">Who signed it?</span>';
+                    if (model.t1 === 'pending') {
+                        return title
+                            + '<div style="display:flex; align-items:center; gap:9px; margin-top:7px;">'
+                            + '<span style="width:19px; height:19px; border-radius:50%; background:var(--rc-gray-200); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" aria-hidden="true"><span style="width:8px; height:8px; border-radius:50%; background:var(--rc-light-blue); animation:rc-pulse 1s infinite;"></span></span>'
+                            + '<span class="rc-skel" style="display:inline-block; height:12px; width:110px;"></span>'
+                            + '</div>'
+                            + '<span style="font-family:var(--rc-font-mono); font-size:9.5px; color:var(--rc-fg-3); margin-top:6px; display:inline-block;">verifying signature&hellip;</span>';
+                    }
+                    if (model.t1 === 'done' && hasVerifiedController(model)) {
+                        return title
+                            + '<div style="display:flex; align-items:center; gap:9px; margin-top:7px;">'
+                            + '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="var(--rc-green-text)" stroke-width="1.9" style="flex-shrink:0;" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z"></path><path d="M9 12l2 2 4-4"></path></svg>'
+                            + '<div style="display:flex; flex-direction:column; gap:1px;"><span style="font-size:13.5px; font-weight:600; color:var(--rc-navy);">' + escapeHtml(controllerLabel(model.controller)) + '</span><span style="font-size:10.5px; font-weight:300; color:var(--rc-green-text);">verified identity</span></div>'
+                            + '</div>';
+                    }
+                    if (model.t1 === 'done') {
+                        const pk = model.pubkey || '';
+                        const pkShort = pk.length > 16 ? pk.slice(0, 8) + '…' + pk.slice(-6) : pk;
+                        const keyLine = pkShort ? '<span style="font-family:var(--rc-font-mono); font-size:9.5px; color:var(--rc-fg-3); margin-top:6px; display:inline-block;" title="' + escapeHtml(pk) + '">signing key ' + escapeHtml(pkShort) + '</span>' : '';
+                        return title
+                            + '<div style="display:flex; align-items:center; gap:9px; margin-top:7px;">'
+                            + '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="var(--rc-red-text)" stroke-width="1.8" style="flex-shrink:0;" aria-hidden="true"><circle cx="8" cy="15" r="4"></circle><path d="M10.5 12.5L19 4"></path><path d="M16 7l2.5 2.5"></path></svg>'
+                            + '<div style="display:flex; flex-direction:column; gap:1px;"><span style="font-size:13.5px; font-weight:600; color:var(--rc-red-text);">Anonymous</span><span style="font-size:10.5px; font-weight:300; color:var(--rc-red-text);">valid signature, no identity</span></div>'
+                            + '</div>' + keyLine;
+                    }
+                    // t1 failed / unresolvable: keep the Tier-0 card, no alarm.
+                    return title
+                        + '<div style="display:flex; align-items:center; gap:9px; margin-top:7px;">'
+                        + '<span style="width:19px; height:19px; border-radius:50%; background:var(--rc-gray-200); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="var(--rc-fg-3)" stroke-width="2"><path d="M12 8v5"></path><path d="M12 16h.01"></path></svg></span>'
+                        + '<div style="display:flex; flex-direction:column; gap:1px;"><span style="font-size:13px; font-weight:500; color:var(--rc-fg-2);">Unverified</span><span style="font-size:10.5px; font-weight:300; color:var(--rc-fg-3);">issuing hub unreachable</span></div>'
+                        + '</div>';
+                }
+
+                function gatewayHTML(model) {
+                    const title = '<span style="font-size:11.5px; font-weight:600; color:var(--rc-navy);">Want richer metadata?</span>';
+                    const href = model.gateway ? safeUrl(model.gateway, false) : null;
+                    if (!href) {
+                        return title
+                            + '<div style="display:flex; align-items:center; gap:8px; padding:10px 12px; border:1px dashed var(--rc-gray-300); border-radius:10px; color:var(--rc-gray-500);">'
+                            + '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" style="flex-shrink:0;" aria-hidden="true"><path d="M5 12h14"></path></svg>'
+                            + '<span style="font-family:var(--rc-font-mono); font-size:10.5px; line-height:1.35;">No gateway provided &mdash; nothing further to fetch.</span>'
+                            + '</div>';
+                    }
+                    const arrow = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M7 17L17 7"></path><path d="M8 7h9v9"></path></svg>';
+                    const hostLine = '<span style="font-family:var(--rc-font-mono); font-size:10px; color:var(--rc-fg-3); text-align:center;">' + escapeHtml(hostOf(href)) + '</span>';
+                    if (model.t1 === 'done' && !hasVerifiedController(model)) {
+                        return title
+                            + '<span style="font-size:10.5px; font-weight:300; line-height:1.4; color:var(--rc-red-text);">Reachable, but no verified identity backs what it returns.</span>'
+                            + '<a class="rc-openlink" href="' + href + '" target="_blank" rel="noopener noreferrer" style="display:flex; align-items:center; justify-content:center; gap:8px; background:#fff; border:1px solid var(--rc-gray-300); color:var(--rc-blue); padding:9px 0; border-radius:10px; font-size:13px; font-weight:600; text-decoration:none;">Open anyway' + arrow + '</a>'
+                            + hostLine;
+                    }
+                    return title
+                        + '<a class="rc-gwbtn" href="' + href + '" target="_blank" rel="noopener noreferrer" style="display:flex; align-items:center; justify-content:center; gap:8px; background:var(--rc-blue); color:#fff; padding:10px 0; border-radius:10px; font-size:13px; font-weight:600; text-decoration:none;">Open gateway' + arrow + '</a>'
+                        + hostLine;
+                }
+
+                function signerCautionBg(model) {
+                    return (model.t1 === 'done' && !hasVerifiedController(model)) ? 'rgba(245,97,105,.05)' : '';
+                }
+
+                // ---- Card assembly + hydration -------------------------------------------
+
+                function cardHTML(model) {
+                    return ''
+                        + '<div role="listitem" data-iid="' + model.iid + '">'
+                        + '<div class="rc-split rc-card" style="display:flex; align-items:stretch; background:#fff; border:1px solid var(--rc-gray-200); border-radius:16px; box-shadow:var(--rc-shadow-md); overflow:hidden;">'
+                        + '<div style="flex:1; min-width:0; padding:20px 22px;">'
+                        + '<div style="display:flex; align-items:flex-start; gap:24px; flex-wrap:wrap;">'
+                        + scoreBlockHTML(model)
+                        + '<div style="flex:1; min-width:240px; display:flex; flex-direction:column; gap:7px; padding-top:3px;">' + whyMatchedHTML(model) + '</div>'
+                        + '</div>'
+                        + '<div class="rc-body" style="display:flex; gap:16px; margin-top:18px; padding-top:16px; border-top:1px solid var(--rc-gray-100);">' + bodyHTML(model) + '</div>'
+                        + '</div>'
+                        + '<div class="rc-rail" style="display:flex; flex-direction:column; padding:6px 0; background:var(--rc-off-white); border-left:1px solid var(--rc-gray-200);">'
+                        + '<div class="rc-q-signer" style="padding:12px 20px; background:' + signerCautionBg(model) + ';">' + signerHTML(model) + '</div>'
+                        + '<div style="height:1px; background:var(--rc-gray-200); margin:0 20px;"></div>'
+                        + '<div style="padding:12px 20px;">' + logHTML(model) + '</div>'
+                        + '<div style="height:1px; background:var(--rc-gray-200); margin:0 20px;"></div>'
+                        + '<div class="rc-q-gateway" style="padding:12px 20px; display:flex; flex-direction:column; gap:8px; flex:1; justify-content:center;">' + gatewayHTML(model) + '</div>'
+                        + '</div>'
+                        + '</div></div>';
+                }
+
+                function updateCard(model) {
+                    const root = document.querySelector('[data-iid="' + model.iid + '"]');
+                    if (!root) return;
+                    const signer = root.querySelector('.rc-q-signer');
+                    if (signer) { signer.innerHTML = signerHTML(model); signer.style.background = signerCautionBg(model); }
+                    const body = root.querySelector('.rc-body');
+                    if (body) body.innerHTML = bodyHTML(model);
+                    const gw = root.querySelector('.rc-q-gateway');
+                    if (gw) gw.innerHTML = gatewayHTML(model);
+                }
+
+                // Resolve a match's declaration at its issuing hub (self = same origin). Returns the
+                // declaration dict, or null on unknown hub / 404 / CORS / network failure.
+                async function resolveDeclaration(model) {
+                    const hub = HUB_MAP[model.hubId];
+                    let base;
+                    if (hub && hub.self) base = '';
+                    else if (hub) base = hub.url;
+                    else return null;
+                    try {
+                        const resp = await fetch(base + '/' + model.iid, { headers: { 'Accept': 'application/json' } });
+                        if (!resp.ok) return null;
+                        const data = await resp.json();
+                        return (data && typeof data === 'object' && !Array.isArray(data)) ? data : null;
+                    } catch (e) {
+                        return null;
+                    }
+                }
+
+                // Best-effort fetch of a gateway's inline metadata as JSON. Gateways usually serve an
+                // HTML landing page (no JSON / CORS-blocked) -> null, and Tier 2 just doesn't apply.
+                async function fetchGatewayMeta(gateway) {
+                    const url = safeUrl(gateway, false);
+                    if (!url) return null;
+                    try {
+                        const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                        if (!resp.ok) return null;
+                        if ((resp.headers.get('content-type') || '').toLowerCase().indexOf('json') === -1) return null;
+                        const data = await resp.json();
+                        return (data && typeof data === 'object' && !Array.isArray(data)) ? data : null;
+                    } catch (e) {
+                        return null;
+                    }
+                }
+
+                // Map a partial IsccMeta object onto the card model (defensive; any subset present).
+                function applyGatewayMeta(model, meta) {
+                    if (typeof meta.name === 'string') model.name = meta.name;
+                    if (typeof meta.description === 'string') model.description = meta.description;
+                    if (typeof meta.form === 'string') model.form = meta.form;
+                    if (typeof meta.mediatype === 'string') model.mediatype = meta.mediatype;
+                    if (typeof meta.creator === 'string' || Array.isArray(meta.creator)) model.creator = meta.creator;
+                    if (meta.identifier) model.identifier = meta.identifier;
+                    const thumb = (typeof meta.thumbnail === 'string') ? meta.thumbnail : (typeof meta.image === 'string' ? meta.image : null);
+                    if (thumb) model.thumbnail = thumb;
+                }
+
+                // Run Tier 1 (if still pending) then Tier 2 for one card, updating it as each lands.
+                async function hydrateCard(model) {
+                    if (model.hydrated) return;
+                    model.hydrated = true;
+                    if (model.t1 === 'pending') {
+                        const decl = await resolveDeclaration(model);
+                        if (decl) {
+                            model.t1 = 'done';
+                            model.iscc_code = decl.iscc_code || model.iscc_code || null;
+                            model.controller = decl.controller || null;
+                            model.pubkey = decl.pubkey || null;
+                            model.datahash = decl.datahash || null;
+                            if (decl.gateway && !model.gateway) { model.gateway = decl.gateway; if (model.t2 === 'none') model.t2 = 'idle'; }
+                        } else {
+                            model.t1 = 'failed';
+                        }
+                        updateCard(model);
+                    }
+                    if (model.gateway && model.t2 === 'idle') {
+                        model.t2 = 'pending';
+                        updateCard(model);
+                        const meta = await fetchGatewayMeta(model.gateway);
+                        if (meta) { applyGatewayMeta(model, meta); model.t2 = 'done'; }
+                        else { model.t2 = 'failed'; }
+                        updateCard(model);
+                    }
+                }
+
+                // ---- Models from each source ---------------------------------------------
+
+                function modelFromMatch(match) {
+                    const decoded = decodeIsccId(match.iscc_id) || { hubId: SELF_HUB_ID, tsIso: null };
+                    const gw = (match.metadata && typeof match.metadata.gateway === 'string') ? match.metadata.gateway : null;
+                    return {
+                        iid: String(match.iscc_id).replace(/^ISCC:/i, '').toLowerCase(),
+                        isccId: match.iscc_id,
+                        score: (typeof match.score === 'number') ? match.score : null,
+                        exact: false,
+                        types: (match.types && typeof match.types === 'object') ? match.types : null,
+                        hubId: decoded.hubId,
+                        tsIso: decoded.tsIso,
+                        gateway: gw,
+                        t1: 'pending',
+                        t2: gw ? 'idle' : 'none',
+                        hydrated: false,
+                    };
+                }
+
+                function modelFromDeclaration(decl) {
+                    // Exact /lookup responses already carry Tier-0 + Tier-1 (the signed declaration);
+                    // only the gateway (Tier 2) needs a further best-effort fetch.
+                    const decoded = decodeIsccId(decl.iscc_id) || { hubId: SELF_HUB_ID, tsIso: decl.timestamp };
+                    return {
+                        iid: String(decl.iscc_id).replace(/^ISCC:/i, '').toLowerCase(),
+                        isccId: decl.iscc_id,
+                        score: null,
+                        exact: true,
+                        types: { INSTANCE_NONE_V0: 1.0 },
+                        hubId: decoded.hubId,
+                        tsIso: decoded.tsIso || decl.timestamp,
+                        gateway: decl.gateway || null,
+                        t1: 'done',
+                        iscc_code: decl.iscc_code || null,
+                        controller: decl.controller || null,
+                        pubkey: decl.pubkey || null,
+                        datahash: decl.datahash || null,
+                        t2: decl.gateway ? 'idle' : 'none',
+                        hydrated: false,
+                    };
+                }
+
+                function distinctHubs(models) {
+                    const seen = {};
+                    models.forEach(function (m) { seen[m.hubId] = true; });
+                    return Object.keys(seen).length;
+                }
+
+                // ---- Header / empty state / shared render --------------------------------
+
+                function renderResultsHeader(opts) {
+                    const header = document.getElementById('results-header');
+                    const n = opts.count;
+                    const noun = (n === 1 ? 'match' : 'matches');
+                    const subtitle = (opts.kind === 'similarity')
+                        ? 'for your submitted file &middot; ranked by confidence'
+                        : 'exact ' + (n === 1 ? 'match' : 'matches') + ' for your query';
+                    let queryEcho = '';
+                    if (opts.query) {
+                        queryEcho = '<span style="font-family:var(--rc-font-mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--rc-fg-3);">Query</span>'
+                            + '<span style="font-family:var(--rc-font-mono); font-size:11.5px; color:var(--rc-blue); background:rgba(0,84,178,.07); padding:3px 9px; border-radius:5px; word-break:break-all;">' + escapeHtml(opts.query) + '</span>';
+                    }
+                    const stats = [];
+                    if (opts.hubs) stats.push('searched across ' + opts.hubs + ' hub' + (opts.hubs === 1 ? '' : 's'));
+                    if (typeof opts.ms === 'number' && isFinite(opts.ms)) stats.push(opts.ms + ' ms');
+                    const statsEcho = stats.length ? '<span style="font-family:var(--rc-font-mono); font-size:10.5px; color:var(--rc-fg-3);">&middot; ' + stats.join(' &middot; ') + '</span>' : '';
+                    header.innerHTML = ''
+                        + '<div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">'
+                        + '<div>'
+                        + '<span style="font-family:var(--rc-font-mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--rc-coral);">ISCC-SEARCH &middot; Results</span>'
+                        + '<div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-top:4px;">'
+                        + '<h1 style="font-size:clamp(26px,3.4vw,36px); font-weight:700; letter-spacing:-.02em; color:var(--rc-navy); margin:0; line-height:1.05;">' + n + ' ' + noun + '</h1>'
+                        + '<span style="font-size:14px; font-weight:300; color:var(--rc-fg-2);">' + subtitle + '</span>'
+                        + '</div></div>'
+                        + '<button data-action="clear-results" class="text-sm text-gray-600 hover:text-gray-900 transition-colors" style="white-space:nowrap;">Clear &times;</button>'
+                        + '</div>'
+                        + '<div style="display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap;">' + queryEcho + statsEcho + '</div>';
+                }
+
+                function emptyStateHTML(kind) {
+                    const msg = (kind === 'similarity') ? 'No similar content found' : 'No declarations found';
+                    const sub = (kind === 'similarity') ? 'No declarations match this content yet' : 'Try a different ISCC code or file';
+                    return ''
+                        + '<div class="text-center py-12">'
+                        + '<svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+                        + '<p class="text-gray-600 text-lg">' + msg + '</p>'
+                        + '<p class="text-gray-500 text-sm mt-2">' + sub + '</p>'
+                        + '</div>';
+                }
+
+                // Render the card list and start lazy hydration. Shared by exact + similarity paths.
+                function renderCards(models, headerOpts) {
+                    const container = document.getElementById('results-container');
+                    const section = document.getElementById('results-section');
+
+                    // New search -> drop prior session state (incl. any cached gateway PII) and observer.
+                    for (const k in cardModels) delete cardModels[k];
+                    if (cardObserver) { cardObserver.disconnect(); cardObserver = null; }
+                    if ('IntersectionObserver' in window) cardObserver = new IntersectionObserver(onCardVisible, { rootMargin: '120px' });
+
+                    renderResultsHeader(Object.assign({ count: models.length }, headerOpts));
+                    if (!models.length) {
+                        container.innerHTML = emptyStateHTML(headerOpts.kind);
+                        section.classList.remove('hidden');
+                        section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                         return;
                     }
+                    container.innerHTML = models.map(cardHTML).join('');
+                    models.forEach(function (m) { cardModels[m.iid] = m; });
+                    section.classList.remove('hidden');
+                    section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-                    // Build result cards HTML
-                    const cardsHTML = declarations.map(decl => {
-                        // Determine verification status
-                        const hasController = decl.controller && decl.controller.length > 0;
-                        const hasGateway = decl.gateway && decl.gateway.length > 0;
+                    // Lazy-hydrate: only fetch for cards in view, so the viewer's IP/interest is not
+                    // revealed to every issuing hub + gateway up front (privacy). No observer -> all.
+                    const cards = container.querySelectorAll('[data-iid]');
+                    if (cardObserver) cards.forEach(function (c) { cardObserver.observe(c); });
+                    else models.forEach(hydrateCard);
+                }
 
-                        let badgeColor, badgeText, badgeTitle;
-                        if (hasController && hasGateway) {
-                            badgeColor = 'iscc-yellow';
-                            badgeText = 'Verified with Resolver';
-                            badgeTitle = 'Verified with Controller and Resolver';
-                        } else if (hasController) {
-                            badgeColor = 'iscc-green';
-                            badgeText = 'Verified';
-                            badgeTitle = 'Verified with Controller';
-                        } else {
-                            badgeColor = 'iscc-coral';
-                            badgeText = 'Basic Signature';
-                            badgeTitle = 'Basic Signature';
-                        }
+                function onCardVisible(entries) {
+                    entries.forEach(function (entry) {
+                        if (!entry.isIntersecting) return;
+                        cardObserver.unobserve(entry.target);
+                        const model = cardModels[entry.target.getAttribute('data-iid')];
+                        if (model) hydrateCard(model);
+                    });
+                }
 
-                        // Format timestamp
-                        const d = new Date(decl.timestamp);
-                        const timestamp = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}:${String(d.getUTCSeconds()).padStart(2, '0')} UTC`;
-
-                        // Build controller/pubkey row
-                        let identityHTML;
-                        if (hasController) {
-                            identityHTML = `
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Controller</h4>
-                                    <p class="text-sm text-gray-800 font-mono break-all">${decl.controller}</p>
-                                </div>
-                            `;
-                        } else {
-                            // Truncate pubkey for display
-                            const pubkeyShort = decl.pubkey.length > 20
-                                ? decl.pubkey.substring(0, 12) + '...' + decl.pubkey.substring(decl.pubkey.length - 8)
-                                : decl.pubkey;
-                            identityHTML = `
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Public Key</h4>
-                                    <p class="text-sm text-gray-800 font-mono break-all" title="${decl.pubkey}">${pubkeyShort}</p>
-                                </div>
-                            `;
-                        }
-
-                        // Build gateway row
-                        let gatewayHTML;
-                        if (hasGateway) {
-                            // Extract domain from gateway URL for display
-                            let gatewayDisplay;
-                            try {
-                                const url = new URL(decl.gateway);
-                                gatewayDisplay = url.hostname + url.pathname.split('/').slice(0, 2).join('/');
-                            } catch {
-                                gatewayDisplay = decl.gateway;
-                            }
-
-                            gatewayHTML = `
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Gateway</h4>
-                                    <a href="${decl.gateway}"
-                                       class="text-sm text-iscc-blue hover:text-blue-700 transition-colors inline-flex items-center gap-1"
-                                       target="_blank"
-                                       rel="noopener noreferrer">
-                                        ${gatewayDisplay}
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            <path d="M15 3H21V9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                    </a>
-                                </div>
-                            `;
-                        } else {
-                            gatewayHTML = `
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-600 mb-1">Resolver</h4>
-                                    <p class="text-sm text-gray-500">Not specified</p>
-                                </div>
-                            `;
-                        }
-
-                        return `
-                            <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 overflow-hidden relative group">
-                                <!-- Top Section with Blue Background -->
-                                <div class="bg-iscc-light-blue h-20 relative" style="background-image: url('/img/grain.png'); background-size: 256px 256px; background-blend-mode: overlay;">
-                                    <!-- Certificate Icon -->
-                                    <div class="absolute top-1/2 -translate-y-1/2 right-4 z-10">
-                                        <div class="w-10 h-10 bg-${badgeColor}/20 rounded-lg flex items-center justify-center" title="${badgeTitle}">
-                                            <svg class="w-6 h-6 text-${badgeColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                                            </svg>
-                                        </div>
-                                    </div>
-
-                                    <!-- ISCC-ID Tab -->
-                                    <div class="absolute top-1/2 -translate-y-1/2 -left-1 z-10">
-                                        <div class="bg-gray-700 text-gray-100 px-4 py-2 rounded-r-lg shadow-lg">
-                                            <span class="font-mono text-xs tracking-tight">${decl.iscc_id}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Card Content -->
-                                <div class="p-6">
-                                    <!-- ISCC-CODE Section - Full Width -->
-                                    <div class="mb-4">
-                                        <h4 class="text-sm font-medium text-gray-600 mb-1">ISCC-CODE</h4>
-                                        <p class="font-mono text-xs text-gray-700 bg-gray-50 px-3 py-2 rounded border border-gray-200 break-all">${decl.iscc_code}</p>
-                                    </div>
-
-                                    <!-- Meta Information Grid -->
-                                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                        <!-- Timestamp -->
-                                        <div>
-                                            <h4 class="text-sm font-medium text-gray-600 mb-1">Registered</h4>
-                                            <p class="text-sm text-gray-800">${timestamp}</p>
-                                        </div>
-
-                                        <!-- Controller/Signature -->
-                                        ${identityHTML}
-
-                                        <!-- Resolver -->
-                                        ${gatewayHTML}
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-
-                    resultsContainer.innerHTML = cardsHTML;
-                    resultsSection.classList.remove('hidden');
-
-                    // Scroll to results
-                    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                // Render exact /lookup declarations (already Tier-0 + Tier-1) as question-rail cards.
+                function renderResults(declarations, query, ms) {
+                    const models = declarations.map(modelFromDeclaration);
+                    renderCards(models, { kind: 'exact', query: query || '', hubs: distinctHubs(models), ms: ms });
                 }
 
                 // Perform search (extracted for reuse)
@@ -1027,6 +1309,7 @@
 
                     // Set loading state
                     setLoading(true);
+                    const started = performance.now();
 
                     try {
                         const response = await fetch(searchUrl, {
@@ -1047,7 +1330,7 @@
 
                         const declarations = await response.json();
                         console.log('Found declarations:', declarations);
-                        renderResults(declarations);
+                        renderResults(declarations, isccValue, Math.round(performance.now() - started));
 
                     } catch (error) {
                         console.error('Search error:', error);
@@ -1113,6 +1396,7 @@
 
                     console.log('Similarity search for:', isccCode);
                     setLoading(true);
+                    const started = performance.now();
 
                     try {
                         const url = `/search?iscc_code=${encodeURIComponent(isccCode)}&limit=20`;
@@ -1135,7 +1419,7 @@
                         }
 
                         const data = await response.json();
-                        renderSimilarityResults(data.global_matches || []);
+                        renderSimilarityResults(data.global_matches || [], isccCode, Math.round(performance.now() - started));
 
                     } catch (error) {
                         console.error('Similarity search error:', error);
@@ -1145,56 +1429,12 @@
                     }
                 }
 
-                // Render ranked similarity matches from /search. Each match links to its ISCC-ID,
-                // which the hub resolves (redirecting to the owning hub for remote declarations).
-                function renderSimilarityResults(matches) {
-                    const resultsContainer = document.getElementById('results-container');
-                    const resultsSection = document.getElementById('results-section');
-
-                    if (!matches.length) {
-                        resultsContainer.innerHTML = `
-                            <div class="text-center py-12">
-                                <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <p class="text-gray-600 text-lg">No similar content found</p>
-                                <p class="text-gray-500 text-sm mt-2">No declarations match this content yet</p>
-                            </div>
-                        `;
-                        resultsSection.classList.remove('hidden');
-                        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                        return;
-                    }
-
-                    const cardsHTML = matches.map(match => {
-                        const isccIdClean = match.iscc_id.replace(/^ISCC:/i, '').toLowerCase();
-                        const pct = Math.round((match.score || 0) * 100);
-                        const name = (match.metadata && typeof match.metadata.name === 'string') ? match.metadata.name : '';
-                        const typeTags = (match.types ? Object.keys(match.types) : []).map(t =>
-                            `<span class="inline-block bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded">${escapeHtml(t)}</span>`
-                        ).join(' ');
-
-                        return `
-                            <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 p-6">
-                                <div class="flex items-start justify-between gap-4">
-                                    <div class="min-w-0">
-                                        <a href="/${isccIdClean}" target="_blank" rel="noopener noreferrer"
-                                           class="font-mono text-sm text-iscc-blue hover:text-blue-700 break-all">${match.iscc_id}</a>
-                                        ${name ? `<p class="text-sm text-gray-700 mt-1">${escapeHtml(name)}</p>` : ''}
-                                        ${typeTags ? `<div class="flex flex-wrap gap-1 mt-2">${typeTags}</div>` : ''}
-                                    </div>
-                                    <div class="flex-shrink-0 text-right">
-                                        <div class="text-2xl font-semibold text-iscc-green">${pct}%</div>
-                                        <div class="text-xs text-gray-500 uppercase tracking-wider">match</div>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-
-                    resultsContainer.innerHTML = cardsHTML;
-                    resultsSection.classList.remove('hidden');
-                    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                // Render ranked similarity matches from /search as question-rail cards. Each match
+                // is a thin Tier-0 pointer; the issuing-hub resolve (Tier 1) and gateway metadata
+                // (Tier 2) hydrate it lazily as it scrolls into view.
+                function renderSimilarityResults(matches, query, ms) {
+                    const models = matches.map(modelFromMatch);
+                    renderCards(models, { kind: 'similarity', query: query || '', hubs: distinctHubs(models), ms: ms });
                 }
 
                 // Surface the generated ISCC-CODE when similarity search is not enabled on this hub.
@@ -1233,30 +1473,31 @@
                     await performSearch(isccValue);
                 });
 
-                // Clear results functionality
-                const clearResultsBtn = document.getElementById('clear-results');
-                if (clearResultsBtn) {
-                    clearResultsBtn.addEventListener('click', function() {
-                        const resultsSection = document.getElementById('results-section');
+                // Clear results — the button lives inside the JS-rendered header, so listen via
+                // delegation on the results section rather than binding a (not-yet-existing) node.
+                document.getElementById('results-section').addEventListener('click', function (e) {
+                    if (!e.target.closest('[data-action="clear-results"]')) {
+                        return;
+                    }
+                    const resultsSection = document.getElementById('results-section');
 
-                        // Fade out animation
-                        resultsSection.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
-                        resultsSection.style.opacity = '0';
-                        resultsSection.style.transform = 'translateY(10px)';
+                    // Fade out animation
+                    resultsSection.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+                    resultsSection.style.opacity = '0';
+                    resultsSection.style.transform = 'translateY(10px)';
 
-                        // Hide after animation completes
-                        setTimeout(() => {
-                            resultsSection.classList.add('hidden');
-                            resultsSection.style.opacity = '';
-                            resultsSection.style.transform = '';
-                            resultsSection.style.transition = '';
-                        }, 300);
+                    // Hide after animation completes
+                    setTimeout(() => {
+                        resultsSection.classList.add('hidden');
+                        resultsSection.style.opacity = '';
+                        resultsSection.style.transform = '';
+                        resultsSection.style.transition = '';
+                    }, 300);
 
-                        isccInput.value = '';
-                        currentFile = null;
-                        fileInfo.classList.add('hidden');
-                    });
-                }
+                    isccInput.value = '';
+                    currentFile = null;
+                    fileInfo.classList.add('hidden');
+                });
             });
         </script>
 {% endblock %}

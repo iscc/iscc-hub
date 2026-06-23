@@ -14,12 +14,17 @@ from iscc_hub.models import Hub, IsccDeclaration
 def homepage(request):
     # type: (HttpRequest) -> HttpResponse
     """
-    Homepage view that displays the ISCC logo centered on the page.
+    Homepage view with the lookup/search surface and progressive-enhancement result cards.
+
+    Serializes the active Hub list (hub_id -> url) into the page so the client can map an
+    ISCC-ID's decoded hub_id to its issuing hub for "where it's logged" display and for the
+    Tier-1 declaration resolve that hydrates each result card.
 
     :param request: The incoming HTTP request
-    :return: HTML page with centered ISCC logo
+    :return: Rendered homepage with the active-hub map embedded
     """
-    return render(request, "iscc_hub/homepage.html")
+    hubs = list(Hub.objects.filter(active=True).order_by("hub_id").values("hub_id", "url"))
+    return render(request, "iscc_hub/homepage.html", {"hubs": hubs})
 
 
 def health(request):
