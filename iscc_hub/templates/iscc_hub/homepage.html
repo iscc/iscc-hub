@@ -759,13 +759,14 @@
                 })();
 
                 // Facet vocabulary: a `types` key's first token -> {name, bar fill, legible label}.
-                // Colors mirror the ISCC Generator facet palette (discovery brief 3).
+                // `bar` is the per-unit code-type color; `label` is a darker, legible variant of the
+                // same hue used for the mono text where the bar fill is too light to read on white.
                 const FACETS = {
-                    META:     { name: 'Meta',     bar: '#4596f5', label: '#2f7fd6' },
-                    SEMANTIC: { name: 'Semantic', bar: '#6c757d', label: '#6c757d' },
+                    META:     { name: 'Meta',     bar: '#7ac2f7', label: '#4ba0d8' },
+                    SEMANTIC: { name: 'Semantic', bar: '#4596f5', label: '#2f7fd6' },
                     CONTENT:  { name: 'Content',  bar: '#0054b2', label: '#0054b2' },
-                    DATA:     { name: 'Data',     bar: '#7ac2f7', label: '#4ba0d8' },
-                    INSTANCE: { name: 'Instance', bar: '#123663', label: '#123663' },
+                    DATA:     { name: 'Data',     bar: '#123663', label: '#123663' },
+                    INSTANCE: { name: 'Instance', bar: '#a6db50', label: '#6fa72e' },
                 };
                 const FACET_ORDER = ['INSTANCE', 'DATA', 'CONTENT', 'META', 'SEMANTIC'];
 
