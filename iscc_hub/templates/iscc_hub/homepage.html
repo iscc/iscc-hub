@@ -247,24 +247,13 @@
 
         <!-- Results Section (cards rendered + progressively hydrated by JS) -->
         <section id="results-section" class="py-16 hidden">
-            <div class="mx-auto px-6" style="max-width: 1060px;">
-                <!-- Results header — filled by renderResultsHeader() -->
-                <div id="results-header" class="mb-5"></div>
-
-                <!-- Rail explainer -->
-                <div role="note" class="flex items-start gap-3 bg-white border border-gray-200 rounded-xl mb-6"
-                     style="padding: 13px 16px; box-shadow: var(--rc-shadow-sm);">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--rc-blue)" stroke-width="1.7"
-                         style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true">
-                        <circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 8h.01"></path>
-                    </svg>
-                    <p class="m-0" style="font-size: 13px; font-weight: 300; line-height: 1.55; color: var(--rc-fg-2);">
-                        Each result's right-hand rail answers three questions in plain language —
-                        <b style="font-weight: 600; color: var(--rc-navy);">who signed it</b>,
-                        <b style="font-weight: 600; color: var(--rc-navy);">where it's logged</b>, and
-                        <b style="font-weight: 600; color: var(--rc-navy);">whether richer metadata can be fetched</b>.
-                        No legend required.
-                    </p>
+            <div class="max-w-7xl mx-auto px-6">
+                <!-- Clear results — a real button above the cards -->
+                <div class="flex justify-end mb-5">
+                    <button type="button" data-action="clear-results"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-colors">
+                        Clear <span aria-hidden="true">&times;</span>
+                    </button>
                 </div>
 
                 <div id="results-container" role="list" class="flex flex-col" style="gap: 24px;"></div>
@@ -1184,42 +1173,7 @@
                     };
                 }
 
-                function distinctHubs(models) {
-                    const seen = {};
-                    models.forEach(function (m) { seen[m.hubId] = true; });
-                    return Object.keys(seen).length;
-                }
-
-                // ---- Header / empty state / shared render --------------------------------
-
-                function renderResultsHeader(opts) {
-                    const header = document.getElementById('results-header');
-                    const n = opts.count;
-                    const noun = (n === 1 ? 'match' : 'matches');
-                    const subtitle = (opts.kind === 'similarity')
-                        ? 'for your submitted file &middot; ranked by confidence'
-                        : 'exact ' + (n === 1 ? 'match' : 'matches') + ' for your query';
-                    let queryEcho = '';
-                    if (opts.query) {
-                        queryEcho = '<span style="font-family:var(--rc-font-mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--rc-fg-3);">Query</span>'
-                            + '<span style="font-family:var(--rc-font-mono); font-size:11.5px; color:var(--rc-blue); background:rgba(0,84,178,.07); padding:3px 9px; border-radius:5px; word-break:break-all;">' + escapeHtml(opts.query) + '</span>';
-                    }
-                    const stats = [];
-                    if (opts.hubs) stats.push('searched across ' + opts.hubs + ' hub' + (opts.hubs === 1 ? '' : 's'));
-                    if (typeof opts.ms === 'number' && isFinite(opts.ms)) stats.push(opts.ms + ' ms');
-                    const statsEcho = stats.length ? '<span style="font-family:var(--rc-font-mono); font-size:10.5px; color:var(--rc-fg-3);">&middot; ' + stats.join(' &middot; ') + '</span>' : '';
-                    header.innerHTML = ''
-                        + '<div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">'
-                        + '<div>'
-                        + '<span style="font-family:var(--rc-font-mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--rc-coral);">ISCC-SEARCH &middot; Results</span>'
-                        + '<div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-top:4px;">'
-                        + '<h1 style="font-size:clamp(26px,3.4vw,36px); font-weight:700; letter-spacing:-.02em; color:var(--rc-navy); margin:0; line-height:1.05;">' + n + ' ' + noun + '</h1>'
-                        + '<span style="font-size:14px; font-weight:300; color:var(--rc-fg-2);">' + subtitle + '</span>'
-                        + '</div></div>'
-                        + '<button data-action="clear-results" class="text-sm text-gray-600 hover:text-gray-900 transition-colors" style="white-space:nowrap;">Clear &times;</button>'
-                        + '</div>'
-                        + '<div style="display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap;">' + queryEcho + statsEcho + '</div>';
-                }
+                // ---- Empty state / shared render --------------------------------
 
                 function emptyStateHTML(kind) {
                     const msg = (kind === 'similarity') ? 'No similar content found' : 'No declarations found';
@@ -1242,7 +1196,6 @@
                     if (cardObserver) { cardObserver.disconnect(); cardObserver = null; }
                     if ('IntersectionObserver' in window) cardObserver = new IntersectionObserver(onCardVisible, { rootMargin: '120px' });
 
-                    renderResultsHeader(Object.assign({ count: models.length }, headerOpts));
                     if (!models.length) {
                         container.innerHTML = emptyStateHTML(headerOpts.kind);
                         section.classList.remove('hidden');
@@ -1271,9 +1224,9 @@
                 }
 
                 // Render exact /lookup declarations (already Tier-0 + Tier-1) as question-rail cards.
-                function renderResults(declarations, query, ms) {
+                function renderResults(declarations) {
                     const models = declarations.map(modelFromDeclaration);
-                    renderCards(models, { kind: 'exact', query: query || '', hubs: distinctHubs(models), ms: ms });
+                    renderCards(models, { kind: 'exact' });
                 }
 
                 // Perform search (extracted for reuse)
@@ -1310,7 +1263,6 @@
 
                     // Set loading state
                     setLoading(true);
-                    const started = performance.now();
 
                     try {
                         const response = await fetch(searchUrl, {
@@ -1331,7 +1283,7 @@
 
                         const declarations = await response.json();
                         console.log('Found declarations:', declarations);
-                        renderResults(declarations, isccValue, Math.round(performance.now() - started));
+                        renderResults(declarations);
 
                     } catch (error) {
                         console.error('Search error:', error);
@@ -1397,7 +1349,6 @@
 
                     console.log('Similarity search for:', isccCode);
                     setLoading(true);
-                    const started = performance.now();
 
                     try {
                         const url = `/search?iscc_code=${encodeURIComponent(isccCode)}&limit=20`;
@@ -1420,7 +1371,7 @@
                         }
 
                         const data = await response.json();
-                        renderSimilarityResults(data.global_matches || [], isccCode, Math.round(performance.now() - started));
+                        renderSimilarityResults(data.global_matches || []);
 
                     } catch (error) {
                         console.error('Similarity search error:', error);
@@ -1433,9 +1384,9 @@
                 // Render ranked similarity matches from /search as question-rail cards. Each match
                 // is a thin Tier-0 pointer; the issuing-hub resolve (Tier 1) and gateway metadata
                 // (Tier 2) hydrate it lazily as it scrolls into view.
-                function renderSimilarityResults(matches, query, ms) {
+                function renderSimilarityResults(matches) {
                     const models = matches.map(modelFromMatch);
-                    renderCards(models, { kind: 'similarity', query: query || '', hubs: distinctHubs(models), ms: ms });
+                    renderCards(models, { kind: 'similarity' });
                 }
 
                 // Surface the generated ISCC-CODE when similarity search is not enabled on this hub.
@@ -1474,8 +1425,8 @@
                     await performSearch(isccValue);
                 });
 
-                // Clear results — the button lives inside the JS-rendered header, so listen via
-                // delegation on the results section rather than binding a (not-yet-existing) node.
+                // Clear results — delegated on the results section so the static Clear button (and any
+                // future result-scoped triggers) are handled by one listener.
                 document.getElementById('results-section').addEventListener('click', function (e) {
                     if (!e.target.closest('[data-action="clear-results"]')) {
                         return;
