@@ -1,0 +1,21 @@
+name: Publish dev image
+
+# Build and publish the `dev` image to ghcr.io on every push to `develop`.
+# Deployment to the sandbox/staging box is handled separately (out of band), so this
+# workflow only tests and publishes — it does not SSH into any box.
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  # Call the test workflow first
+  test:
+    uses: ./.github/workflows/test.yaml
+
+  # Build and publish after tests pass
+  build:
+    needs: test
+    uses: ./.github/workflows/build.yaml
