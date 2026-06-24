@@ -304,9 +304,8 @@ def handle_get(request):
         raise BaseApiException("Invalid or missing iscc_code. Expected: ISCC: followed by 16+ base32 characters")
     limit = validate_limit(request.GET.get("limit"))
     params = {"iscc_code": iscc_code}
-    if limit is not None:
-        params["limit"] = str(limit)
-    return _proxied_search("GET", params, None)
+    _set_backend_limit(params, limit)
+    return _proxied_search("GET", params, None, limit)
 
 
 def handle_post(request):
@@ -321,9 +320,8 @@ def handle_post(request):
     validate_query_body(request.body)
     limit = validate_limit(request.GET.get("limit"))
     params = {}
-    if limit is not None:
-        params["limit"] = str(limit)
-    return _proxied_search("POST", params, request.body)
+    _set_backend_limit(params, limit)
+    return _proxied_search("POST", params, request.body, limit)
 
 
 def _require_configured():
@@ -333,8 +331,27 @@ def _require_configured():
         raise NotFoundError("Similarity search not enabled on this hub")
 
 
-def _proxied_search(method, params, body):
-    # type: (str, dict, bytes|None) -> HttpResponse
+def _set_backend_limit(params, limit):
+    # type: (dict, int|None) -> None
+    """
+    Set the backend result-window size on the forwarded query parameters.
+
+    When reranking, request a fixed candidate window (at least the client limit) so TSR
+    reorders more than the raw-score top-N before the client limit is applied hub-side;
+    the client limit would otherwise let the backend truncate away higher-TSR matches.
+    When not reranking, forward the client limit verbatim and let the backend truncate.
+
+    :param params: Query parameters dict to mutate in place
+    :param limit: Validated client limit, or None when not provided
+    """
+    if settings.ISCC_HUB_SEARCH_RERANK:
+        params["limit"] = str(max(limit or 0, settings.ISCC_HUB_SEARCH_RERANK_WINDOW))
+    elif limit is not None:
+        params["limit"] = str(limit)
+
+
+def _proxied_search(method, params, body, limit):
+    # type: (str, dict, bytes|None, int|None) -> HttpResponse
     """
     Walk configured backends in order until one yields a definitive answer.
 
@@ -344,6 +361,7 @@ def _proxied_search(method, params, body):
     :param method: HTTP method to use against the backend ('GET' or 'POST')
     :param params: Query parameters to forward
     :param body: Raw request body to forward (POST only)
+    :param limit: Validated client limit applied after reranking, or None when not provided
     :return: Hub response built from the first definitive backend answer
     """
     state = get_proxy_state()
@@ -360,10 +378,13 @@ def _proxied_search(method, params, body):
             if verdict == "ok":
                 projected = project_result(content or b"")
                 if projected is not None:
-                    # Rerank the projected matches before serving; project_result stays a pure
-                    # shape projection, ranking is a separate, flag-gated policy step.
+                    # Rerank the projected candidate window before serving, then apply the
+                    # client limit; project_result stays a pure shape projection, ranking is a
+                    # separate, flag-gated policy step. With reranking off the backend already
+                    # truncated to the client limit, so no hub-side slicing is needed.
                     if settings.ISCC_HUB_SEARCH_RERANK:
-                        projected["global_matches"] = rerank_matches(projected["global_matches"])
+                        matches = rerank_matches(projected["global_matches"])
+                        projected["global_matches"] = matches if limit is None else matches[:limit]
                     _record_success(state, base_url)
                     return JsonResponse(projected)
                 verdict = "retryable"  # malformed 2xx body: not servable as a conformant 200

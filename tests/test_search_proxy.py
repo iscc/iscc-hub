@@ -283,7 +283,7 @@ def test_search_get_happy_projection(api_client, search_stub):
     assert recorded["method"] == "GET"
     assert recorded["path"] == "/indexes/idptest/search"  # realm 0 derives idptest
     assert "iscc_code=" in recorded["query"]
-    assert "limit" not in recorded["query"]
+    assert "limit=100" in recorded["query"]  # rerank on (default) fetches the candidate window
 
 
 @pytest.mark.django_db
@@ -361,8 +361,8 @@ def test_search_get_validation_errors(api_client, search_stub):
 @pytest.mark.django_db
 def test_search_limit_validation_and_forwarding(api_client, search_stub):
     # type: (object, object) -> None
-    """Valid limit values are forwarded on the wire; out-of-range yields 400, no backend call (L8)."""
-    with override_settings(ISCC_HUB_SEARCH_URLS=[search_stub.url]):
+    """Without reranking the client limit is forwarded verbatim; out-of-range yields 400 (L8)."""
+    with override_settings(ISCC_HUB_SEARCH_URLS=[search_stub.url], ISCC_HUB_SEARCH_RERANK=False):
         response = api_client.get(f"/search?iscc_code={VALID_CODE}&limit=5")
         assert response.status_code == 200
         assert "limit=5" in search_stub.requests[0]["query"]
@@ -375,6 +375,27 @@ def test_search_limit_validation_and_forwarding(api_client, search_stub):
             response = api_client.get(f"/search?iscc_code={VALID_CODE}&limit={bad}")
             assert response.status_code == 400
     assert len(search_stub.requests) == 2
+
+
+@pytest.mark.django_db
+def test_search_rerank_overfetches_window_then_truncates(api_client, search_stub):
+    # type: (object, object) -> None
+    """Reranking fetches the candidate window (not the client limit) and truncates after TSR.
+
+    The window goes on the wire so the backend does not truncate away higher-TSR matches; the
+    client limit is applied hub-side to the reranked list. With window > limit, a client
+    limit=1 still reranks the full window before returning the single best match.
+    """
+    with override_settings(
+        ISCC_HUB_SEARCH_URLS=[search_stub.url],
+        ISCC_HUB_SEARCH_RERANK=True,
+        ISCC_HUB_SEARCH_RERANK_WINDOW=50,
+    ):
+        response = api_client.get(f"/search?iscc_code={VALID_CODE}&limit=1")
+
+    assert response.status_code == 200
+    assert "limit=50" in search_stub.requests[0]["query"]  # window forwarded, not limit=1
+    assert len(response.json()["global_matches"]) == 1  # reranked window truncated to the client limit
 
 
 @pytest.mark.django_db

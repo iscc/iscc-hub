@@ -88,6 +88,10 @@ ISCC_HUB_SEARCH_CB_COOLDOWN = env.int("ISCC_HUB_SEARCH_CB_COOLDOWN", default=15)
 # before serving them, so a single strong signal no longer outranks broad corroborating
 # evidence. Set false to serve the backend's raw scores and order verbatim.
 ISCC_HUB_SEARCH_RERANK = env.bool("ISCC_HUB_SEARCH_RERANK", default=True)
+# Candidate window fetched from the backend when reranking, independent of the client limit:
+# TSR reorders this window and the client limit is applied afterwards, so a high-TSR match
+# outside the backend's raw-score top-N can still surface. Ignored when reranking is off.
+ISCC_HUB_SEARCH_RERANK_WINDOW = env.int("ISCC_HUB_SEARCH_RERANK_WINDOW", default=100)
 
 # ISCC generator backend (iscc-web). When set, the homepage uploads a dropped file to this service
 # and generates a full ISCC-CODE (Meta/Semantic/Content/Data/Instance) instead of only a local
