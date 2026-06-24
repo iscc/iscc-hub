@@ -1,11 +1,11 @@
 version: 1
 network: testnet
 hubs:
-    - hub_id: 0
-      pubkey: z6MkqbHELZopsq6eKrn6qxiAgRoVvwp2Vp7mPfKsvrbYmGwJ
-      url: https://sb0.iscc.id
-      active: true
     - hub_id: 1
+      pubkey: z6MkqbHELZopsq6eKrn6qxiAgRoVvwp2Vp7mPfKsvrbYmGwJ
+      url: https://staging.iscc.id
+      active: true
+    - hub_id: 2
       pubkey: z6MkiNW46AUjNmKTV2YNyFi9ANG9wbfYQQoUQgADGwScd9jk
-      url: https://sb1.amlet.id
+      url: https://staging.amlet.id
       active: true
