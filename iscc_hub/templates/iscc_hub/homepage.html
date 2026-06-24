@@ -832,6 +832,13 @@
                     return String(form).replace(/([a-z0-9])([A-Z])/g, '$1 $2');
                 }
 
+                // Join a creator/authors value (string | array of strings) into a display byline.
+                function creatorText(creator) {
+                    if (!creator) return '';
+                    const arr = Array.isArray(creator) ? creator : [creator];
+                    return arr.filter(function (c) { return typeof c === 'string' && c.trim(); }).join(', ');
+                }
+
                 // Render up to three identifier chips from a string | {scheme,code} | array.
                 function identifierChips(identifier) {
                     if (!identifier) return '';
@@ -922,11 +929,14 @@
                     const dateStr = model.tsIso ? ('&middot; declared ' + model.tsIso.slice(0, 10)) : '';
                     if (model.name) {
                         const formChip = model.form ? '<span style="font-family:var(--rc-font-mono); font-size:10px; color:var(--rc-fg-3); background:var(--rc-gray-100); padding:2px 7px; border-radius:4px;">' + escapeHtml(humanForm(model.form)) + '</span>' : '';
+                        const authors = creatorText(model.creator);
+                        const authorLine = authors ? '<span style="font-size:12.5px; font-weight:300; color:var(--rc-fg-2); line-height:1.3;">' + escapeHtml(authors) + '</span>' : '';
                         return ''
                             + '<div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:7px;">'
                             + '<div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;">'
                             + '<span style="font-size:16.5px; font-weight:600; color:var(--rc-navy); letter-spacing:-.01em; line-height:1.25;">' + escapeHtml(model.name) + '</span>' + formChip
                             + '</div>'
+                            + authorLine
                             + '<div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">'
                             + identifierChips(model.identifier)
                             + '<span style="font-family:var(--rc-font-mono); font-size:11px; color:var(--rc-fg-2);">' + escapeHtml(model.isccId) + '</span>'
@@ -1074,11 +1084,13 @@
                     }
                 }
 
-                // Best-effort fetch of a gateway's inline metadata as JSON. Gateways usually serve an
-                // HTML landing page (no JSON / CORS-blocked) -> null, and Tier 2 just doesn't apply.
+                // Best-effort fetch of a gateway's inline metadata as JSON. Gateways expose it at
+                // <gateway-url>/metadata (the base URL itself usually serves an HTML landing page).
+                // A 404 / non-JSON / CORS-blocked response -> null, and Tier 2 just doesn't apply.
                 async function fetchGatewayMeta(gateway) {
-                    const url = safeUrl(gateway, false);
-                    if (!url) return null;
+                    const base = safeUrl(gateway, false);
+                    if (!base) return null;
+                    const url = base.replace(/\/+$/, '') + '/metadata';
                     try {
                         const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
                         if (!resp.ok) return null;
@@ -1090,15 +1102,24 @@
                     }
                 }
 
-                // Map a partial IsccMeta object onto the card model (defensive; any subset present).
+                // Map a partial metadata object onto the card model (defensive; any subset present).
+                // Accepts both the iscc-schema field names and the gateway's current shape
+                // (title / cover_url / authors / isbn) until the gateway emits full iscc-schema metadata.
                 function applyGatewayMeta(model, meta) {
-                    if (typeof meta.name === 'string') model.name = meta.name;
+                    // Title is the headline signal: prefer iscc-schema `name`, fall back to `title`.
+                    const name = (typeof meta.name === 'string') ? meta.name : (typeof meta.title === 'string' ? meta.title : null);
+                    if (name) model.name = name;
                     if (typeof meta.description === 'string') model.description = meta.description;
                     if (typeof meta.form === 'string') model.form = meta.form;
                     if (typeof meta.mediatype === 'string') model.mediatype = meta.mediatype;
-                    if (typeof meta.creator === 'string' || Array.isArray(meta.creator)) model.creator = meta.creator;
-                    if (meta.identifier) model.identifier = meta.identifier;
-                    const thumb = (typeof meta.thumbnail === 'string') ? meta.thumbnail : (typeof meta.image === 'string' ? meta.image : null);
+                    const creator = (typeof meta.creator === 'string' || Array.isArray(meta.creator)) ? meta.creator
+                        : (Array.isArray(meta.authors) ? meta.authors : null);
+                    if (creator) model.creator = creator;
+                    const identifier = meta.identifier ? meta.identifier : (typeof meta.isbn === 'string' ? meta.isbn : null);
+                    if (identifier) model.identifier = identifier;
+                    const thumb = (typeof meta.thumbnail === 'string') ? meta.thumbnail
+                        : (typeof meta.image === 'string') ? meta.image
+                        : (typeof meta.cover_url === 'string') ? meta.cover_url : null;
                     if (thumb) model.thumbnail = thumb;
                 }
 
