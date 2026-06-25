@@ -58,9 +58,10 @@
             .rc-rail { flex: 0 0 280px; }
             .rc-card { transition: box-shadow .22s var(--rc-ease-out), transform .22s var(--rc-ease-out), border-color .22s var(--rc-ease-out); }
             .rc-card:hover { box-shadow: var(--rc-shadow-lg); transform: translateY(-2px); border-color: var(--rc-gray-300); }
-            .rc-gwbtn:focus-visible, .rc-openlink:focus-visible { outline: 2px solid var(--rc-blue); outline-offset: 2px; }
+            .rc-gwbtn:focus-visible, .rc-openlink:focus-visible, .rc-ghostbtn:focus-visible { outline: 2px solid var(--rc-blue); outline-offset: 2px; }
             .rc-gwbtn:hover { background: #003d80; }
             .rc-openlink:hover { background: #fff5f5; }
+            .rc-ghostbtn:hover { background: var(--rc-gray-100); }
             @media (max-width: 780px) {
                 .rc-split { flex-direction: column !important; }
                 .rc-rail { flex: 1 1 auto !important; border-left: 0 !important; border-top: 1px solid var(--rc-gray-200) !important; }
@@ -916,6 +917,18 @@
                     return null;
                 }
 
+                // Append ?format=json (overriding any existing format) so the machine-readable
+                // gateway view is reachable directly, without the HTML view's full redirect.
+                function withFormatJson(href) {
+                    try {
+                        const u = new URL(href);
+                        u.searchParams.set('format', 'json');
+                        return u.href;
+                    } catch (e) {
+                        return href;
+                    }
+                }
+
                 // "ScholarlyArticle" -> "Scholarly Article" for human display.
                 function humanForm(form) {
                     return String(form).replace(/([a-z0-9])([A-Z])/g, '$1 $2');
@@ -1107,6 +1120,24 @@
                         + '</div>';
                 }
 
+                // Side-by-side pills for one gateway: JSON (machine-readable, ?format=json, no
+                // redirect — handy for debugging) and HTML (the gateway's own view, which fully
+                // redirects). `caution` mutes both into outline pills when no verified identity
+                // backs the gateway; otherwise HTML is the filled primary action.
+                function gatewayButtonsHTML(href, caution) {
+                    const base = 'flex:1; min-width:0; display:flex; align-items:center; justify-content:center; gap:6px; padding:9px 0; border-radius:10px; font-size:12.5px; font-weight:600; text-decoration:none;';
+                    const outline = 'background:#fff; border:1px solid var(--rc-gray-300); color:var(--rc-blue);';
+                    const filled = 'background:var(--rc-blue); color:#fff;';
+                    const braces = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 4H7a2 2 0 0 0-2 2v3a2 2 0 0 1-2 2 2 2 0 0 1 2 2v3a2 2 0 0 0 2 2h1"></path><path d="M16 4h1a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2 2 2 0 0 0-2 2v3a2 2 0 0 1-2 2h-1"></path></svg>';
+                    const arrow = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M7 17L17 7"></path><path d="M8 7h9v9"></path></svg>';
+                    const jsonCls = caution ? 'rc-openlink' : 'rc-ghostbtn';
+                    const htmlCls = caution ? 'rc-openlink' : 'rc-gwbtn';
+                    return '<div style="display:flex; gap:8px;">'
+                        + '<a class="' + jsonCls + '" href="' + withFormatJson(href) + '" target="_blank" rel="noopener noreferrer" style="' + base + outline + '">' + braces + 'JSON</a>'
+                        + '<a class="' + htmlCls + '" href="' + href + '" target="_blank" rel="noopener noreferrer" style="' + base + (caution ? outline : filled) + '">HTML' + arrow + '</a>'
+                        + '</div>';
+                }
+
                 function gatewayHTML(model) {
                     const title = '<span style="font-size:11.5px; font-weight:600; color:var(--rc-navy);">Where is the metadata?</span>';
                     const href = model.gateway ? safeUrl(model.gateway, false) : null;
@@ -1117,17 +1148,12 @@
                             + '<span style="font-family:var(--rc-font-mono); font-size:10.5px; line-height:1.35;">No gateway provided &mdash; nothing further to fetch.</span>'
                             + '</div>';
                     }
-                    const arrow = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M7 17L17 7"></path><path d="M8 7h9v9"></path></svg>';
                     const hostLine = '<span style="font-family:var(--rc-font-mono); font-size:10px; color:var(--rc-fg-3); text-align:center;">' + escapeHtml(hostOf(href)) + '</span>';
-                    if (model.t1 === 'done' && !hasVerifiedController(model)) {
-                        return title
-                            + '<span style="font-size:10.5px; font-weight:300; line-height:1.4; color:var(--rc-red-text);">Reachable, but no verified identity backs what it returns.</span>'
-                            + '<a class="rc-openlink" href="' + href + '" target="_blank" rel="noopener noreferrer" style="display:flex; align-items:center; justify-content:center; gap:8px; background:#fff; border:1px solid var(--rc-gray-300); color:var(--rc-blue); padding:9px 0; border-radius:10px; font-size:13px; font-weight:600; text-decoration:none;">Open anyway' + arrow + '</a>'
-                            + hostLine;
-                    }
-                    return title
-                        + '<a class="rc-gwbtn" href="' + href + '" target="_blank" rel="noopener noreferrer" style="display:flex; align-items:center; justify-content:center; gap:8px; background:var(--rc-blue); color:#fff; padding:10px 0; border-radius:10px; font-size:13px; font-weight:600; text-decoration:none;">Open gateway' + arrow + '</a>'
-                        + hostLine;
+                    const caution = model.t1 === 'done' && !hasVerifiedController(model);
+                    const cautionLine = caution
+                        ? '<span style="font-size:10.5px; font-weight:300; line-height:1.4; color:var(--rc-red-text);">Reachable, but no verified identity backs what it returns.</span>'
+                        : '';
+                    return title + cautionLine + gatewayButtonsHTML(href, caution) + hostLine;
                 }
 
                 function signerCautionBg(model) {
