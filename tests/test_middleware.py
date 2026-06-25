@@ -1,4 +1,4 @@
-"""Tests for content negotiation middleware."""
+"""Tests for content negotiation and cross-origin read middleware."""
 
 from unittest.mock import Mock
 
@@ -6,7 +6,7 @@ import pytest
 from django.http import HttpResponse
 from django.test import RequestFactory
 
-from iscc_hub.middleware import ContentNegotiationMiddleware
+from iscc_hub.middleware import ContentNegotiationMiddleware, CorsReadMiddleware
 
 
 @pytest.fixture
@@ -315,3 +315,83 @@ def test_middleware_path_routes_lookup_and_search(request_factory):
             del request.META["HTTP_ACCEPT"]
         middleware(request)
         assert request.urlconf == "iscc_hub.urls_api"
+
+
+# ---- CorsReadMiddleware --------------------------------------------------------
+
+
+def test_cors_sets_header_for_api_read(request_factory):
+    # type: (RequestFactory) -> None
+    """A safe-method response routed to the JSON API carries the wildcard CORS header."""
+    get_response = Mock(return_value=HttpResponse("OK"))
+    middleware = CorsReadMiddleware(get_response)
+
+    request = request_factory.get("/ISCC:MEACAAA")
+    request.urlconf = "iscc_hub.urls_api"
+    response = middleware(request)
+
+    assert response["Access-Control-Allow-Origin"] == "*"
+
+
+def test_cors_sets_header_for_log_read(request_factory):
+    # type: (RequestFactory) -> None
+    """A safe-method response routed to the ISCC-Log carries the wildcard CORS header."""
+    get_response = Mock(return_value=HttpResponse("OK"))
+    middleware = CorsReadMiddleware(get_response)
+
+    request = request_factory.get("/log/checkpoint")
+    request.urlconf = "iscc_hub.urls_log"
+    response = middleware(request)
+
+    assert response["Access-Control-Allow-Origin"] == "*"
+
+
+def test_cors_sets_header_for_options(request_factory):
+    # type: (RequestFactory) -> None
+    """OPTIONS is a non-mutating method and also receives the CORS header on the read surface."""
+    get_response = Mock(return_value=HttpResponse("OK"))
+    middleware = CorsReadMiddleware(get_response)
+
+    request = request_factory.options("/lookup")
+    request.urlconf = "iscc_hub.urls_api"
+    response = middleware(request)
+
+    assert response["Access-Control-Allow-Origin"] == "*"
+
+
+def test_cors_skips_html_views(request_factory):
+    # type: (RequestFactory) -> None
+    """HTML view responses are not part of the read surface and get no CORS header."""
+    get_response = Mock(return_value=HttpResponse("OK"))
+    middleware = CorsReadMiddleware(get_response)
+
+    request = request_factory.get("/")
+    request.urlconf = "iscc_hub.urls_views"
+    response = middleware(request)
+
+    assert "Access-Control-Allow-Origin" not in response
+
+
+def test_cors_skips_write_methods(request_factory):
+    # type: (RequestFactory) -> None
+    """Write methods (POST/DELETE) on the API are never exposed cross-origin."""
+    get_response = Mock(return_value=HttpResponse("OK"))
+    middleware = CorsReadMiddleware(get_response)
+
+    request = request_factory.post("/declaration")
+    request.urlconf = "iscc_hub.urls_api"
+    response = middleware(request)
+
+    assert "Access-Control-Allow-Origin" not in response
+
+
+def test_cors_skips_when_urlconf_unset(request_factory):
+    # type: (RequestFactory) -> None
+    """No CORS header when content negotiation has not selected a read urlconf."""
+    get_response = Mock(return_value=HttpResponse("OK"))
+    middleware = CorsReadMiddleware(get_response)
+
+    request = request_factory.get("/")
+    response = middleware(request)
+
+    assert "Access-Control-Allow-Origin" not in response

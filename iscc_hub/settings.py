@@ -144,6 +144,7 @@ MIDDLEWARE = [
     "servestatic.middleware.ServeStaticMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "iscc_hub.middleware.ContentNegotiationMiddleware",  # Content negotiation must come early
+    "iscc_hub.middleware.CorsReadMiddleware",  # Cross-origin reads of the JSON/log read surface
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",

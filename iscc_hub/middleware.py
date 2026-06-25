@@ -1,4 +1,4 @@
-"""Content negotiation middleware for ISCC Hub."""
+"""Content negotiation and cross-origin read middleware for ISCC Hub."""
 
 import re
 from typing import Any
@@ -8,6 +8,15 @@ from django.utils.cache import patch_vary_headers
 
 # Precompile regex with case-insensitive flag
 JSON_PATTERN = re.compile(r"application/(json|.*\+json)", re.IGNORECASE)
+
+# Non-mutating HTTP methods (reads plus the OPTIONS metadata method). Cross-origin
+# reads of the public API carry no credentials, so responses to these may be
+# shared with any origin.
+CORS_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+# URL configurations making up the public, machine-readable read surface (JSON
+# API + binary ISCC-Log). The HTML views urlconf is deliberately excluded.
+CORS_READ_URLCONFS = frozenset({"iscc_hub.urls_api", "iscc_hub.urls_log"})
 
 
 def ContentNegotiationMiddleware(get_response):
@@ -75,6 +84,33 @@ def ContentNegotiationMiddleware(get_response):
         determine_urlconf(request)
         response = get_response(request)  # type: ignore
         patch_vary_headers(response, ("Accept",))
+        return response
+
+    return middleware
+
+
+def CorsReadMiddleware(get_response):
+    # type: (Any) -> Any
+    """
+    Expose the public read surface to cross-origin browser clients.
+
+    Stamps ``Access-Control-Allow-Origin: *`` on safe-method responses routed to
+    the JSON API or ISCC-Log url configurations, so a Hub homepage served from one
+    origin can resolve declarations, look-ups, and log tiles from another Hub (and
+    Monitors/Aggregators can read the log from any origin). Write endpoints
+    (POST/DELETE) and the HTML views are never exposed.
+
+    The data is public and unauthenticated, so a wildcard origin is safe; it is
+    never paired with ``Access-Control-Allow-Credentials``. Must be listed after
+    ContentNegotiationMiddleware, which selects ``request.urlconf``.
+    """
+
+    def middleware(request):
+        # type: (HttpRequest) -> HttpResponse
+        """Add a permissive CORS header to read-surface responses."""
+        response = get_response(request)  # type: ignore
+        if request.method in CORS_SAFE_METHODS and getattr(request, "urlconf", None) in CORS_READ_URLCONFS:
+            response["Access-Control-Allow-Origin"] = "*"
         return response
 
     return middleware
