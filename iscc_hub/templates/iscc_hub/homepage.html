@@ -69,6 +69,11 @@
                 .rc-skel, .rc-mfill { animation: none !important; }
                 .rc-card:hover { transform: none; }
             }
+            /* Precision banner: native <details> as a subtle disclosure. Hide the default marker so
+               the summary reads as a one-line signal with an inline info "i" affordance instead. */
+            #precision-note details > summary { list-style: none; }
+            #precision-note details > summary::-webkit-details-marker { display: none; }
+            #precision-note details > summary:focus-visible { outline: 2px solid var(--rc-blue); outline-offset: 2px; border-radius: 10px; }
         </style>
 {% endblock %}
 
@@ -261,10 +266,16 @@
                         <span id="confidence-count" class="text-xs text-gray-500 whitespace-nowrap"></span>
                     </div>
                     <button type="button" data-action="clear-results"
-                            class="ml-auto inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-colors">
+                            class="ml-auto inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-iscc-coral rounded-lg shadow-sm hover:bg-red-600 transition-colors">
                         Clear <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
+
+                <!-- Precision banner for similarity results: full 256-bit units (dropped file) vs the
+                     reduced 64-bit composite (pasted ISCC-CODE). Lives outside #results-container so it
+                     survives renderCards' innerHTML rewrites; set/cleared only via renderPrecisionNote.
+                     Exact paths (datahash lookup, ISCC-ID resolve) leave it hidden. -->
+                <div id="precision-note" class="mb-5" hidden></div>
 
                 <div id="results-container" role="list" class="flex flex-col" style="gap: 24px;"></div>
             </div>
@@ -595,6 +606,10 @@
                     try {
                         let isccCode;
                         let usedGenerator = false;
+                        // Full 256-bit ISCC-UNITs the generator returns alongside the composite. Kept
+                        // verbatim (count varies: 4 for audio/video, 5 for text/image) for the full-
+                        // precision unit search; null when the generator omits them (older backend).
+                        let units = null;
                         if (GENERATOR_URL) {
                             try {
                                 // Upload to the iscc-web backend for a full ISCC-CODE (Meta/Semantic/
@@ -607,7 +622,8 @@
                                     throw new Error('Generator returned no ISCC-CODE');
                                 }
                                 usedGenerator = true;
-                                console.log('Full ISCC-CODE:', isccCode);
+                                units = Array.isArray(metadata.units) ? metadata.units : null;
+                                console.log('Full ISCC-CODE:', isccCode, '· units:', units ? units.length : 0);
                             } catch (genError) {
                                 // Generator unreachable / stalled (timeout) / malformed response:
                                 // degrade to the local Instance-Code so exact datahash lookup still
@@ -634,9 +650,13 @@
                         isccInput.placeholder = ORIGINAL_PLACEHOLDER;
                         clearProgress();
 
-                        // A full generated code drives similarity search; a local Instance-Code
-                        // (including the generator-failure fallback) drives the exact datahash lookup.
-                        if (usedGenerator) {
+                        // Full units from the generator drive the highest-precision (256-bit) search;
+                        // a generator that returned only a composite drops to the reduced 64-bit path;
+                        // a local Instance-Code (including the generator-failure fallback) drives the
+                        // exact datahash lookup.
+                        if (usedGenerator && units && units.length) {
+                            await performUnitSearch(units, isccCode);
+                        } else if (usedGenerator) {
                             await performSimilaritySearch(isccCode);
                         } else {
                             await performSearch(isccCode);
@@ -767,7 +787,7 @@
                     DATA:     { name: 'Data',     bar: '#123663', label: '#123663' },
                     INSTANCE: { name: 'Instance', bar: '#a6db50', label: '#6fa72e' },
                 };
-                const FACET_ORDER = ['INSTANCE', 'DATA', 'CONTENT', 'META', 'SEMANTIC'];
+                const FACET_ORDER = ['INSTANCE', 'DATA', 'CONTENT', 'SEMANTIC', 'META'];
 
                 // Session-scoped card models (PII: gateway metadata is held here only and cleared on
                 // each new search) plus the lazy-hydration observer.
@@ -921,18 +941,25 @@
                     }).filter(Boolean).join(' ');
                 }
 
+                // Short, human label for an IANA media type (application/pdf -> PDF); '' when unknown.
+                // Mapping order mirrors fileGlyph's original logic so the placeholder glyph and the
+                // format chip read identically.
+                function mediatypeLabel(mediatype) {
+                    const mt = String(mediatype || '').toLowerCase();
+                    if (!mt) return '';
+                    if (mt.indexOf('pdf') !== -1) return 'PDF';
+                    if (mt.indexOf('image/') === 0) return (mt.split('/')[1] || 'image').toUpperCase().slice(0, 4);
+                    if (mt.indexOf('xml') !== -1) return 'XML';
+                    if (mt.indexOf('text/') === 0) return 'TXT';
+                    return (mt.split('/').pop() || 'file').toUpperCase().slice(0, 4);
+                }
+
                 // Short file-type label + icon for the no-thumbnail placeholder, derived from mediatype.
                 function fileGlyph(model) {
                     const mt = String(model.mediatype || '').toLowerCase();
                     const docIcon = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"></path><path d="M14 4v5h5"></path></svg>';
                     const imgIcon = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="8.5" cy="10" r="1.5"></circle><path d="M21 16l-5-5L5 19"></path></svg>';
-                    let label = 'no preview', icon = docIcon;
-                    if (mt.indexOf('pdf') !== -1) label = 'PDF';
-                    else if (mt.indexOf('image/') === 0) { label = (mt.split('/')[1] || 'image').toUpperCase().slice(0, 4); icon = imgIcon; }
-                    else if (mt.indexOf('xml') !== -1) label = 'XML';
-                    else if (mt.indexOf('text/') === 0) label = 'TXT';
-                    else if (mt) label = (mt.split('/').pop() || 'file').toUpperCase().slice(0, 4);
-                    return { label: label, icon: icon };
+                    return { label: mediatypeLabel(mt) || 'no preview', icon: (mt.indexOf('image/') === 0) ? imgIcon : docIcon };
                 }
 
                 // ---- Tier-0 (static) regions ----------------------------------------------
@@ -957,8 +984,9 @@
                     const rows = Object.keys(types).map(function (k) {
                         const prefix = k.split('_')[0].toUpperCase();
                         const f = FACETS[prefix] || { name: prefix.charAt(0) + prefix.slice(1).toLowerCase(), bar: '#6c757d', label: '#6c757d' };
-                        return { name: f.name, bar: f.bar, label: f.label, score: types[k], order: FACET_ORDER.indexOf(prefix) };
-                    }).sort(function (a, b) { return (b.score - a.score) || (a.order - b.order); });
+                        const oi = FACET_ORDER.indexOf(prefix);
+                        return { name: f.name, bar: f.bar, label: f.label, score: types[k], order: oi === -1 ? FACET_ORDER.length : oi };
+                    }).sort(function (a, b) { return a.order - b.order; });
                     const bars = rows.map(function (r) {
                         const sc = Math.max(0, Math.min(1, r.score));
                         return ''
@@ -1000,12 +1028,15 @@
                     const dateStr = model.tsIso ? ('&middot; declared ' + model.tsIso.slice(0, 10)) : '';
                     if (model.name) {
                         const formChip = model.form ? '<span style="font-family:var(--rc-font-mono); font-size:10px; color:var(--rc-fg-3); background:var(--rc-gray-100); padding:2px 7px; border-radius:4px;">' + escapeHtml(humanForm(model.form)) + '</span>' : '';
+                        // File format from the gateway's `mediatype` (e.g. application/pdf -> PDF);
+                        // an outlined chip to distinguish it from the filled content-kind form chip.
+                        const formatChip = model.mediatype ? '<span style="font-family:var(--rc-font-mono); font-size:10px; color:var(--rc-fg-3); border:1px solid var(--rc-gray-300); padding:1px 6px; border-radius:4px;" title="' + escapeHtml(model.mediatype) + '">' + escapeHtml(mediatypeLabel(model.mediatype)) + '</span>' : '';
                         const authors = creatorText(model.creator);
                         const authorLine = authors ? '<span style="font-size:12.5px; font-weight:300; color:var(--rc-fg-2); line-height:1.3;">' + escapeHtml(authors) + '</span>' : '';
                         return ''
                             + '<div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:7px;">'
                             + '<div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;">'
-                            + '<span style="font-size:16.5px; font-weight:600; color:var(--rc-navy); letter-spacing:-.01em; line-height:1.25;">' + escapeHtml(model.name) + '</span>' + formChip
+                            + '<span style="font-size:16.5px; font-weight:600; color:var(--rc-navy); letter-spacing:-.01em; line-height:1.25;">' + escapeHtml(model.name) + '</span>' + formChip + formatChip
                             + '</div>'
                             + authorLine
                             + '<div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">'
@@ -1319,10 +1350,55 @@
                         + '</div>';
                 }
 
+                // Subtle precision banner above similarity results: result reliability tracks the query
+                // unit-width, which the viewer controls by dropping a file (full 256-bit units) vs
+                // pasting a composite ISCC-CODE (first 64 bits of each unit). A native <details> keeps
+                // the one-line signal collapsed with an inline info "i"; expanding reveals one sentence.
+                //   'full'    -> green/positive   'reduced' -> amber/caution   null/other -> hidden.
+                // Lives outside #results-container, so non-card paths must clear it via this fn.
+                function renderPrecisionNote(precision) {
+                    const note = document.getElementById('precision-note');
+                    if (!note) return;
+                    if (precision !== 'full' && precision !== 'reduced') {
+                        note.hidden = true;
+                        note.innerHTML = '';
+                        return;
+                    }
+                    const info = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" style="flex-shrink:0;" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 7.5h.01"></path></svg>';
+                    let color, bg, border, summary, detail;
+                    if (precision === 'full') {
+                        color = 'var(--rc-green-text)';
+                        bg = 'rgba(90,138,16,.06)';
+                        border = 'rgba(90,138,16,.30)';
+                        summary = '✓ Full-precision search · 256-bit units';
+                        detail = 'Searched with the complete 256-bit ISCC-UNITs computed from your file — the most reliable ranking.';
+                    } else {
+                        color = '#b45309';
+                        bg = 'rgba(180,83,9,.06)';
+                        border = 'rgba(180,83,9,.30)';
+                        summary = '⚠ Reduced precision · 64-bit composite';
+                        detail = 'Searched from a composite ISCC-CODE, which keeps only the first 64 bits of each unit. Matches are coarser and more prone to false positives — drop the original file for full-precision results.';
+                    }
+                    note.innerHTML = ''
+                        + '<details style="background:' + bg + '; border:1px solid ' + border + '; border-radius:10px;">'
+                        + '<summary style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:8px 12px; color:' + color + '; font-size:12px; font-weight:600;">'
+                        + '<span style="font-family:var(--rc-font-mono); letter-spacing:.02em;">' + escapeHtml(summary) + '</span>'
+                        + '<span style="margin-left:auto; display:inline-flex; opacity:.85;">' + info + '</span>'
+                        + '</summary>'
+                        + '<p style="margin:0; padding:0 12px 10px 12px; font-size:11.5px; font-weight:300; line-height:1.45; color:var(--rc-fg-2);">' + escapeHtml(detail) + '</p>'
+                        + '</details>';
+                    note.hidden = false;
+                }
+
                 // Render the card list and start lazy hydration. Shared by exact + similarity paths.
                 function renderCards(models, headerOpts) {
                     const container = document.getElementById('results-container');
                     const section = document.getElementById('results-section');
+
+                    // Set/clear the precision banner once per render, before the empty-state early
+                    // return, so even a "no matches" render carries (or clears) it exactly once.
+                    // Exact paths pass no `precision` -> null -> banner hidden.
+                    renderPrecisionNote(headerOpts.precision || null);
 
                     // New search -> drop prior session state (incl. any cached gateway PII) and observer.
                     for (const k in cardModels) delete cardModels[k];
@@ -1528,6 +1604,7 @@
                             // surface the actual error instead of a misleading "not enabled" notice.
                             if (onUnavailable) { await onUnavailable(); return; }
                             const message = (errorData && (errorData.error?.message || errorData.detail)) || 'Search failed';
+                            renderPrecisionNote(null);
                             showError(message);
                             return;
                         }
@@ -1537,10 +1614,59 @@
                         // No similar matches for a manually entered code: it may still be declared on
                         // this hub, so fall back to exact /lookup before showing an empty state.
                         if (!matches.length && onUnavailable) { await onUnavailable(); return; }
-                        renderSimilarityResults(matches);
+                        renderSimilarityResults(matches, 'reduced');
 
                     } catch (error) {
                         console.error('Similarity search error:', error);
+                        renderPrecisionNote(null);
+                        showError('Failed to search for similar content');
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+
+                // Full-precision similarity search: POST the generator's complete 256-bit ISCC-UNITs
+                // verbatim to /search (handle_post reads `limit` from the query string, the IsccQuery
+                // from the body). A dropped file has no exact ISCC-CODE to fall back to, so — unlike
+                // performSimilaritySearch — there is no onUnavailable branch: the hub's OWN 404 (error
+                // envelope) means similarity isn't enabled here and echoes the composite; any other
+                // error surfaces directly. `composite` (= metadata.iscc) is passed only for that echo.
+                async function performUnitSearch(units, composite) {
+                    if (!units || !units.length) {
+                        return;
+                    }
+
+                    console.log('Full-precision unit search:', units.length, 'units');
+                    setLoading(true);
+
+                    try {
+                        const response = await fetch('/search?limit=20', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                            body: JSON.stringify({ units: units }),
+                        });
+
+                        if (!response.ok) {
+                            let errorData = null;
+                            try { errorData = await response.json(); } catch (e) { /* non-JSON error body */ }
+                            // The hub's OWN 404 (error envelope) means similarity is not enabled here.
+                            if (response.status === 404 && errorData && errorData.error) {
+                                renderSimilarityUnavailable(composite);
+                                return;
+                            }
+                            const message = (errorData && (errorData.error?.message || errorData.detail)) || 'Search failed';
+                            renderPrecisionNote(null);
+                            showError(message);
+                            return;
+                        }
+
+                        const data = await response.json();
+                        const matches = data.global_matches || [];
+                        renderSimilarityResults(matches, 'full');
+
+                    } catch (error) {
+                        console.error('Unit search error:', error);
+                        renderPrecisionNote(null);
                         showError('Failed to search for similar content');
                     } finally {
                         setLoading(false);
@@ -1550,18 +1676,20 @@
                 // Render ranked similarity matches from /search as question-rail cards. Each match
                 // is a thin Tier-0 pointer; the issuing-hub resolve (Tier 1) and gateway metadata
                 // (Tier 2) hydrate it lazily as it scrolls into view.
-                function renderSimilarityResults(matches) {
+                function renderSimilarityResults(matches, precision) {
                     const models = matches.map(modelFromMatch);
-                    renderCards(models, { kind: 'similarity' });
+                    renderCards(models, { kind: 'similarity', precision: precision });
                 }
 
                 // Surface the generated ISCC-CODE when similarity search is not enabled on this hub.
                 function renderSimilarityUnavailable(isccCode) {
                     const resultsContainer = document.getElementById('results-container');
                     const resultsSection = document.getElementById('results-section');
-                    // No result cards here -> hide the confidence filter a prior search may have shown.
+                    // No result cards here -> hide the confidence filter a prior search may have shown
+                    // and clear any precision banner (this notice bypasses renderCards).
                     const filter = document.getElementById('confidence-filter');
                     if (filter) filter.style.display = 'none';
+                    renderPrecisionNote(null);
 
                     resultsContainer.innerHTML = `
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

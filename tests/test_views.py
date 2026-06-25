@@ -243,6 +243,8 @@ def test_homepage_view():
     # The confidence-filter slider and its server-set default threshold are embedded.
     assert b'id="iscc-search-min-score"' in response.content
     assert b'id="confidence-slider"' in response.content
+    # The similarity-precision banner element is present for renderPrecisionNote to populate.
+    assert b'id="precision-note"' in response.content
 
 
 @pytest.mark.django_db
