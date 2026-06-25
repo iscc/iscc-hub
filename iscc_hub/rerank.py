@@ -18,6 +18,15 @@ scores already present in each match: a candidate can only match unit types the
 query carries, so the candidate's own `types` keys are exactly the set of
 MainTypes to aggregate — no ISCC decoding is needed.
 
+One deliberate divergence from the iscc-covers reference (tsr-spec.md v1.2 and its
+app.jsx implementation both promote a lone high Semantic-Code straight to T4): here
+the adaptation tier (T4) also requires a corroborating second unit, the same shape
+the reference already applies to the re-encoded tier (T3, Content). A lone 64-bit
+Semantic-Code at high similarity is collision-prone across same-domain text (a single
+scholarly field shares semantic codes), so without corroboration it is demoted to the
+isolated tier (T7). That keeps a single-signal match at a low confidence score, which
+the homepage's conservative confidence threshold then filters out by default.
+
 The default weights are the "adaptation" preset (SEMANTIC-emphasised); thresholds
 are the spec defaults. Both are module constants — tune them here if a corpus
 needs a different balance.
@@ -128,7 +137,10 @@ def classify_tier(agg):
     # is too coincidence-prone on templated corpora to promote to near-duplicate.
     if s_c is not None and s_c >= TAU_HIGH and count_soft >= 2:
         return "T3"
-    if s_s is not None and s_s >= TAU_HIGH:
+    # T4 requires Semantic-high AND a second unit at the soft floor: a lone Semantic-Code is a
+    # 64-bit-unit coincidence on same-domain text, so — mirroring the T3 Content-Code rule — it
+    # must corroborate or it falls through to T7 isolated (capped well below a real adaptation).
+    if s_s is not None and s_s >= TAU_HIGH and count_soft >= 2:
         return "T4"
     # T5: one signal at the soft floor corroborated by a distinct second at the weak floor.
     if count_soft >= 1 and count_weak >= 2:

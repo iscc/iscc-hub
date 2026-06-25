@@ -46,7 +46,8 @@ def test_classify_tier_all_tiers():
         ({"DATA": 0.9, "CONTENT": 0.9}, "T2"),  # data-high, content also high
         ({"DATA": 0.9, "CONTENT": 0.5}, "T7"),  # data-high but content contradicts -> falls through
         ({"CONTENT": 0.9, "SEMANTIC": 0.75}, "T3"),  # content-high corroborated by a soft second
-        ({"SEMANTIC": 0.9}, "T4"),  # semantic-high alone
+        ({"SEMANTIC": 0.9, "CONTENT": 0.72}, "T4"),  # semantic-high corroborated by a soft second
+        ({"SEMANTIC": 0.9}, "T7"),  # semantic-high alone is isolated, not an adaptation
         ({"CONTENT": 0.72, "DATA": 0.65}, "T5"),  # one soft + a distinct weak corroborator
         ({"META": 0.9}, "T6"),  # title-only: meta-high, nothing else
         ({"CONTENT": 0.8}, "T7"),  # single soft signal, isolated
@@ -110,7 +111,10 @@ def test_tier_score_cap_binds_for_weak_tiers():
 def test_tier_score_cap_not_binding():
     # type: () -> None
     """When the weighted mean is below the cap, the mean is kept (T4 cap is 1.0)."""
-    assert tier_score("T4", {"SEMANTIC": 0.9}) == pytest.approx(0.9)
+    # A reachable T4 agg (semantic-high corroborated by a soft second); the weighted mean is
+    # below the 1.0 cap, so tier_score returns it unchanged.
+    agg = {"SEMANTIC": 0.9, "CONTENT": 0.72}
+    assert tier_score("T4", agg) == pytest.approx(weighted_score(agg))
 
 
 def test_tier_score_isolated_penalty_then_cap():
