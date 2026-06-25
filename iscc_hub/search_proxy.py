@@ -7,7 +7,8 @@ splits into a pure policy core (validation, failover classification, circuit
 breaker transitions, response projection — all testable without I/O) and a thin
 I/O shell (shared niquests session, in-flight semaphore, per-backend breakers).
 
-Opt-in: with no ISCC_HUB_SEARCH_URLS configured, every /search request gets 404.
+Defaults to the public search.iscc.io backend; with ISCC_HUB_SEARCH_URLS set empty,
+every /search request gets 404.
 """
 
 import json

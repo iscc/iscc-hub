@@ -73,11 +73,12 @@ ISCC_HUB_DID_CACHE_TTL = env.int("ISCC_HUB_DID_CACHE_TTL", default=3600)  # B po
 # Injection seam for B's DID HTTP client; None -> the SSRF-guarded production client (see identity.py).
 ISCC_HUB_DID_HTTP_CLIENT = None
 
-# Similarity search proxy (opt-in; an empty ISCC_HUB_SEARCH_URLS disables /search entirely).
-# The Hub proxies similarity queries to external iscc-search backends hosting the hub-global
-# index. The target index name derives from the Hub's network: realm 0 (testnet) -> idptest,
-# realm 1 (mainnet) -> idp; ISCC_HUB_SEARCH_INDEX overrides the derived default when set.
-ISCC_HUB_SEARCH_URLS = env.list("ISCC_HUB_SEARCH_URLS", default=[])
+# Similarity search proxy. The Hub proxies similarity queries to external iscc-search backends
+# hosting the hub-global index, defaulting to the public search.iscc.io backend. Set an empty
+# ISCC_HUB_SEARCH_URLS to disable /search entirely (every request then returns 404). The target
+# index name derives from the Hub's network: realm 0 (testnet) -> idptest, realm 1 (mainnet) ->
+# idp; ISCC_HUB_SEARCH_INDEX overrides the derived default when set.
+ISCC_HUB_SEARCH_URLS = env.list("ISCC_HUB_SEARCH_URLS", default=["https://search.iscc.io"])
 ISCC_HUB_SEARCH_INDEX = env.str("ISCC_HUB_SEARCH_INDEX", default="idp" if ISCC_HUB_REALM == 1 else "idptest")
 ISCC_HUB_SEARCH_TIMEOUT = env.float("ISCC_HUB_SEARCH_TIMEOUT", default=1.5)
 ISCC_HUB_SEARCH_MAX_INFLIGHT = env.int("ISCC_HUB_SEARCH_MAX_INFLIGHT", default=24)
