@@ -159,6 +159,30 @@ def create_note_with_real_iscc_data(timestamp, nonce=None, keypair=None):
     return icr.sign_json(note, keypair)
 
 
+def create_note_with_example_code(timestamp, nonce=None, keypair=None):
+    # type: (str, str|None, icr.KeyPair|None) -> dict
+    """
+    Create a signed IsccNote for the homepage "Try example" code.
+
+    Uses a real, declared 256-bit manifestation code (resolved from the live amlet.id hub)
+    so the bundled fixture lets the homepage example resolve via exact /lookup at the
+    default, search-disabled configuration. Keep this iscc_code in sync with the example in
+    iscc_hub/templates/iscc_hub/homepage.html.
+    """
+    nonce = nonce or icr.create_nonce(1)
+    keypair = keypair or icr.key_generate()
+
+    note = {
+        "$schema": ISCC_NOTE_SCHEMA,
+        "iscc_code": "ISCC:KADUMSNKG4UYRGIFO6WUTA4FP42AZZKQZMWHJRDL5Y5DN5CUHCHDLPOBGI7TBJX4WATQ",
+        "datahash": "1e20c1323f30a6fcb0271ab65b966f8a39f1d11ec8b8fccc71b0a45dfc9ec653af8c",
+        "nonce": nonce,
+        "timestamp": timestamp,
+    }
+
+    return icr.sign_json(note, keypair)
+
+
 def create_note_with_units(timestamp, nonce=None, keypair=None):
     # type: (str, str|None, icr.KeyPair|None) -> dict
     """Create a signed IsccNote with units field."""
@@ -349,7 +373,14 @@ def generate_fixtures():
     datahash = "1e203b783a6102610a276ef438f5311a0f8f7f49849a477be62371b174c0c2929bc9"
     print(f"  - Created declaration with real ISCC data (datahash: {datahash})")
 
-    # 7. Delete the fourth declaration (created by keypair1)
+    # 7. Create the homepage "Try example" declaration so the bundled fixture resolves it
+    note7 = create_note_with_example_code(
+        timestamp=create_timestamp(base_time, 285),  # 4.75 minutes later
+    )
+    seq7, iscc_id7 = process_iscc_note(note7)
+    print("  - Created homepage example declaration")
+
+    # 8. Delete the fourth declaration (created by keypair1)
     iscc_id4_str = str(IsccID(iscc_id4))
     delete_note = create_delete_note(
         iscc_id=iscc_id4_str,

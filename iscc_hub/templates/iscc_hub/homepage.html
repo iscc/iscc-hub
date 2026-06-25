@@ -125,7 +125,7 @@
                                             type="text"
                                             id="iscc-input"
                                             name="iscc"
-                                            placeholder="ISCC:KACWN77F73NA44D... or drop a file"
+                                            placeholder="ISCC:KADUMSNKG4UYRGIF... or drop a file"
                                             class="flex-1 px-4 py-4 text-[15px] border-0 rounded-l-lg outline-none font-mono font-thin tracking-tighter text-white bg-white/10 placeholder-gray-400 transition-all duration-300"
                                             required
                                         />
@@ -165,9 +165,9 @@
                                     <button
                                         type="button"
                                         class="text-sm text-iscc-cyan hover:text-white underline font-mono transition-colors"
-                                        onclick="document.getElementById('iscc-input').value='ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I'; document.getElementById('iscc-lookup-form').requestSubmit()"
+                                        onclick="document.getElementById('iscc-input').value='ISCC:KADUMSNKG4UYRGIFO6WUTA4FP42AZZKQZMWHJRDL5Y5DN5CUHCHDLPOBGI7TBJX4WATQ'; document.getElementById('iscc-lookup-form').requestSubmit()"
                                     >
-                                        ISCC:KACWN77F73NA44D...
+                                        ISCC:KADUMSNKG4UYRGIF...
                                     </button>
                                     <span class="text-sm text-white/40">or</span>
                                     <button
@@ -1363,7 +1363,11 @@
                 }
 
                 // Similarity search against /search; renders ranked matches or a graceful fallback.
-                async function performSimilaritySearch(isccCode) {
+                // `onUnavailable` (optional) runs whenever similarity can't answer — backend not
+                // enabled (404), unreachable/saturated (5xx), or zero matches — so the manual paste
+                // path (routeQuery) can fall back to the hub's authoritative exact /lookup. Without
+                // it, the default "not enabled" notice / search error / empty state are shown.
+                async function performSimilaritySearch(isccCode, onUnavailable) {
                     if (!isccCode) {
                         return;
                     }
@@ -1377,11 +1381,17 @@
 
                         // Similarity search is opt-in (ISCC_HUB_SEARCH_URLS); 404 = not enabled here.
                         if (response.status === 404) {
-                            renderSimilarityUnavailable(isccCode);
+                            if (onUnavailable) { await onUnavailable(); }
+                            else { renderSimilarityUnavailable(isccCode); }
                             return;
                         }
 
                         if (!response.ok) {
+                            // Backend configured but unreachable/saturated (e.g. 503): for the manual
+                            // exact-code path, fall back to the hub's authoritative /lookup so locally
+                            // declared content stays resolvable. The generator/drop path (no
+                            // onUnavailable) still surfaces the search error.
+                            if (onUnavailable) { await onUnavailable(); return; }
                             let message = 'Search failed';
                             try {
                                 const errorData = await response.json();
@@ -1392,7 +1402,11 @@
                         }
 
                         const data = await response.json();
-                        renderSimilarityResults(data.global_matches || []);
+                        const matches = data.global_matches || [];
+                        // No similar matches for a manually entered code: it may still be declared on
+                        // this hub, so fall back to exact /lookup before showing an empty state.
+                        if (!matches.length && onUnavailable) { await onUnavailable(); return; }
+                        renderSimilarityResults(matches);
 
                     } catch (error) {
                         console.error('Similarity search error:', error);
@@ -1433,6 +1447,61 @@
                     return div.innerHTML;
                 }
 
+                // MainType nibble of an ISCC (4=Instance-Code, 5=ISCC-CODE, 6=ISCC-ID), or -1 if it
+                // does not decode. The header's top nibble is the MainType; this mirrors the server's
+                // `mt` check (api.resolve) using the base32 decoder already present in this file.
+                function isccMainType(value) {
+                    try {
+                        const body = String(value).replace(/^ISCC:/i, '').toUpperCase();
+                        const bytes = decodeBase32(body);
+                        return bytes.length ? (bytes[0] >> 4) : -1;
+                    } catch (e) {
+                        return -1;
+                    }
+                }
+
+                // Resolve a pasted ISCC-ID to its declaration. Decodes the issuing hub id locally and
+                // resolves at that hub (self = same origin, known peers via the hub map), then renders
+                // the signed declaration as a single exact-match card. Unknown hub / not found / a
+                // CORS-blocked cross-hub fetch all degrade to the empty state.
+                async function performResolve(isccId) {
+                    if (!isccId) {
+                        return;
+                    }
+                    console.log('Resolving ISCC-ID:', isccId);
+                    setLoading(true);
+                    try {
+                        const decoded = decodeIsccId(isccId);
+                        const iid = String(isccId).replace(/^ISCC:/i, '').toLowerCase();
+                        const decl = decoded ? await resolveDeclaration({ hubId: decoded.hubId, iid: iid }) : null;
+                        renderResults(decl ? [decl] : []);
+                    } catch (error) {
+                        console.error('Resolve error:', error);
+                        showError('Failed to resolve ISCC-ID');
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+
+                // Route a typed/pasted/example ISCC the same way the drop path resolves a generated one:
+                //  - ISCC-ID (MainType 6): resolve the declaration at its issuing hub.
+                //  - Instance-Code (MainType 4): exact datahash lookup — "is this exact file declared here?"
+                //  - any other ISCC-CODE: similarity search via /search (mirrors drag-and-drop). On a hub
+                //    with no search backend the proxy 404s, so fall back to exact iscc_code lookup.
+                async function routeQuery(isccValue) {
+                    if (!isccValue) {
+                        return;
+                    }
+                    const mt = isccMainType(isccValue);
+                    if (mt === 6) {
+                        await performResolve(isccValue);
+                    } else if (mt === 4) {
+                        await performSearch(isccValue);
+                    } else {
+                        await performSimilaritySearch(isccValue, function () { return performSearch(isccValue); });
+                    }
+                }
+
                 // Handle form submission
                 document.getElementById('iscc-lookup-form').addEventListener('submit', async function(e) {
                     e.preventDefault();
@@ -1443,7 +1512,7 @@
                     }
 
                     const isccValue = isccInput.value.trim();
-                    await performSearch(isccValue);
+                    await routeQuery(isccValue);
                 });
 
                 // Clear results — delegated on the results section so the static Clear button (and any
