@@ -1155,13 +1155,10 @@
                     }
                 }
 
-                // Best-effort fetch of a gateway's inline metadata as JSON. Gateways expose it at
-                // <gateway-url>/metadata (the base URL itself usually serves an HTML landing page).
-                // A 404 / non-JSON / CORS-blocked response -> null, and Tier 2 just doesn't apply.
-                async function fetchGatewayMeta(gateway) {
-                    const base = safeUrl(gateway, false);
-                    if (!base) return null;
-                    const url = base.replace(/\/+$/, '') + '/metadata';
+                // Fetch + validate a JSON object from a URL. Returns the parsed object, or null on
+                // !ok / non-JSON / CORS / network failure. Shared by the fast-path and the CID fallback.
+                async function fetchJsonObject(url) {
+                    if (!url) return null;
                     try {
                         const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
                         if (!resp.ok) return null;
@@ -1173,20 +1170,64 @@
                     }
                 }
 
+                // Resolve a gateway's metadata endpoint via its W3C CID document: GET the gateway base,
+                // find the service whose type is "IsccMetadata", return its serviceEndpoint. This lets a
+                // spec-conformant gateway host metadata at any path. null if no such service is present.
+                async function metadataEndpointFromCid(base) {
+                    const cid = await fetchJsonObject(base);
+                    if (!cid || !Array.isArray(cid.service)) return null;
+                    const svc = cid.service.find(function (s) {
+                        return s && s.type === 'IsccMetadata' && typeof s.serviceEndpoint === 'string';
+                    });
+                    return svc ? safeUrl(svc.serviceEndpoint, false) : null;
+                }
+
+                // Best-effort fetch of a gateway's inline metadata as JSON. Fast-path <gateway>/metadata
+                // (the common convention; the base URL itself usually serves an HTML landing page); on a
+                // miss, follow the CID document's IsccMetadata service descriptor. A 404 / non-JSON /
+                // CORS-blocked response -> null, and Tier 2 just doesn't apply.
+                async function fetchGatewayMeta(gateway) {
+                    const base = safeUrl(gateway, false);
+                    if (!base) return null;
+                    const fastPath = base.replace(/\/+$/, '') + '/metadata';
+                    const fast = await fetchJsonObject(fastPath);
+                    if (fast) return fast;
+                    const endpoint = await metadataEndpointFromCid(base);
+                    return (endpoint && endpoint !== fastPath) ? await fetchJsonObject(endpoint) : null;
+                }
+
                 // Map a partial metadata object onto the card model (defensive; any subset present).
                 // Accepts both the iscc-schema field names and the gateway's current shape
-                // (title / cover_url / authors / isbn) until the gateway emits full iscc-schema metadata.
+                // (title / cover_url / authors / isbn / resource_type / identifiers[]) until the gateway
+                // emits full iscc-schema metadata.
                 function applyGatewayMeta(model, meta) {
                     // Title is the headline signal: prefer iscc-schema `name`, fall back to `title`.
                     const name = (typeof meta.name === 'string') ? meta.name : (typeof meta.title === 'string' ? meta.title : null);
                     if (name) model.name = name;
                     if (typeof meta.description === 'string') model.description = meta.description;
-                    if (typeof meta.form === 'string') model.form = meta.form;
+                    // Form/type chip: iscc-schema `form`, else the gateway's `resource_type` (e.g. JournalArticle).
+                    const form = (typeof meta.form === 'string') ? meta.form
+                        : (typeof meta.resource_type === 'string') ? meta.resource_type : null;
+                    if (form) model.form = form;
                     if (typeof meta.mediatype === 'string') model.mediatype = meta.mediatype;
                     const creator = (typeof meta.creator === 'string' || Array.isArray(meta.creator)) ? meta.creator
                         : (Array.isArray(meta.authors) ? meta.authors : null);
                     if (creator) model.creator = creator;
-                    const identifier = meta.identifier ? meta.identifier : (typeof meta.isbn === 'string' ? meta.isbn : null);
+                    // Identifiers: the gateway's `identifiers[]` ({type, value, is_primary}) -> {scheme, code}
+                    // chips with the primary first; else a scalar `identifier` / `isbn`. identifierChips
+                    // renders any of these shapes.
+                    let identifier = null;
+                    if (Array.isArray(meta.identifiers)) {
+                        identifier = meta.identifiers
+                            .filter(function (i) { return i && typeof i.value === 'string'; })
+                            .sort(function (a, b) { return (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0); })
+                            .map(function (i) { return { scheme: i.type, code: i.value }; });
+                        if (!identifier.length) identifier = null;
+                    } else if (meta.identifier) {
+                        identifier = meta.identifier;
+                    } else if (typeof meta.isbn === 'string') {
+                        identifier = meta.isbn;
+                    }
                     if (identifier) model.identifier = identifier;
                     const thumb = (typeof meta.thumbnail === 'string') ? meta.thumbnail
                         : (typeof meta.image === 'string') ? meta.image
