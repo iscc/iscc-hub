@@ -92,6 +92,11 @@ ISCC_HUB_SEARCH_RERANK = env.bool("ISCC_HUB_SEARCH_RERANK", default=True)
 # TSR reorders this window and the client limit is applied afterwards, so a high-TSR match
 # outside the backend's raw-score top-N can still surface. Ignored when reranking is off.
 ISCC_HUB_SEARCH_RERANK_WINDOW = env.int("ISCC_HUB_SEARCH_RERANK_WINDOW", default=100)
+# Default confidence threshold (0..1) the homepage similarity results start filtered at: weaker
+# matches are hidden until the viewer drags the slider down. Conservative by default so a
+# single-signal match (scored low by TSR) does not clutter the results. Client-side only — the
+# /search API still returns every reranked match with its score; this is just the UI's lens.
+ISCC_HUB_SEARCH_MIN_SCORE = env.float("ISCC_HUB_SEARCH_MIN_SCORE", default=0.70)
 
 # ISCC generator backend (iscc-web). When set, the homepage uploads a dropped file to this service
 # and generates a full ISCC-CODE (Meta/Semantic/Content/Data/Instance) instead of only a local

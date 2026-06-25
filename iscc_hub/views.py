@@ -24,7 +24,8 @@ def homepage(request):
     :return: Rendered homepage with the active-hub map embedded
     """
     hubs = list(Hub.objects.filter(active=True).order_by("hub_id").values("hub_id", "url"))
-    return render(request, "iscc_hub/homepage.html", {"hubs": hubs})
+    context = {"hubs": hubs, "search_min_score": settings.ISCC_HUB_SEARCH_MIN_SCORE}
+    return render(request, "iscc_hub/homepage.html", context)
 
 
 def health(request):

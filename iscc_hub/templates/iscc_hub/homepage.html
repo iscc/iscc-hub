@@ -244,14 +244,24 @@
 
         <!-- Active-hub map for client-side issuing-hub (Tier-1) resolution -->
         {{ hubs|json_script:"iscc-hubs-data" }}
+        {{ search_min_score|json_script:"iscc-search-min-score" }}
 
         <!-- Results Section (cards rendered + progressively hydrated by JS) -->
         <section id="results-section" class="py-16 hidden">
             <div class="max-w-7xl mx-auto px-6">
-                <!-- Clear results — a real button above the cards -->
-                <div class="flex justify-end mb-5">
+                <!-- Results toolbar: confidence filter (similarity results only) on the left, Clear on the right -->
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                    <div id="confidence-filter" class="items-center gap-3" style="display:none;">
+                        <label for="confidence-slider" class="text-sm font-medium text-gray-600 whitespace-nowrap">
+                            Confidence &ge; <span id="confidence-value" class="font-mono text-gray-800">70%</span>
+                        </label>
+                        <input type="range" id="confidence-slider" min="0" max="100" step="1" value="70"
+                               class="w-36 sm:w-44 cursor-pointer" style="accent-color:#0054b2;"
+                               aria-label="Minimum match confidence">
+                        <span id="confidence-count" class="text-xs text-gray-500 whitespace-nowrap"></span>
+                    </div>
                     <button type="button" data-action="clear-results"
-                            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-colors">
+                            class="ml-auto inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-colors">
                         Clear <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
@@ -764,6 +774,41 @@
                 const cardModels = {};
                 let cardObserver = null;
 
+                // Default confidence threshold (0..1) the similarity results start filtered at,
+                // from server settings (ISCC_HUB_SEARCH_MIN_SCORE); falls back to 0.70.
+                const SEARCH_MIN_SCORE = (function () {
+                    try { return JSON.parse(document.getElementById('iscc-search-min-score').textContent); }
+                    catch (e) { return 0.70; }
+                })();
+
+                // A result's confidence in 0..1. Exact /lookup hits carry a null score (matched on
+                // the datahash, not a similarity score) and count as full confidence.
+                function effectiveScore(model) {
+                    return (typeof model.score === 'number') ? model.score : 1.0;
+                }
+
+                // Hide similarity cards below the slider's threshold — client-side only, nothing is
+                // refetched — and update the "showing X of N" caption. Drag to 0 to reveal every
+                // reranked match (including the single-signal ones TSR scored low).
+                function applyConfidenceFilter() {
+                    const slider = document.getElementById('confidence-slider');
+                    const valueEl = document.getElementById('confidence-value');
+                    const countEl = document.getElementById('confidence-count');
+                    const pct = slider ? Number(slider.value) : Math.round(SEARCH_MIN_SCORE * 100);
+                    const threshold = pct / 100;
+                    if (valueEl) valueEl.textContent = pct + '%';
+                    let shown = 0;
+                    const cards = document.querySelectorAll('#results-container [data-iid]');
+                    cards.forEach(function (el) {
+                        const model = cardModels[el.getAttribute('data-iid')];
+                        const pass = !model || effectiveScore(model) >= threshold - 1e-9;
+                        el.style.display = pass ? '' : 'none';
+                        if (pass) shown++;
+                    });
+                    const total = cards.length;
+                    if (countEl) countEl.textContent = (shown === total) ? ('showing all ' + total) : ('showing ' + shown + ' of ' + total);
+                }
+
                 // Decode an ISCC-ID to {hubId, tsIso}. Base32 body -> 10 bytes (2 header + 8 body);
                 // the 8-byte body's top 52 bits are microseconds since epoch, low 12 bits the hub id.
                 // Mirrors iscc_hub/iscc_id.py.
@@ -782,11 +827,35 @@
                     }
                 }
 
-                // Confidence band from a 0..1 score; null/exact -> Exact match (navy).
-                function confidenceBand(score, isExact) {
-                    if (isExact || score === null || score >= 0.999) {
-                        return { label: 'Exact match', color: 'var(--rc-navy)', sub: 'byte-identical' };
+                // Per-MainType maxima from the backend's per-unit `types` scores (mirrors the
+                // aggregation in iscc_hub/rerank.py), so the band can key off *which* units matched.
+                function aggMainTypes(types) {
+                    const agg = {};
+                    Object.keys(types || {}).forEach(function (k) {
+                        const v = types[k];
+                        if (typeof v !== 'number') return;
+                        const mt = k.split('_')[0].toUpperCase();
+                        if (agg[mt] === undefined || v > agg[mt]) agg[mt] = v;
+                    });
+                    return agg;
+                }
+
+                // Confidence band from the *evidence*, not the scalar score. "Byte-identical" is
+                // claimed only for an exact /lookup hit or an Instance-Code identity (== 1.0) that no
+                // other unit contradicts. A contradicted instance — the reranker's T0 "incoherent"
+                // case (instance high but Data/Content below the soft floor, rescored to 0) — is a
+                // hash coincidence, not byte-identity, so it is graded like any other match. A high
+                // score from any other unit (a strong Semantic or Content match) is never exact.
+                function confidenceBand(model) {
+                    const agg = aggMainTypes(model.types);
+                    const instance = agg.INSTANCE || 0;
+                    // Mirrors classify_tier's T0 rule in iscc_hub/rerank.py (TAU_SOFT = 0.70).
+                    const contradicted = (agg.DATA !== undefined && agg.DATA < 0.70)
+                        || (agg.CONTENT !== undefined && agg.CONTENT < 0.70);
+                    if (model.exact || (instance >= 0.999 && !contradicted)) {
+                        return { label: 'Exact match', color: 'var(--rc-navy)', sub: 'byte-identical', exact: true };
                     }
+                    const score = (typeof model.score === 'number') ? model.score : 0;
                     if (score >= 0.90) return { label: 'Near-duplicate', color: 'var(--rc-blue)', sub: '' };
                     if (score >= 0.75) return { label: 'Strong match', color: 'var(--rc-blue)', sub: '' };
                     return { label: 'Similar', color: 'var(--rc-light-blue)', sub: '' };
@@ -869,8 +938,10 @@
                 // ---- Tier-0 (static) regions ----------------------------------------------
 
                 function scoreBlockHTML(model) {
-                    const band = confidenceBand(model.score, model.exact);
-                    const pct = (model.exact || model.score === null) ? 100 : Math.round(model.score * 100);
+                    const band = confidenceBand(model);
+                    // Exact (by evidence) always reads 100%; everything else shows its graded score,
+                    // so a high-scoring non-Instance match never displays a misleading "100% exact".
+                    const pct = (band.exact || model.score === null) ? 100 : Math.round((model.score || 0) * 100);
                     const facetCount = model.types ? Object.keys(model.types).length : 0;
                     const sub = band.sub || (facetCount + ' facet' + (facetCount === 1 ? '' : 's'));
                     return ''
@@ -1218,6 +1289,9 @@
                     if ('IntersectionObserver' in window) cardObserver = new IntersectionObserver(onCardVisible, { rootMargin: '120px' });
 
                     if (!models.length) {
+                        // No cards to filter -> never leave a stale confidence slider above the empty state.
+                        const emptyFilter = document.getElementById('confidence-filter');
+                        if (emptyFilter) emptyFilter.style.display = 'none';
                         container.innerHTML = emptyStateHTML(headerOpts.kind);
                         section.classList.remove('hidden');
                         section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1233,6 +1307,18 @@
                     const cards = container.querySelectorAll('[data-iid]');
                     if (cardObserver) cards.forEach(function (c) { cardObserver.observe(c); });
                     else models.forEach(hydrateCard);
+
+                    // Similarity results start at the conservative default and can be relaxed via the
+                    // slider; exact /lookup is a single authoritative hit, so it shows no filter.
+                    const filter = document.getElementById('confidence-filter');
+                    if (headerOpts.kind === 'similarity') {
+                        const slider = document.getElementById('confidence-slider');
+                        if (slider) slider.value = String(Math.round(SEARCH_MIN_SCORE * 100));
+                        if (filter) filter.style.display = 'flex';
+                        applyConfidenceFilter();
+                    } else if (filter) {
+                        filter.style.display = 'none';
+                    }
                 }
 
                 function onCardVisible(entries) {
@@ -1379,24 +1465,28 @@
                         const url = `/search?iscc_code=${encodeURIComponent(isccCode)}&limit=20`;
                         const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
 
-                        // Similarity search is opt-in (ISCC_HUB_SEARCH_URLS); 404 = not enabled here.
-                        if (response.status === 404) {
-                            if (onUnavailable) { await onUnavailable(); }
-                            else { renderSimilarityUnavailable(isccCode); }
-                            return;
-                        }
-
                         if (!response.ok) {
-                            // Backend configured but unreachable/saturated (e.g. 503): for the manual
-                            // exact-code path, fall back to the hub's authoritative /lookup so locally
-                            // declared content stays resolvable. The generator/drop path (no
-                            // onUnavailable) still surfaces the search error.
+                            // Read the error body once so the hub's own signals can be told apart from
+                            // a verbatim passthrough of the backend's response.
+                            let errorData = null;
+                            try { errorData = await response.json(); } catch (e) { /* non-JSON error body */ }
+
+                            // Similarity is opt-in (ISCC_HUB_SEARCH_URLS). Only the hub's OWN 404 means
+                            // it is not enabled here: that carries the hub error envelope {error:{...}}.
+                            // A passthrough 404 from the backend (e.g. an aggregator rejecting an unknown
+                            // index) has no `error` key and is a backend/config error, not "unavailable".
+                            if (response.status === 404 && errorData && errorData.error) {
+                                if (onUnavailable) { await onUnavailable(); }
+                                else { renderSimilarityUnavailable(isccCode); }
+                                return;
+                            }
+
+                            // Backend unreachable/saturated (5xx) or a passthrough backend error (incl. an
+                            // index-mismatch 404): on the manual exact-code path fall back to the hub's
+                            // authoritative /lookup so locally declared content stays resolvable; otherwise
+                            // surface the actual error instead of a misleading "not enabled" notice.
                             if (onUnavailable) { await onUnavailable(); return; }
-                            let message = 'Search failed';
-                            try {
-                                const errorData = await response.json();
-                                message = errorData.error?.message || message;
-                            } catch (e) { /* non-JSON error body */ }
+                            const message = (errorData && (errorData.error?.message || errorData.detail)) || 'Search failed';
                             showError(message);
                             return;
                         }
@@ -1428,6 +1518,9 @@
                 function renderSimilarityUnavailable(isccCode) {
                     const resultsContainer = document.getElementById('results-container');
                     const resultsSection = document.getElementById('results-section');
+                    // No result cards here -> hide the confidence filter a prior search may have shown.
+                    const filter = document.getElementById('confidence-filter');
+                    if (filter) filter.style.display = 'none';
 
                     resultsContainer.innerHTML = `
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -1515,6 +1608,10 @@
                     await routeQuery(isccValue);
                 });
 
+                // Confidence slider: re-filter the rendered cards live as the viewer drags it.
+                const confidenceSlider = document.getElementById('confidence-slider');
+                if (confidenceSlider) confidenceSlider.addEventListener('input', applyConfidenceFilter);
+
                 // Clear results — delegated on the results section so the static Clear button (and any
                 // future result-scoped triggers) are handled by one listener.
                 document.getElementById('results-section').addEventListener('click', function (e) {
@@ -1535,6 +1632,9 @@
                         resultsSection.style.transform = '';
                         resultsSection.style.transition = '';
                     }, 300);
+
+                    const cf = document.getElementById('confidence-filter');
+                    if (cf) cf.style.display = 'none';
 
                     isccInput.value = '';
                     currentFile = null;

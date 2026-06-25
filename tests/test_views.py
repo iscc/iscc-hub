@@ -240,6 +240,9 @@ def test_homepage_view():
     assert b'id="iscc-hubs-data"' in response.content
     assert b"hub7.example.net" in response.content
     assert b"hub8.example.net" not in response.content
+    # The confidence-filter slider and its server-set default threshold are embedded.
+    assert b'id="iscc-search-min-score"' in response.content
+    assert b'id="confidence-slider"' in response.content
 
 
 @pytest.mark.django_db
