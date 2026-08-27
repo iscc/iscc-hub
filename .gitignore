@@ -213,6 +213,7 @@ notes/
 AGENTS.md
 .playwright-mcp/
 .antigravitycli
+.agents/
 
 # Bubbling, alchemical, where secret raw ingredients transform ;)
 cauldron/

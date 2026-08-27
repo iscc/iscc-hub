@@ -447,9 +447,9 @@ Hub-List.
 
 ISCC-IDs are exchanged in the standard ISCC string form:
 
-- The 64-bit body is prefixed with the standard ISCC header (16 bits): `MAINTYPE = 0110` (ISCC-ID), `SUBTYPE = 0000`
-    (REALM), `VERSION = 0001` (V1), `LENGTH = 0001` (64-bit body). The resulting 80-bit value is encoded as 16
-    characters of uppercase Base32 with the leading literal `ISCC:`.
+- The 64-bit body is prefixed with the standard ISCC header (16 bits): `MAINTYPE = 0110` (ISCC-ID), `SUBTYPE = REALM`
+    (`0000` = sandbox realm 0, `0001` = operational realm 1), `VERSION = 0001` (V1), `LENGTH = 0000` (64-bit body). The
+    resulting 80-bit value is encoded as 16 characters of uppercase Base32 with the leading literal `ISCC:`.
 - Total string length: 21 characters (`ISCC:` + 16). Matches the regex `^ISCC:[A-Z2-7]{16}$`.
 
 Implementations **MAY** store the 8-byte binary body internally and reconstruct the header on serialization.
