@@ -9,3 +9,7 @@ hubs:
       pubkey: z6MkiNW46AUjNmKTV2YNyFi9ANG9wbfYQQoUQgADGwScd9jk
       url: https://staging.amlet.id
       active: true
+    - hub_id: 3
+      pubkey: z6MkoeC5w6g6ykyb9AvgoJQwSHu8sEn5bXvBK3irCRn2ai6P
+      url: https://staging.splia.id
+      active: true
