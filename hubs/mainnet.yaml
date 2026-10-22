@@ -9,3 +9,7 @@ hubs:
       pubkey: z6MkpautqPyziUVAZBNfCsmdrqwCN6V5v8nGqKB3uyV3UvnY
       url: https://amlet.id
       active: true
+    - hub_id: 3
+      pubkey: z6MkfrGBmvHCKe5ggkqaanbgjcn9aFUKgeZhb66RL1BFHKz8
+      url: https://splia.id
+      active: true
