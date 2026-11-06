@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Literal, TypeAliasType
 
 from ninja import Schema
 from pydantic import AnyUrl, AwareDatetime, ConfigDict, Field, RootModel
@@ -310,6 +310,9 @@ class IsccQuery(Schema):
     ] = None
 
 
+type TypesAdditionalProperty = Annotated[float, Field(ge=0.0, le=1.0)]
+
+
 class IsccMetadata(Schema):
     model_config = ConfigDict(
         extra="allow",
@@ -388,7 +391,7 @@ class IsccGlobalMatch(Schema):
         ),
     ]
     types: Annotated[
-        dict[str, float],
+        dict[str, TypesAdditionalProperty],
         Field(
             description='Per-unit-type similarity breakdown. Keys are unit type identifiers\n(e.g., "META_NONE_V0", "CONTENT_TEXT_V0"), values are similarity\nscores (0.0-1.0). Queried unit types not found in this asset are omitted.\n',
             examples=[{"META_NONE_V0": 1.0, "CONTENT_TEXT_V0": 1.0, "DATA_NONE_V0": 0.5}],
