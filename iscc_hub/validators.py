@@ -37,6 +37,7 @@ MAX_UNITS_ARRAY_SIZE = 4  # Prevent DOS attacks
 MAX_STRING_LENGTH = 2048  # Maximum length for string fields
 DID_WEB_PREFIX = "did:web:"
 FULL_UNIT_BITS = 256  # Policy C: required body length for every non-Instance ISCC-UNIT
+RFC3339_UTC_MILLIS = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\.[0-9]{3}Z")
 
 # Allowlists for the declared `$schema` wire value (matches the published schemas' const)
 SUPPORTED_ISCC_NOTE_SCHEMAS = {"http://purl.org/iscc/schema/iscc-note-0.8.0.json"}
@@ -479,6 +480,10 @@ def validate_timestamp(timestamp_str, tolerance_seconds=0, reference_time=None):
         ms_part = timestamp_str.split(".")[1].rstrip("Z")
         if len(ms_part) != 3:
             raise TimestampError("timestamp must have exactly 3 digits for milliseconds")
+
+        # isoparse also accepts other ISO 8601 forms, for example week dates
+        if not RFC3339_UTC_MILLIS.fullmatch(timestamp_str):
+            raise ValueError("timestamp is not in the required form")
 
     except (ValueError, TypeError) as e:
         if isinstance(e, TimestampError):
