@@ -1005,8 +1005,9 @@ def validate_iscc_id(iscc_id, hub_id=None):
     """
     Validate ISCC-ID format and optionally check hub ID match.
 
-    Validates that the ISCC-ID has the correct MainType (ID) and version (V1).
-    Optionally validates that the embedded hub ID matches the expected value.
+    Validates that the ISCC-ID has the correct MainType (ID) and version (V1) and is the
+    canonical string this Hub issues for its realm. Optionally validates that the embedded
+    hub ID matches the expected value.
 
     :param iscc_id: The ISCC-ID string to validate
     :param hub_id: Optional hub ID (0-4095) to validate against embedded value
@@ -1018,6 +1019,11 @@ def validate_iscc_id(iscc_id, hub_id=None):
             raise
     except Exception as e:
         raise IsccIdError("Invalid ISCC-ID format") from e
+
+    # Decoding keeps only the body, so other realms and spellings would name the same record
+    canonical = str(IsccID(iscc_id))
+    if iscc_id != canonical:
+        raise IsccIdError(f"ISCC-ID is not in canonical form for this Hub's realm; expected {canonical}")
 
     if hub_id is not None:
         iscc_id_obj = IsccID(iscc_id)

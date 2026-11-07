@@ -769,7 +769,9 @@ Content-Type: application/json
 Accept: application/json
 ```
 
-The `{iscc_id}` path parameter **MUST** be the ISCC-ID in its standard 21-character string form.
+The `{iscc_id}` path parameter **MUST** be the ISCC-ID in its standard 21-character string form, exactly as issued by
+the Hub. A Hub **MUST** reject any other spelling of the same ISCC-ID, such as a different realm in the header, a
+lowercase body or a missing `ISCC:` prefix.
 
 The request body **MUST** be an IsccNoteDelete object as defined in [§5.5](#55-deletion-entry-isccnotedelete).
 
@@ -778,8 +780,9 @@ The request body **MUST** be an IsccNoteDelete object as defined in [§5.5](#55-
 A conforming Hub **MUST** perform the following steps in order.
 
 1. **Parse JSON.** On failure return HTTP 400, `INVALID_JSON`.
-2. **Validate IsccNoteDelete structure.** Confirm all required fields are present, no unknown fields are present, and
-    the body's `iscc_id` equals the path parameter. On failure return HTTP 422, `INVALID_DELETION`.
+2. **Validate IsccNoteDelete structure.** Confirm all required fields are present, no unknown fields are present, the
+    body's `iscc_id` is the canonical ISCC-ID string for the Hub's realm, and it equals the path parameter. On failure
+    return HTTP 422, `INVALID_DELETION`.
 3. **Validate `nonce` hub binding.** As in [§9.3](#93-validation-procedure) step 4.
 4. **Validate timestamp policy.** As in [§9.3](#93-validation-procedure) step 5: reject an absent `timestamp` only when
     the Hub's `REQUIRE_CLIENT_TIMESTAMP` policy is enabled (HTTP 422, error code `INVALID_DELETION`, with a `field`

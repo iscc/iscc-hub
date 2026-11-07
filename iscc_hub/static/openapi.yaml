@@ -411,7 +411,10 @@ paths:
           schema:
             type: string
             pattern: "^ISCC:[A-Z2-7]{16}$"
-          description: The ISCC-ID of the declaration to delete
+          description: |
+            The ISCC-ID of the declaration to delete, exactly as issued by this Hub. Other
+            spellings of the same ISCC-ID (another realm, lowercase, no `ISCC:` prefix) are
+            rejected with **422**.
           example: "ISCC:MAIGIEGXNGY664AB"
       requestBody:
         required: true

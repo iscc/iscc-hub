@@ -11,7 +11,8 @@ import pytest
 from django.conf import settings
 
 from iscc_hub import validators
-from iscc_hub.exceptions import FieldValidationError, SignatureError, TimestampError
+from iscc_hub.exceptions import FieldValidationError, IsccIdError, SignatureError, TimestampError
+from iscc_hub.iscc_id import IsccID
 from iscc_hub.models import LogRecord
 from tests.conftest import ISCC_NOTE_DELETE_SCHEMA, ISCC_NOTE_SCHEMA, create_iscc_from_text
 
@@ -398,3 +399,59 @@ def test_units_optional_without_units_policy(api_client, example_keypair, did_re
     assert response.status_code == 201, response.content
     entry = json.loads(bytes(LogRecord.objects.get().record))
     assert "units" not in entry["note"]
+
+
+def respell_iscc_id(iscc_id, header):
+    # type: (str, bytes) -> str
+    """Encode the body of an ISCC-ID under a different 2-byte header."""
+    return "ISCC:" + ic.encode_base32(header + bytes(IsccID(iscc_id)))
+
+
+ISCC_ID_SPELLINGS = {
+    "other realm": lambda i: respell_iscc_id(i, bytes([IsccID.HEADER[0] ^ 0x01, IsccID.HEADER[1]])),
+    "undefined subtype": lambda i: respell_iscc_id(i, bytes([(IsccID.HEADER[0] & 0xF0) | 0x02, IsccID.HEADER[1]])),
+    "length code 1": lambda i: respell_iscc_id(i, bytes([IsccID.HEADER[0], IsccID.HEADER[1] | 0x01])),
+    "no prefix": lambda i: i.removeprefix("ISCC:"),
+    "lowercase body": lambda i: "ISCC:" + i[5:].lower(),
+    "lowercase scheme": lambda i: "iscc:" + i[5:],
+    "dashes": lambda i: i[:9] + "-" + i[9:],
+}
+
+
+@pytest.mark.parametrize("kind", list(ISCC_ID_SPELLINGS))
+def test_validate_iscc_id_rejects_other_spellings(kind):
+    """Only the canonical string for this Hub's realm is valid, and the error names it."""
+    iscc_id = str(IsccID.from_timestamp(1746171541264773, 1))
+    spelled = ISCC_ID_SPELLINGS[kind](iscc_id)
+    assert bytes(IsccID(spelled)) == bytes(IsccID(iscc_id))
+    with pytest.raises(IsccIdError, match=f"not in canonical form for this Hub's realm; expected {iscc_id}"):
+        validators.validate_iscc_id(spelled, hub_id=1)
+
+
+def test_validate_iscc_id_accepts_canonical_form():
+    """The ISCC-ID as the Hub issues it is valid."""
+    validators.validate_iscc_id(str(IsccID.from_timestamp(1746171541264773, 1)), hub_id=1)
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("kind", list(ISCC_ID_SPELLINGS))
+def test_deletion_with_other_spelling_writes_nothing(api_client, example_keypair, did_resolved, kind):
+    """A signed deletion that spells the ISCC-ID differently is rejected, and the declaration stays."""
+    iscc_id = declare(api_client, example_keypair, f"spelling {kind}")
+    spelled = ISCC_ID_SPELLINGS[kind](iscc_id)
+    response = delete_note(api_client, spelled, icr.sign_json(build_deletion(spelled), example_keypair))
+    assert response.status_code == 422
+    assert field_of(response) == "iscc_id"
+    assert response.json()["error"]["code"] == "invalid_iscc"
+    assert not LogRecord.objects.filter(type="deletion").exists()
+    assert api_client.get(f"/{iscc_id}").status_code == 200
+
+
+@pytest.mark.django_db(transaction=True)
+def test_deletion_with_issued_iscc_id_succeeds(api_client, example_keypair, did_resolved):
+    """A deletion that names the ISCC-ID exactly as issued is accepted, and both log IDs agree."""
+    iscc_id = declare(api_client, example_keypair, "issued spelling")
+    response = delete_note(api_client, iscc_id, icr.sign_json(build_deletion(iscc_id), example_keypair))
+    assert response.status_code == 204
+    entry = json.loads(bytes(LogRecord.objects.get(type="deletion").record))
+    assert entry["iscc_id"] == entry["note"]["iscc_id"] == iscc_id
