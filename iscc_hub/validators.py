@@ -38,6 +38,7 @@ MAX_STRING_LENGTH = 2048  # Maximum length for string fields
 DID_WEB_PREFIX = "did:web:"
 FULL_UNIT_BITS = 256  # Policy C: required body length for every non-Instance ISCC-UNIT
 RFC3339_UTC_MILLIS = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\.[0-9]{3}Z")
+MULTIBASE_BASE58 = re.compile(r"z[1-9A-HJ-NP-Za-km-z]+")
 
 # Allowlists for the declared `$schema` wire value (matches the published schemas' const)
 SUPPORTED_ISCC_NOTE_SCHEMAS = {"http://purl.org/iscc/schema/iscc-note-0.8.0.json"}
@@ -602,7 +603,8 @@ def validate_signature_structure(signature):
     Validate signature structure, fields, and version.
 
     Validates required fields (version, proof, pubkey) and optional fields
-    (controller, keyid). Ensures signature version matches expected format.
+    (controller, keyid). Ensures signature version matches expected format, controller and
+    keyid are strings, and proof and pubkey are exact multibase base58-btc strings.
 
     :param signature: The signature dictionary to validate
     :raises SignatureError: If signature structure is invalid
@@ -633,12 +635,21 @@ def validate_signature_structure(signature):
                 # Update message to be more specific for signature fields
                 new_message = e.message.replace(f"Optional field '{field}'", f"Optional field '{field}' in signature")
                 raise FieldValidationError(field, new_message, e.code) from e
+            if not isinstance(signature[field], str):
+                raise FieldValidationError(
+                    field, f"Optional field '{field}' in signature must be a string", code="invalid_format"
+                )
 
     # Check for unknown fields in signature
     allowed_signature_fields = required_signature_fields | optional_fields_signature
     unknown_signature_fields = set(signature.keys()) - allowed_signature_fields
     if unknown_signature_fields:
         raise SignatureError(f"Unknown fields in signature not allowed: {', '.join(sorted(unknown_signature_fields))}")
+
+    # The Base58 decoder strips trailing whitespace, so a successful verification does not prove the encoding
+    for field in ("proof", "pubkey"):
+        if not isinstance(signature[field], str) or not MULTIBASE_BASE58.fullmatch(signature[field]):
+            raise SignatureError(f"Invalid {field} in signature: must be multibase base58-btc")
 
 
 def verify_signature_cryptographically(data):

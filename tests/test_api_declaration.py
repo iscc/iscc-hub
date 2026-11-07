@@ -568,7 +568,7 @@ def test_declaration_signature_error(live_server, current_timestamp, example_non
         "signature": {
             "version": "ISCC-SIG v1.0",
             "pubkey": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
-            "proof": "zInvalidSignature",
+            "proof": "zWrongSignature",
         },
     }
 

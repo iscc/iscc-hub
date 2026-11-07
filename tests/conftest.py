@@ -502,7 +502,7 @@ def unsigned_iscc_note(example_nonce, example_timestamp, example_iscc_data):
         "signature": {
             "version": "ISCC-SIG v1.0",
             "pubkey": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
-            "proof": "zInvalidSignature",
+            "proof": "zWrongSignature",
         },
     }
 

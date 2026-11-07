@@ -1177,7 +1177,7 @@ def test_validate_iscc_note_with_hub_id():
         "signature": {
             "version": "ISCC-SIG v1.0",
             "pubkey": "z6MknNWEmX1zYYZbCCjWGYja9gZA64AKrKNLtsdP2g5EkFrB",
-            "proof": "zInvalidButWeSkipVerification",
+            "proof": "zWrongButWeSkipVerification",
         },
     }
     validators.validate_iscc_note(to_bytes(note), verify_signature=False, verify_hub_id=0)
@@ -1367,8 +1367,8 @@ def test_validate_iscc_note_bytes_input(example_iscc_data, example_nonce, exampl
         "timestamp": "2025-01-01T00:00:00.000Z",
         "signature": {
             "version": "ISCC-SIG v1.0",
-            "proof": "test",
-            "pubkey": example_keypair.pubkey_multikey,
+            "proof": "zTest",
+            "pubkey": example_keypair.public_key,
         },
     }
     valid_bytes = json.dumps(valid_note).encode()
