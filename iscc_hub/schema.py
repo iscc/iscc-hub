@@ -63,10 +63,10 @@ class IsccId(RootModel[str]):
         str,
         Field(
             description="Unique ISCC-ID assigned by the ISCC-HUB\n\n**Format:** `ISCC:` followed by 16 characters encoding timestamp and hub ID\n**Structure:** 64-bit identifier (52-bit timestamp + 12-bit hub ID)\n",
-            examples=["ISCC:MAACCD3C6YZJ4IQM", "ISCC:MAACEF5G8YZJ7KLN"],
+            examples=["ISCC:MAACCD3C6YZJ4IQM", "ISCC:MEIGKV5N6NTVF4AB"],
             max_length=21,
             min_length=21,
-            pattern="^ISCC:[A-Z0-9]{16}$",
+            pattern="^ISCC:[A-Z2-7]{16}$",
         ),
     ]
 
@@ -79,14 +79,14 @@ class IsccDeclaration(Schema):
     iscc_code: Annotated[
         str,
         Field(
-            description="The declared ISCC-CODE identifying the content\n\n**Format:** `ISCC:` followed by alphanumeric characters\n**Length:** 34-73 characters total\n",
+            description="The declared ISCC-CODE identifying the content\n\n**Format:** `ISCC:` followed by uppercase base32 characters\n**Length:** 34-73 characters total\n",
             examples=[
                 "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
                 "ISCC:KACT3NRHBQXWJKXV6OJ7XR7B62NJXMYQDNHCNZQZLW4L2UXBCJIZERA",
             ],
             max_length=73,
             min_length=34,
-            pattern="^ISCC:[A-Z0-9]{29,68}$",
+            pattern="^ISCC:[A-Z2-7]{29,68}$",
         ),
     ]
     datahash: Annotated[
@@ -214,10 +214,10 @@ class Unit(RootModel[str]):
     root: Annotated[
         str,
         Field(
-            description="Individual ISCC-UNIT (Meta, Content, Data, Instance, or Semantic)\\\n**Length:** 21 characters (64-bit) or 60+ characters (256-bit)\n",
+            description="Individual ISCC-UNIT (Meta, Content, Data, Instance, or Semantic)\\\n**Length:** 60 characters (256-bit body)\n",
             max_length=73,
-            min_length=21,
-            pattern="^ISCC:[A-Z0-9]{16,68}$",
+            min_length=60,
+            pattern="^ISCC:[A-Z2-7]{55,68}$",
         ),
     ]
 
@@ -419,7 +419,7 @@ class IsccNote(Schema):
     iscc_code: Annotated[
         str,
         Field(
-            description="The ISCC-CODE to be declared\n\n**Format:** `ISCC:` followed by alphanumeric characters\\\n**Note:** Must be a composite ISCC-CODE, not an individual ISCC-UNIT\\\n**Length:** 34-73 characters total (minimum: Data-Code + Instance-Code 64-bit each)\n",
+            description="The ISCC-CODE to be declared\n\n**Format:** `ISCC:` followed by uppercase base32 characters\\\n**Note:** Must be a composite ISCC-CODE, not an individual ISCC-UNIT\\\n**Length:** 34-73 characters total (minimum: Data-Code + Instance-Code 64-bit each)\n",
             examples=[
                 "ISCC:KACWN77F73NA44D6EUG3S3QNJIL2BPPQFMW6ZX6CZNOKPAK23S2IJ2I",
                 "ISCC:KACXGDR3R7NA44D6RTDMPXW7FBNJS6MYMHYM6JIK7THYC6D2P6KUPCI",
@@ -427,7 +427,7 @@ class IsccNote(Schema):
             ],
             max_length=73,
             min_length=34,
-            pattern="^ISCC:[A-Z0-9]{29,68}$",
+            pattern="^ISCC:[A-Z2-7]{29,68}$",
         ),
     ]
     datahash: Annotated[
@@ -449,7 +449,7 @@ class IsccNote(Schema):
     units: Annotated[
         list[Unit] | None,
         Field(
-            description="Array of expanded ISCC-UNITs of the declared ISCC-CODE\n\nFor improved large-scale discovery and matching, include 256-bit ISCC-UNITs.\n\n**Important:** Don't include the Instance-Code as it's derived from the `datahash` property.\n\n**Validation:** The HUB will:\n1. Convert the datahash to an Instance-Code UNIT\n2. Append it to this array\n3. Pass to `iscc_core.gen_iscc_code` to reconstruct the ISCC-CODE\n",
+            description="Array of expanded ISCC-UNITs of the declared ISCC-CODE\n\nEvery ISCC-UNIT MUST carry a 256-bit body, for improved large-scale discovery and matching.\n\n**Important:** Don't include the Instance-Code as it's derived from the `datahash` property.\n\n**Validation:** The HUB will:\n1. Require each unit to pass `iscc_core.iscc_validate` (canonical form, supported version, body length)\n2. Require each unit to carry a 256-bit body\n3. Convert the datahash to an Instance-Code UNIT\n4. Append it to this array\n5. Pass to `iscc_core.gen_iscc_code` to reconstruct the ISCC-CODE\n",
             examples=[
                 [
                     "ISCC:AADWN77F73NA44D6X3N4VEUAPOW5HJKGK5JKLNGLNFPOESXWYDVDVUQ",

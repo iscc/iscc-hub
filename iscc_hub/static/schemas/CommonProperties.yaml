@@ -13,12 +13,12 @@ properties:
 
       **Format:** `ISCC:` followed by 16 characters encoding timestamp and hub ID
       **Structure:** 64-bit identifier (52-bit timestamp + 12-bit hub ID)
-    pattern: "^ISCC:[A-Z0-9]{16}$"
+    pattern: "^ISCC:[A-Z2-7]{16}$"
     minLength: 21
     maxLength: 21
     examples:
       - "ISCC:MAACCD3C6YZJ4IQM"
-      - "ISCC:MAACEF5G8YZJ7KLN"
+      - "ISCC:MEIGKV5N6NTVF4AB"
   timestamp:
     type: string
     format: date-time

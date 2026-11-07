@@ -36,7 +36,7 @@ properties:
     $ref: "./iscc-signature.yaml"
 examples:
   - $schema: "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json"
-    iscc_id: "ISCC:MAEK2NC3Y5VZ4XQM"
+    iscc_id: "ISCC:MEIGKV5N6NTVF4AB"
     timestamp: "2026-05-22T08:15:00.000Z"
     nonce: "001d17437f53f6899ed01ecb8659118b"
     signature:

@@ -181,13 +181,14 @@ The normative JSON binding is specified in [§6](#6-json-representation).
 
 A conforming declaration **MUST** validate against the published `iscc-note-0.8.0` schema. The Hub additionally enforces
 a **stricter admission profile**: it forbids `@context`/`@type`, requires an embedded `pubkey` (PROOF_ONLY signatures
-are rejected), and requires strict 3-digit-millisecond timestamps when a timestamp is present. Beyond these structural
-rules, a Hub applies a set of **configurable, default-ON acceptance policies** — a `did:web` controller requirement
-(`REQUIRE_DID`), DID identity verification (`VERIFY_DID`), and a full-length-units requirement (`REQUIRE_FULL_UNITS`) —
-described where the relevant field is defined ([§5.1](#51-iscc-note), [§5.2](#52-iscc-signature)) and applied in the
-validation procedure ([§9.3](#93-validation-procedure)). Every Hub deviation only narrows what the published schema
-permits, so any declaration the Hub accepts remains valid under `iscc-note-0.8.0`. The wire `$schema` value references
-the published schema; the Hub publishes no separate schema, and its admission rules are documented here as Hub policy.
+are rejected), requires strict 3-digit-millisecond timestamps when a timestamp is present, and requires every provided
+ISCC-UNIT to be strictly well-formed with a 256-bit body. Beyond these structural rules, a Hub applies a set of
+**configurable, default-ON acceptance policies** — a `did:web` controller requirement (`REQUIRE_DID`), DID identity
+verification (`VERIFY_DID`), and a units requirement (`REQUIRE_FULL_UNITS`) — described where the relevant field is
+defined ([§5.1](#51-iscc-note), [§5.2](#52-iscc-signature)) and applied in the validation procedure
+([§9.3](#93-validation-procedure)). Every Hub deviation only narrows what the published schema permits, so any
+declaration the Hub accepts remains valid under `iscc-note-0.8.0`. The wire `$schema` value references the published
+schema; the Hub publishes no separate schema, and its admission rules are documented here as Hub policy.
 
 ### 5.1 IsccNote
 
@@ -238,12 +239,12 @@ Field semantics:
 - If `metahash` is present, it **MUST** be a BLAKE3 multihash with the same format as `datahash`. The `metahash` commits
     to metadata bytes that the declarer may attach at submission time (see [§13](#13-metadata-forwarding)).
 - If `units` is present, it **MUST** contain between 1 and 4 ISCC-UNITs. The array **MUST NOT** include the
-    Instance-Code, which is derivable from `datahash`. The provided units together with the Instance-Code derived from
-    `datahash` **MUST** reconstruct the declared `iscc_code`. Under the default full-length-units policy
-    (`REQUIRE_FULL_UNITS`) a Hub additionally **REQUIRES** `units` to be present and **REQUIRES** every contained
-    ISCC-UNIT to carry a full 256-bit body; a Hub **MUST** reject a declaration whose `units` are absent or whose units
-    are shorter than 256 bits, naming the offending unit's MainType. A Hub **MAY** disable this policy, in which case
-    `units` remains optional and any length permitted by the wire schema is accepted.
+    Instance-Code, which is derivable from `datahash`. Each ISCC-UNIT **MUST** be in canonical string form, with a
+    version defined for its MainType and a body length that matches its header, and **MUST** carry a 256-bit body; a Hub
+    **MUST** reject a shorter unit, naming its MainType. The provided units together with the Instance-Code derived from
+    `datahash` **MUST** reconstruct the declared `iscc_code`. Under the default units policy (`REQUIRE_FULL_UNITS`) a
+    Hub additionally **REQUIRES** `units` to be present and **MUST** reject a declaration without it. A Hub **MAY**
+    disable this policy, in which case `units` remains optional.
 
 ### 5.2 IsccSignature
 
@@ -371,8 +372,8 @@ not match.
 
 The DID-presence (`REQUIRE_DID`) and DID-verification (`VERIFY_DID`) policies ([§5.2](#52-iscc-signature),
 [§8.4](#84-controller-resolution)) apply to deletions exactly as they do to declarations: a deletion is itself a signed
-log entry and its signer **MUST** prove identity under the same policy. The full-length-units policy does not apply to a
-deletion, which carries no `iscc_code` or `units`.
+log entry and its signer **MUST** prove identity under the same policy. The units policy does not apply to a deletion,
+which carries no `iscc_code` or `units`.
 
 ## 6. JSON representation
 
@@ -410,7 +411,7 @@ alternative canonicalization rules.
 The following encodings apply to fields in their JSON representation.
 
 - **ISCC-CODE / ISCC-ID / ISCC-UNIT.** Encoded as the standard ISCC string form `ISCC:` followed by uppercase Base32
-    [[RFC4648]](#rfc4648). The pattern `^ISCC:[A-Z0-9]{n,m}$` applies, where `n` and `m` depend on the code type.
+    [[RFC4648]](#rfc4648). The pattern `^ISCC:[A-Z2-7]{n,m}$` applies, where `n` and `m` depend on the code type.
     ISCC-IDs are exactly 16 characters following the `ISCC:` prefix.
 - **BLAKE3 multihash.** Encoded as 68 lowercase hexadecimal characters: the literal `1e20` (multihash code `0x1e` for
     BLAKE3, length `0x20` = 32 bytes) followed by 64 hex characters representing the digest. Matches the regular
@@ -634,15 +635,14 @@ step that fails determines the error response per [§9.5](#95-error-responses).
     outside the tolerance.
 6. **Verify declarer signature.** Run the verification procedure from [§8.3](#83-verification-procedure). If the
     signature does not verify, return HTTP 401 with error code `INVALID_SIGNATURE`. The DID-presence (step 7) and
-    full-length-units (step 8) policies are evaluated only after the signature is proven valid, so an invalid
-    signature always reports a signature error rather than a policy error.
+    units (step 8) policies are evaluated only after the signature is proven valid, so an invalid signature always
+    reports a signature error rather than a policy error.
 7. **Enforce DID-presence policy (A).** If the Hub's `REQUIRE_DID` policy is enabled and `signature.controller` is
     absent or is not a `did:web:` URI, return HTTP 422 with error code `DID_REQUIRED`.
-8. **Enforce full-length-units policy (C).** If the Hub's `REQUIRE_FULL_UNITS` policy is enabled, require `units` to be
-    present and every contained ISCC-UNIT to carry a 256-bit body; otherwise return HTTP 422 with error code
-    `INVALID_NOTE` and a `field` identifier of `units` (the message naming the offending unit's MainType for a short
-    unit). The `units`-and-`datahash` reconstruction of `iscc_code` is checked whenever `units` is present,
-    independently of this policy.
+8. **Enforce units policy (C).** If the Hub's `REQUIRE_FULL_UNITS` policy is enabled, require `units` to be present;
+    otherwise return HTTP 422 with error code `INVALID_NOTE` and a `field` identifier of `units`. The well-formedness
+    and 256-bit length of each provided unit, and the `units`-and-`datahash` reconstruction of `iscc_code`, are
+    checked in step 3 whenever `units` is present, independently of this policy.
 9. **Verify metadata binding.** If the request uses the envelope shape and includes `metadata`, compute
     `BLAKE3(JCS(metadata))` and confirm it matches the IsccNote's `metahash`. On mismatch, return HTTP 422 with error
     code `METAHASH_MISMATCH`.
@@ -1104,7 +1104,7 @@ The first 12 bits of the nonce (`001`) bind this note to a Hub with `hub_id = 1`
     "id": "did:web:example.com",
     "declaration": {
       "seq": 1234567,
-      "iscc_id": "ISCC:MAEK2NC3Y5VZ4XQM",
+      "iscc_id": "ISCC:MEIGKV5N6NTVF4AB",
       "iscc_note": {
         "...": "canonical IsccNote, see A.2"
       }
@@ -1128,7 +1128,7 @@ The first 12 bits of the nonce (`001`) bind this note to a Hub with `hub_id = 1`
 ```json
 {
   "$schema": "http://purl.org/iscc/schema/iscc-note-delete-0.8.0.json",
-  "iscc_id": "ISCC:MAEK2NC3Y5VZ4XQM",
+  "iscc_id": "ISCC:MEIGKV5N6NTVF4AB",
   "timestamp": "2026-05-22T08:15:00.000Z",
   "nonce": "001d17437f53f6899ed01ecb8659118b",
   "signature": {
@@ -1145,7 +1145,7 @@ The first 12 bits of the nonce (`001`) bind this note to a Hub with `hub_id = 1`
 ```json
 {
   "$schema": "http://purl.org/iscc/schema/iscc-log-entry-0.8.0.json",
-  "iscc_id": "ISCC:MAEK2NC3Y5VZ4XQM",
+  "iscc_id": "ISCC:MEIGKV5N6NTVF4AB",
   "note": {
     "...": "canonical IsccNote, see A.2"
   }
@@ -1157,7 +1157,7 @@ The first 12 bits of the nonce (`001`) bind this note to a Hub with `hub_id = 1`
 ```json
 {
   "$schema": "http://purl.org/iscc/schema/iscc-log-entry-0.8.0.json",
-  "iscc_id": "ISCC:MAEK2NC3Y5VZ4XQM",
+  "iscc_id": "ISCC:MEIGKV5N6NTVF4AB",
   "note": {
     "...": "canonical IsccNoteDelete, see A.5"
   }

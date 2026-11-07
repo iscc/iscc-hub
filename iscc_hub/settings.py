@@ -68,7 +68,7 @@ ISCC_HUB_TIMESTAMP_TOLERANCE_SECONDS = env.int("ISCC_HUB_TIMESTAMP_TOLERANCE_SEC
 # body for every provided ISCC-UNIT. Live hubs may set these false until their declarer complies.
 ISCC_HUB_REQUIRE_DID = env.bool("ISCC_HUB_REQUIRE_DID", default=True)  # Policy A
 ISCC_HUB_VERIFY_DID = env.bool("ISCC_HUB_VERIFY_DID", default=True)  # Policy B
-ISCC_HUB_REQUIRE_FULL_UNITS = env.bool("ISCC_HUB_REQUIRE_FULL_UNITS", default=True)  # Policy C
+ISCC_HUB_REQUIRE_FULL_UNITS = env.bool("ISCC_HUB_REQUIRE_FULL_UNITS", default=True)  # Policy C: units required
 ISCC_HUB_DID_CACHE_TTL = env.int("ISCC_HUB_DID_CACHE_TTL", default=3600)  # B positive-cache TTL (s)
 # Injection seam for B's DID HTTP client; None -> the SSRF-guarded production client (see identity.py).
 ISCC_HUB_DID_HTTP_CLIENT = None

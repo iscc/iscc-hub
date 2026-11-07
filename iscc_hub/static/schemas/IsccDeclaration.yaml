@@ -21,9 +21,9 @@ properties:
     description: |
       The declared ISCC-CODE identifying the content
 
-      **Format:** `ISCC:` followed by alphanumeric characters
+      **Format:** `ISCC:` followed by uppercase base32 characters
       **Length:** 34-73 characters total
-    pattern: "^ISCC:[A-Z0-9]{29,68}$"
+    pattern: "^ISCC:[A-Z2-7]{29,68}$"
     minLength: 34
     maxLength: 73
     examples:

@@ -817,7 +817,7 @@ def test_validate_units_reconstruction_invalid_unit():
     datahash = "1e208021a144e1ce8fd4ecb2c7660d712b0e6818926bf2e3bb4930d54b5b23ed304d"
     iscc_code = "ISCC:KACT46A6S3L5XTH3O2UXRHPKZOTRV2QZ2UDAEVWVWOACDIKE4HHI7VA"
 
-    with pytest.raises(ValueError, match="Cannot build ISCC-CODE from units shorter than 64-bits"):
+    with pytest.raises(ValueError, match="Invalid ISCC unit: ISCC string does not match"):
         validators.validate_units_reconstruction(units, datahash, iscc_code)
 
 
@@ -2083,11 +2083,11 @@ def test_validate_units_full_length_rejects_short_naming_maintype():
     assert "256-bit" in exc.value.message
 
 
-def test_validate_units_present_full_length_requires_units():
+def test_validate_units_present_requires_units():
     # type: () -> None
     """Policy C rejects a note without a units array."""
     with pytest.raises(validators.FieldValidationError) as exc:
-        validators.validate_units_present_full_length({"datahash": "1e20"})
+        validators.validate_units_present({"datahash": "1e20"})
     assert exc.value.field == "units"
 
 
