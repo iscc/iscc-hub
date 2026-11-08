@@ -1,0 +1,36 @@
+name: Release
+
+# Publish a versioned image when a v* tag is pushed. The tag must match the package version, the full
+# test suite must pass, and the build pushes the image only after the smoke test of the built image passes.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check that the tag matches the package version
+        run: |
+          PYPROJECT=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          PACKAGE=$(python3 -c "import re; print(re.search(r'__version__ = \"(.+)\"', open('iscc_hub/__init__.py').read())[1])")
+          echo "Tag: $GITHUB_REF_NAME, pyproject.toml: $PYPROJECT, iscc_hub/__init__.py: $PACKAGE"
+          if [ "$GITHUB_REF_NAME" != "v$PYPROJECT" ] || [ "$PYPROJECT" != "$PACKAGE" ]; then
+            echo "::error::The tag and both version strings must agree"
+            exit 1
+          fi
+
+  test:
+    needs: version
+    uses: ./.github/workflows/test.yaml
+
+  build:
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build.yaml

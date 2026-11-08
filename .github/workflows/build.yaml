@@ -1,17 +1,17 @@
 name: Build and Publish Docker Images
 
+# Reusable build: release.yaml calls it for v* tags, publish-dev.yaml for develop. Both run the tests first.
+# The image is pushed only after the smoke test of the built image passes.
+
 on:
-  push:
-    tags:
-      - 'v*'  # Build and publish on version tags
-  workflow_call:  # Allow this workflow to be called by other workflows
+  workflow_call:
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: iscc/iscc-hub
 
 jobs:
-  # Build and publish Docker images
+  # Build, test and publish Docker images
   docker-build-publish:
     runs-on: ubuntu-latest
 
@@ -21,10 +21,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Log in to Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -32,7 +32,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -64,7 +64,7 @@ jobs:
           FIRST_TAG=$(echo "$TAGS" | head -n1)
           echo "Building image: $FIRST_TAG"
           echo "Build metadata: commit=$BUILD_COMMIT, tag=$BUILD_TAG, timestamp=$BUILD_TIMESTAMP"
-          
+
           docker build -t "$FIRST_TAG" \
             --build-arg BUILD_COMMIT="$BUILD_COMMIT" \
             --build-arg BUILD_TAG="$BUILD_TAG" \
@@ -79,20 +79,9 @@ jobs:
             fi
           done
 
-      - name: Push Docker images
-        run: |
-          # Push all tags
-          TAGS="${{ steps.meta.outputs.tags }}"
-          echo "$TAGS" | while IFS= read -r tag; do
-            if [[ -n "$tag" ]]; then
-              echo "Pushing: $tag"
-              docker push "$tag"
-            fi
-          done
-
       - name: Test container startup and health
         run: |
-          # Get the first tag from the metadata output to test
+          # Test the local image before anything is pushed
           FIRST_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
           echo "Testing image: $FIRST_TAG"
 
@@ -128,6 +117,22 @@ jobs:
             sleep 3
           done
 
+      - name: Test the image health check
+        run: |
+          # The Dockerfile HEALTHCHECK must report healthy, as operators and orchestrators rely on it
+          for i in {1..30}; do
+            STATUS=$(docker inspect --format '{{.State.Health.Status}}' test-hub)
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Docker health status: healthy"
+              exit 0
+            fi
+            echo "Docker health status: $STATUS ($i/30)"
+            sleep 3
+          done
+          echo "The image health check did not report healthy. Health log:"
+          docker inspect --format '{{json .State.Health}}' test-hub
+          exit 1
+
       - name: Test API endpoints
         run: |
           echo "Testing health endpoint..."
@@ -139,11 +144,25 @@ jobs:
           echo "Testing OpenAPI schema..."
           curl -f http://localhost:8000/openapi.yaml >/dev/null
 
+          echo "Testing log checkpoint (database and signing key)..."
+          curl -f http://localhost:8000/log/checkpoint
+
       - name: Cleanup test container
         if: always()
         run: |
           docker stop test-hub || true
           docker rm test-hub || true
+
+      - name: Push Docker images
+        run: |
+          # Push all tags
+          TAGS="${{ steps.meta.outputs.tags }}"
+          echo "$TAGS" | while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then
+              echo "Pushing: $tag"
+              docker push "$tag"
+            fi
+          done
 
       - name: Generate deployment summary
         run: |
@@ -159,11 +178,12 @@ jobs:
             fi
           done
 
+          FIRST_TAG=$(echo "$TAGS" | head -n1)
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Deployment Commands:**" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
           echo "# Pull and run the image:" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull $FIRST_TAG" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "docker run -d \\" >> $GITHUB_STEP_SUMMARY
           echo "  -e DJANGO_SECRET_KEY=\$SECRET_KEY \\" >> $GITHUB_STEP_SUMMARY
@@ -171,5 +191,5 @@ jobs:
           echo "  -e ISCC_HUB_ID=\$HUB_ID \\" >> $GITHUB_STEP_SUMMARY
           echo "  -e ISCC_HUB_DOMAIN=\$DOMAIN \\" >> $GITHUB_STEP_SUMMARY
           echo "  -p 8000:8000 \\" >> $GITHUB_STEP_SUMMARY
-          echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "  $FIRST_TAG" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
