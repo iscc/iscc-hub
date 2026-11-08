@@ -93,9 +93,10 @@ RUN chmod +x /entrypoint.sh
 # Create data directory and media directory for static file serving
 RUN mkdir -p /app/data /app/iscc_hub/static/media
 
-# Health check
+# Health check. It sends the hub domain as Host header, because the default ALLOWED_HOSTS
+# contains only ISCC_HUB_DOMAIN and Django rejects other host names with 400.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://127.0.0.1:${PORT:-8000}/health || exit 1
+    CMD curl -fsS -H "Host: ${ISCC_HUB_DOMAIN}" http://127.0.0.1:${PORT:-8000}/health || exit 1
 
 # Expose default port
 EXPOSE 8000
