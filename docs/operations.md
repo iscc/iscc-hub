@@ -58,8 +58,9 @@ Keep copies on a different machine. Make a backup at least once a day and before
 test machine to make sure that your backups work. A daily backup can lose up to one day of permanent ISCC-IDs, so use
 continuous backups for a mainnet hub.
 
-The backup is useless without the signing key `ISCC_HUB_SECKEY`. Keep a copy of the key offline, in two safe places,
-and not together with the database backups.
+Also keep the signing key `ISCC_HUB_SECKEY`. If you lose it, the restored hub must use a new key, and nobody can verify
+old receipts and checkpoints against its DID document anymore. Keep a copy of the key offline, in two safe places, and
+not together with the database backups.
 
 ## Restore
 

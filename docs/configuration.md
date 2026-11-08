@@ -23,8 +23,8 @@ The hub does not start if one of these variables is missing, or if `ISCC_HUB_SEC
 
 !!! warning
 
-    Never change `ISCC_HUB_ID`, `ISCC_HUB_REALM`, `ISCC_HUB_SECKEY` or `ISCC_HUB_DOMAIN` of a running hub. See
-    [Run a hub](run-a-hub.md#before-you-start).
+    Never change `ISCC_HUB_ID`, `ISCC_HUB_REALM` or `ISCC_HUB_DOMAIN` of a running hub. Change `ISCC_HUB_SECKEY` only if
+    the key is compromised. See [Run a hub](run-a-hub.md#before-you-start).
 
 ## Admin user
 

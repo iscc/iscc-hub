@@ -5,7 +5,7 @@ description: Get a hub ID and add your hub to the hub list of testnet or mainnet
 
 # Join the network
 
-The hub list connects the hubs of a network. It maps each hub ID to the URL and the public key of its hub. To join, add
+The hub list connects the hubs of a network. It maps each hub ID to the URL of its hub. To join, add
 your hub to the list with a pull request.
 { .iscc-lead }
 
@@ -30,12 +30,15 @@ An entry has four fields:
   active: true
 ```
 
-| Field    | Value                                                        |
-| -------- | ------------------------------------------------------------ |
-| `hub_id` | The value of `ISCC_HUB_ID` of your hub                       |
-| `pubkey` | The `public_key` from `iscc-crypto keygen`                   |
-| `url`    | The public HTTPS URL of your hub, without a slash at the end |
-| `active` | `true`                                                       |
+| Field    | Value                                                            |
+| -------- | ---------------------------------------------------------------- |
+| `hub_id` | The value of `ISCC_HUB_ID` of your hub                           |
+| `pubkey` | The `public_key` from `iscc-crypto keygen`. For information only |
+| `url`    | The public HTTPS URL of your hub, without a slash at the end     |
+| `active` | `true`                                                           |
+
+Clients and monitors get the public key of a hub from the DID document of its domain, at
+`https://<domain>/.well-known/did.json`. The `pubkey` in the hub list is for information only.
 
 ## Steps
 
@@ -58,7 +61,8 @@ The same process applies to testnet and mainnet. Start on testnet. Move to mainn
 
 - Run one hub for each hub ID. Never run two databases with the same hub ID.
 - Keep the hub reachable at its URL. Monitors and clients download its log.
-- Keep the signing key safe. If you lose it, the hub cannot sign checkpoints and receipts.
+- Keep the signing key safe. If you lose it or change it, nobody can verify your old receipts and checkpoints against
+    your DID document.
 
 [mainnet]: https://github.com/iscc/iscc-hub/blob/main/hubs/mainnet.yaml
 [testnet]: https://github.com/iscc/iscc-hub/blob/main/hubs/testnet.yaml

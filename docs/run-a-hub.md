@@ -40,9 +40,14 @@ Decide on the network first:
 
 !!! warning "Fixed for the life of the hub"
 
-    The hub ID, the realm, the signing key and the domain are fixed. Each ISCC-ID contains the hub ID and the realm. The key
-    and the domain verify all receipts and checkpoints. If you change one of them, you must start a new hub with a new
-    database.
+    The hub ID, the realm and the domain are fixed. Each ISCC-ID contains the hub ID and the realm. The domain is the
+    `did:web` identity of the hub. If you change one of them, you must start a new hub with a new database.
+
+!!! warning "The signing key"
+
+    The hub publishes its public key in its DID document. The protocol rotates keys in the DID document. This version of
+    the hub lists only the current key. If you change `ISCC_HUB_SECKEY`, nobody can verify old receipts and checkpoints
+    against the DID document anymore. Change the key only if it is compromised.
 
 ## 1. Make the secrets
 
@@ -57,7 +62,8 @@ uvx iscc-crypto keygen
 The command prints a JSON object. `secret_key` is the value of `ISCC_HUB_SECKEY`. The `public_key` goes into the hub
 list. The hub also publishes it at `https://<your domain>/.well-known/did.json`.
 
-Keep a copy of the secret key offline, in two safe places. A database backup is useless without the key.
+Keep a copy of the secret key offline, in two safe places. A restored hub needs the same key.
+See [Back up](operations.md#back-up).
 
 Make the Django secret key:
 
