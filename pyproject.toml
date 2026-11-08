@@ -38,6 +38,11 @@ dev = [
     "httpx>=0.28.1",
     "aiomultiprocess>=0.9.1",
 ]
+# Tools for the documentation site at hub.iscc.codes (docs/, zensical.toml); not part of the Hub
+docs = ["zensical-iscc"]
+
+[tool.uv.sources]
+zensical-iscc = { git = "https://github.com/iscc/zensical-iscc", tag = "v0.3.0" }
 
 [tool.ruff]
 line-length = 119
@@ -127,12 +132,17 @@ build-schema = { sequence = [{ cmd = "uv run datamodel-codegen" }, { cmd = "uv r
 check-python = { cmd = "uv run ruff check --fix --unsafe-fixes .", help = "Check python code"}
 check-types = { cmd = "uv run pyright", help = "Run Pyright type checking"}
 format-python = { cmd = "uv run ruff format .", help = "Format python code"}
-format-markdown = { cmd = "uv run mdformat README.md docs/ specs/", help = "Format markdown"}
+format-markdown = { cmd = "uv run mdformat README.md specs/", help = "Format markdown (docs/ is checked by zensical-iscc; mdformat breaks its attribute lists)"}
 test-python = {cmd = "uv run pytest -m 'not slow'", help = "Run python tests (excluding slow tests)"}
 test-all = {cmd = "uv run pytest", help = "Run all python tests including slow ones"}
 test-postgres = {cmd = "uv run pytest --no-cov", env = {ISCC_HUB_DB_ENGINE = "postgres"}, help = "Run the suite against PostgreSQL (set ISCC_HUB_DB_HOST/PORT/USER/PASSWORD/NAME_PG; see README)"}
 test-api = {cmd = "uv run schemathesis run iscc_hub/static/openapi.yaml --url http://localhost:8000 -H 'Accept: application/json'", help = "Run API property-based fuzz tests with Schemathesis"}
 test-api-smoke = {cmd = "uv run python scripts/test_api_smoke.py", help = "Run basic API smoke tests for CI"}
+
+# Documentation site tasks
+docs-build = { cmd = "uv run --group docs zensical-iscc build", help = "Build the documentation site into site/" }
+docs-check = { cmd = "uv run --group docs zensical-iscc check --strict", help = "Check the built documentation site" }
+docs-serve = { cmd = "uv run --group docs python -m http.server 49315 --bind 127.0.0.1 --directory site", help = "Serve the built site on 127.0.0.1:49315" }
 
 # Development tasks
 init = { cmd = "uv run python scripts/db_management.py init", help = "Initialize dev database (skips if exists)" }

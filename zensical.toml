@@ -1,0 +1,92 @@
+# Configuration of hub.iscc.codes, the documentation of iscc-hub. Based on the reference
+# configuration of the ISCC theme (zensical.toml in iscc/zensical-iscc); values marked there
+# with "site" are set for this site. Build with `uv run poe docs-build`, check with
+# `uv run poe docs-check`.
+
+[project]
+site_name = "ISCC Hub"
+site_description = "Run and use an ISCC-HUB: the server that timestamps signed content declarations and issues ISCC-IDs"
+site_author = "Titusz Pan"
+site_url = "https://hub.iscc.codes/"
+repo_url = "https://github.com/iscc/iscc-hub"
+repo_name = "iscc/iscc-hub"
+edit_uri = "edit/main/docs/"
+copyright = "Copyright © 2025-2026 The Authors" # the theme adds the ISCC links
+
+# Each page sets its navigation icon with `icon: lucide/<name>` in its front matter.
+# The last page in the navigation is "For Coding Agents".
+nav = [
+    { "Home" = "index.md" },
+    { "How it works" = "how-it-works.md" },
+    { "Run a hub" = "run-a-hub.md" },
+    { "Configuration" = "configuration.md" },
+    { "Join the network" = "join-the-network.md" },
+    { "Operations" = "operations.md" },
+    { "Use the API" = "use-the-api.md" },
+    { "For Coding Agents" = "for-coding-agents.md" },
+]
+
+[project.extra.iscc]
+tagline = "Timestamps and discovery for signed content declarations"
+copy_page = true
+chat = false
+
+# Related ISCC sites for the "Projects" menu in the header, in display order. The site does not
+# list itself.
+[[project.extra.iscc.related]]
+name = "iscc-ieps"
+link = "https://ieps.iscc.codes/"
+description = "ISCC specifications, including the Discovery Protocol"
+
+[[project.extra.iscc.related]]
+name = "iscc-monitor"
+link = "https://monitor.iscc.codes/"
+description = "Verifies and mirrors the transparency logs of ISCC hubs"
+
+[[project.extra.iscc.related]]
+name = "iscc-search"
+link = "https://search.iscc.codes/"
+description = "Similarity search engine for ISCC codes"
+
+[[project.extra.iscc.related]]
+name = "iscc-web"
+link = "https://web.iscc.codes/"
+description = "Service that generates ISCC codes for media files"
+
+[[project.extra.iscc.related]]
+name = "iscc-crypto"
+link = "https://crypto.iscc.codes/"
+description = "Signing and verification for the ISCC framework"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/iscc/iscc-hub"
+
+# Fonts, palette, logo, favicon and the default features come from the theme.
+[project.theme]
+name = "zensical_iscc"
+
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+
+[project.markdown_extensions.toc]
+permalink = true
+
+[project.markdown_extensions.pymdownx]
+details = {}
+
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+
+[project.markdown_extensions.pymdownx.superfences]
+
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+combine_header_slug = true
