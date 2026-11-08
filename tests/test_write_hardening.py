@@ -1,4 +1,4 @@
-"""Tests that malformed input never reaches the permanent log."""
+"""Tests that malformed input never reaches the permanent log, and that admin edits never undo a deletion."""
 
 import json
 import time
@@ -9,11 +9,16 @@ import iscc_crypto as icr
 import jcs
 import pytest
 from django.conf import settings
+from django.contrib.admin.sites import site
+from django.contrib.messages import get_messages
+from django.contrib.messages.storage.fallback import FallbackStorage
+from django.test import RequestFactory
+from django.urls import reverse
 
 from iscc_hub import validators
 from iscc_hub.exceptions import FieldValidationError, IsccIdError, SignatureError, TimestampError
 from iscc_hub.iscc_id import IsccID
-from iscc_hub.models import LogRecord
+from iscc_hub.models import IsccDeclaration, LogRecord, User
 from tests.conftest import ISCC_NOTE_DELETE_SCHEMA, ISCC_NOTE_SCHEMA, create_iscc_from_text
 
 HEADERS = {"Content-Type": "application/json"}
@@ -455,3 +460,85 @@ def test_deletion_with_issued_iscc_id_succeeds(api_client, example_keypair, did_
     assert response.status_code == 204
     entry = json.loads(bytes(LogRecord.objects.get(type="deletion").record))
     assert entry["iscc_id"] == entry["note"]["iscc_id"] == iscc_id
+
+
+def admin_client(client):
+    # type: (object) -> object
+    """Log the test client in as a superuser."""
+    client.force_login(User.objects.create_superuser("admin", "admin@example.com", "password"))
+    return client
+
+
+def row_values(iscc_id):
+    # type: (str) -> dict
+    """Return every column of a declaration row."""
+    return IsccDeclaration.objects.filter(iscc_id=bytes(IsccID(iscc_id))).values().get()
+
+
+def log_leaves():
+    # type: () -> list[tuple[int, bytes]]
+    """Return every log leaf as (index, record bytes)."""
+    leaves = LogRecord.objects.order_by("index").values_list("index", "record")
+    return [(index, bytes(record)) for index, record in leaves]
+
+
+def message_request():
+    # type: () -> object
+    """Build an admin request that can collect messages."""
+    request = RequestFactory().post("/admin/")
+    request.session = {}
+    request._messages = FallbackStorage(request)
+    return request
+
+
+@pytest.mark.django_db(transaction=True)
+def test_admin_save_after_deletion_keeps_declaration_deleted(api_client, example_keypair, did_resolved):
+    """An admin save from a copy loaded before a signed deletion does not bring the declaration back."""
+    iscc_id = declare(api_client, example_keypair, "admin after deletion")
+    loaded = IsccDeclaration.objects.get(iscc_id=bytes(IsccID(iscc_id)))
+    response = delete_note(api_client, iscc_id, icr.sign_json(build_deletion(iscc_id), example_keypair))
+    assert response.status_code == 204
+    leaves = log_leaves()
+
+    request = message_request()
+    loaded.redacted = True
+    site._registry[IsccDeclaration].save_model(request, loaded, None, True)
+
+    assert not IsccDeclaration.objects.filter(iscc_id=bytes(IsccID(iscc_id))).exists()
+    assert api_client.get(f"/{iscc_id}").status_code == 404
+    assert [str(m) for m in get_messages(request)] == [f"Declaration {iscc_id} was deleted and was not changed."]
+    assert log_leaves() == leaves
+
+
+@pytest.mark.django_db(transaction=True)
+def test_admin_list_redaction_writes_only_the_flag(api_client, example_keypair, did_resolved, client):
+    """Redacting in the admin list changes the flag and nothing else, and the log stays the same."""
+    iscc_id = declare(api_client, example_keypair, "admin list redaction")
+    before, leaves = row_values(iscc_id), log_leaves()
+    response = admin_client(client).post(
+        reverse("admin:iscc_hub_isccdeclaration_changelist"),
+        {
+            "form-TOTAL_FORMS": "1",
+            "form-INITIAL_FORMS": "1",
+            "form-0-iscc_id": iscc_id,
+            "form-0-redacted": "on",
+            "_save": "Save",
+        },
+    )
+    assert response.status_code == 302
+    assert row_values(iscc_id) == {**before, "redacted": True}
+    assert api_client.get(f"/{iscc_id}").status_code == 404
+    assert log_leaves() == leaves
+
+
+@pytest.mark.django_db(transaction=True)
+def test_admin_change_page_unredaction_writes_only_the_flag(api_client, example_keypair, did_resolved, client):
+    """Unredacting on the admin change page changes the flag and nothing else, and the log stays the same."""
+    iscc_id = declare(api_client, example_keypair, "admin page unredaction")
+    IsccDeclaration.objects.filter(iscc_id=bytes(IsccID(iscc_id))).update(redacted=True)
+    before, leaves = row_values(iscc_id), log_leaves()
+    response = admin_client(client).post(reverse("admin:iscc_hub_isccdeclaration_change", args=[iscc_id]), {})
+    assert response.status_code == 302
+    assert row_values(iscc_id) == {**before, "redacted": False}
+    assert api_client.get(f"/{iscc_id}").status_code == 200
+    assert log_leaves() == leaves

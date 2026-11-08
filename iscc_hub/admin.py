@@ -3,7 +3,7 @@
 from typing import Any
 from urllib.parse import urlparse
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import Group
@@ -14,6 +14,7 @@ from unfold.admin import ModelAdmin
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 from unfold.paginator import InfinitePaginator
 
+from iscc_hub.iscc_id import IsccID
 from iscc_hub.models import Hub, IsccDeclaration, PubKey, User
 
 admin.site.unregister(Group)
@@ -211,8 +212,6 @@ class IsccDeclarationAdmin(ModelAdmin):
         # type: (IsccDeclaration) -> str
         """Extract creation timestamp from ISCC-ID."""
         if obj.iscc_id:
-            from iscc_hub.iscc_id import IsccID
-
             iscc_obj = IsccID(obj.iscc_id)
             return iscc_obj.timestamp_iso
         return "—"
@@ -243,6 +242,18 @@ class IsccDeclarationAdmin(ModelAdmin):
         self.message_user(request, f"{updated} declaration(s) unredacted.")
 
     actions = ["redact", "unredact"]
+
+    def save_model(self, request, obj, form, change):
+        # type: (HttpRequest, IsccDeclaration, Any, bool) -> None
+        """
+        Write only the redaction flag to an existing row.
+
+        A plain save would re-insert a row deleted by a signed DELETE after the admin loaded it, and would
+        rewrite every other column. The row stays as the sequencer wrote it, except for the flag.
+        """
+        if not IsccDeclaration.objects.filter(pk=obj.pk).update(redacted=obj.redacted):
+            message = f"Declaration {IsccID(obj.iscc_id)} was deleted and was not changed."
+            self.message_user(request, message, messages.WARNING)
 
     def has_add_permission(self, request):
         # type: (HttpRequest) -> bool
