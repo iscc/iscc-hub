@@ -224,6 +224,87 @@ Other hubs and clients find your hub through the hub list. Add your hub to the l
 
 Then set up backups and monitoring: see [Operations](operations.md).
 
+## With PostgreSQL
+
+SQLite is the default and needs no other service. Use PostgreSQL if you already run it, or if your platform has no
+persistent local disk. The hub is tested with PostgreSQL 16.
+
+Add `POSTGRES_PASSWORD=<a long random password>` to your `.env` file. Then use this `compose.yaml` instead of the one in
+step 2:
+
+```yaml title="compose.yaml"
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: iscc_hub
+      POSTGRES_USER: iscc_hub
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - iscc-hub-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iscc_hub -d iscc_hub"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    stop_grace_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+  iscc-hub:
+    image: ghcr.io/iscc/iscc-hub:0.1.1
+    restart: unless-stopped
+    # Start the hub only when the database accepts connections
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:8000:8000
+    environment:
+      DJANGO_DEBUG: "false"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      ISCC_HUB_DOMAIN: hub.example.com
+      ISCC_HUB_SECKEY: ${ISCC_HUB_SECKEY}
+      ISCC_HUB_ID: "42"
+      ISCC_HUB_REALM: "0"
+      ISCC_HUB_ADMIN_PWD: ${ISCC_HUB_ADMIN_PWD}
+      ISCC_HUB_DB_ENGINE: postgres
+      ISCC_HUB_DB_HOST: db
+      ISCC_HUB_DB_USER: iscc_hub
+      ISCC_HUB_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      ISCC_HUB_DB_NAME_PG: iscc_hub
+    stop_grace_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+volumes:
+  iscc-hub-pg:
+```
+
+With PostgreSQL:
+
+- All state is in the database. The hub container needs no volume. Keep the `iscc-hub-pg` volume.
+- `ISCC_HUB_SQLITE_SYNC_MODE` and the local disk rule for `/app/data` do not apply. Keep the PostgreSQL defaults
+    `fsync=on` and `synchronous_commit=on`, so that the database writes each declaration to disk before the hub confirms
+    it.
+- Use one database for each hub. Never let two hubs share one database.
+
+To use a PostgreSQL server that you already have, or a managed database service:
+
+1. Make a database and a user for the hub. Make the user the owner of the database, so that the hub can create its
+   tables.
+2. Set `ISCC_HUB_DB_HOST`, `ISCC_HUB_DB_PORT`, `ISCC_HUB_DB_USER`, `ISCC_HUB_DB_PASSWORD` and `ISCC_HUB_DB_NAME_PG`.
+3. If the server requires TLS, also set `PGSSLMODE=verify-full` and, if needed, `PGSSLROOTCERT` with the path of the CA
+   certificate in the container. The hub passes these standard PostgreSQL variables to the database driver.
+
+The hub applies its migrations at the first start. [Operations](operations.md#back-up) describes backups with
+`pg_dump`.
+
 ## Without Compose
 
 ```bash

@@ -43,7 +43,8 @@ If you set one of these variables, its value replaces the default. Include the d
 
 ## Database
 
-SQLite is the default. It needs no other service. PostgreSQL is the only other supported database.
+SQLite is the default. It needs no other service. PostgreSQL is the only other supported database; the hub is tested
+with PostgreSQL 16. [Run a hub](run-a-hub.md#with-postgresql) has a setup example.
 
 | Variable                    | Default            | Value                                                           |
 | --------------------------- | ------------------ | --------------------------------------------------------------- |
@@ -55,6 +56,8 @@ SQLite is the default. It needs no other service. PostgreSQL is the only other s
 | `ISCC_HUB_DB_USER`          | `postgres`         | PostgreSQL user                                                 |
 | `ISCC_HUB_DB_PASSWORD`      | `postgres`         | PostgreSQL password                                             |
 | `ISCC_HUB_DB_NAME_PG`       | `iscc_hub`         | PostgreSQL database name                                        |
+| `PGSSLMODE`                 | unset              | PostgreSQL TLS mode, for example `verify-full`. Standard PostgreSQL variable |
+| `PGSSLROOTCERT`             | unset              | Path of the CA certificate in the container, for `verify-full`  |
 
 With `NORMAL`, a power failure or an operating system crash can roll back declarations that the hub already confirmed
 to the declarer. The hub then gives their log positions to new declarations, and monitors see two different entries at

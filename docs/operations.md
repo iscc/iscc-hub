@@ -11,54 +11,85 @@ monitor the hub.
 
 ## Data
 
-The hub keeps all its state in `/app/data`. Mount this directory on a persistent volume. With SQLite, it contains:
+=== "SQLite"
 
-| File                   | Contents                                                  |
-| ---------------------- | --------------------------------------------------------- |
-| `iscc-hub-<ID>.db`     | The database: log, declarations, admin users              |
-| `iscc-hub-<ID>.db-wal` | The write-ahead log of SQLite. It is part of the database |
-| `iscc-hub-<ID>.db-shm` | The shared memory file of SQLite                          |
+    The hub keeps all its state in `/app/data`. Mount this directory on a persistent volume. It contains:
 
-Do not copy these files while the hub runs. The copy can be damaged.
+    | File                   | Contents                                                  |
+    | ---------------------- | --------------------------------------------------------- |
+    | `iscc-hub-<ID>.db`     | The database: log, declarations, admin users              |
+    | `iscc-hub-<ID>.db-wal` | The write-ahead log of SQLite. It is part of the database |
+    | `iscc-hub-<ID>.db-shm` | The shared memory file of SQLite                          |
+
+    Do not copy these files while the hub runs. The copy can be damaged.
+
+=== "PostgreSQL"
+
+    The hub keeps all its state in its PostgreSQL database. The hub container has no state of its own. Keep the volume
+    of the database container, or the storage of your database service.
 
 ## Back up
 
-Make a backup while the hub runs with the backup function of SQLite. This example uses hub ID 42:
+=== "SQLite"
 
-```bash
-docker compose exec iscc-hub python -c "import sqlite3; \
-sqlite3.connect('/app/data/iscc-hub-0042.db').backup(sqlite3.connect('/app/data/backup.db'))"
-docker compose cp iscc-hub:/app/data/backup.db ./iscc-hub-0042-$(date +%F).db
-docker compose exec iscc-hub rm /app/data/backup.db
-```
+    Make a backup while the hub runs with the backup function of SQLite. This example uses hub ID 42:
+
+    ```bash
+    docker compose exec iscc-hub python -c "import sqlite3;     sqlite3.connect('/app/data/iscc-hub-0042.db').backup(sqlite3.connect('/app/data/backup.db'))"
+    docker compose cp iscc-hub:/app/data/backup.db ./iscc-hub-0042-$(date +%F).db
+    docker compose exec iscc-hub rm /app/data/backup.db
+    ```
+
+    For continuous replication, use for example [Litestream](https://litestream.io/).
+
+=== "PostgreSQL"
+
+    Make a backup while the hub runs with `pg_dump`. With the PostgreSQL compose example from
+    [Run a hub](run-a-hub.md#with-postgresql):
+
+    ```bash
+    docker compose exec -T db pg_dump -U iscc_hub -Fc iscc_hub > iscc-hub-$(date +%F).dump
+    ```
+
+    `pg_dump` makes a consistent copy while the hub writes. For continuous backups, use the point-in-time recovery of
+    PostgreSQL or of your database service.
 
 Keep copies on a different machine. Make a backup at least once a day and before each upgrade. Restore one backup on a
-test machine to make sure that your backups work.
-
-A daily backup can lose up to one day of permanent ISCC-IDs. For a mainnet hub, also replicate the database
-continuously, for example with [Litestream](https://litestream.io/).
+test machine to make sure that your backups work. A daily backup can lose up to one day of permanent ISCC-IDs, so use
+continuous backups for a mainnet hub.
 
 The backup is useless without the signing key `ISCC_HUB_SECKEY`. Keep a copy of the key offline, in two safe places,
 and not together with the database backups.
 
-With PostgreSQL, use `pg_dump`.
-
 ## Restore
 
-This example restores the file `iscc-hub-0042-2026-11-08.db` from the current directory into the volume of hub 42:
+=== "SQLite"
 
-```bash
-docker compose stop iscc-hub
-docker compose run --rm --no-deps --entrypoint sh \
-    -v "$PWD/iscc-hub-0042-2026-11-08.db:/restore.db:ro" iscc-hub \
-    -c 'rm -f /app/data/iscc-hub-0042.db-wal /app/data/iscc-hub-0042.db-shm && cp /restore.db /app/data/iscc-hub-0042.db'
-docker compose start iscc-hub
-```
+    This example restores the file `iscc-hub-0042-2026-11-08.db` from the current directory into the volume of hub 42:
 
-1. The first command stops the hub.
-2. The second command starts a temporary container on the same volume, without migrations and without the web server.
-   It removes the old `-wal` and `-shm` files and copies the backup over the database.
-3. The last command starts the hub. Check `/log/checkpoint`: the tree size is the size at the time of the backup.
+    ```bash
+    docker compose stop iscc-hub
+    docker compose run --rm --no-deps --entrypoint sh         -v "$PWD/iscc-hub-0042-2026-11-08.db:/restore.db:ro" iscc-hub         -c 'rm -f /app/data/iscc-hub-0042.db-wal /app/data/iscc-hub-0042.db-shm && cp /restore.db /app/data/iscc-hub-0042.db'
+    docker compose start iscc-hub
+    ```
+
+    The second command starts a temporary container on the same volume, without migrations and without the web
+    server. It removes the old `-wal` and `-shm` files and copies the backup over the database.
+
+=== "PostgreSQL"
+
+    This example restores the file `iscc-hub-2026-11-08.dump`:
+
+    ```bash
+    docker compose stop iscc-hub
+    docker compose exec -T db pg_restore -U iscc_hub -d iscc_hub --clean --if-exists --single-transaction         < iscc-hub-2026-11-08.dump
+    docker compose start iscc-hub
+    ```
+
+    `--clean` replaces the tables of the hub with the tables from the backup. `--single-transaction` makes the restore
+    all or nothing.
+
+After the restore, check `/log/checkpoint`: the tree size is the size at the time of the backup.
 
 !!! warning
 
