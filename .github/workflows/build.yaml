@@ -39,11 +39,11 @@ jobs:
             # For develop branch
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' }}
             type=raw,value=dev-{{sha}},enable=${{ github.ref == 'refs/heads/develop' }}
-            # For version tags
+            # For version tags. A release candidate (v0.1.1-rc.1) gets only its exact tag, never latest
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
           labels: |
             org.opencontainers.image.title=ISCC-HUB
             org.opencontainers.image.description=ISCC Discovery Protocol - HUB
