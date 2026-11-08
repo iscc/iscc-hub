@@ -7,7 +7,7 @@ info:
     **Important**: This API uses content negotiation. All requests must include the
     `Accept: application/json` header to receive JSON responses. Requests without this
     header will be routed to HTML views instead of the JSON API.
-  version: 0.1.0
+  version: 0.1.1
   x-logo:
     url: "/img/iscc-logo-white.png"
     backgroundColor: "#0054b2"

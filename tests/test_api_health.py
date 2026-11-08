@@ -20,7 +20,7 @@ def test_health_check_success(api_client):
 
     # Check response values
     assert data["status"] == "pass"
-    assert data["version"] == "0.1.0"
+    assert data["version"] == "0.1.1"
     assert data["description"] == "ISCC-HUB service is healthy"
 
     # Check build metadata structure
@@ -61,7 +61,7 @@ def test_health_check_content_negotiation_json(api_client):
 
     data = response.json()
     assert data["status"] == "pass"
-    assert data["version"] == "0.1.0"
+    assert data["version"] == "0.1.1"
     assert data["description"] == "ISCC-HUB service is healthy"
 
 
