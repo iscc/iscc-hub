@@ -108,7 +108,9 @@ def create_superuser():
 
     if not User.objects.filter(username=username).exists():
         User.objects.create_superuser(username=username, email=email, password=admin_password)
-        print(f"    Created superuser: {username}/{admin_password}")
+        # Never log a configured password: container logs often go to outside services
+        source = "password: demo" if username == "demo" else "password from ISCC_HUB_ADMIN_PWD"
+        print(f"    Created superuser: {username} ({source})")
     else:
         print(f"    Superuser '{username}' already exists")
 
