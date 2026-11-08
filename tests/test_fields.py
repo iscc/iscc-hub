@@ -394,22 +394,22 @@ def test_isccid_field_icontains_as_sql():
 
     sql, params = lookup.as_sql(None, None)
     assert sql == "field_name = %s"
-    assert params == [b"\x19h\xb9%\x16\x10\xd0\x00"]
+    assert params == (b"\x19h\xb9%\x16\x10\xd0\x00",)
 
     # Test with invalid ISCC-ID (empty bytes)
     lookup.process_rhs = MagicMock(return_value=("%s", [b""]))
 
     sql, params = lookup.as_sql(None, None)
     assert sql == "0=1"  # Always false condition
-    assert params == []
+    assert params == ()
 
     # Test with None value
     lookup.process_rhs = MagicMock(return_value=("%s", [None]))
-    lookup.process_lhs = MagicMock(return_value=("field_name", []))
+    lookup.process_lhs = MagicMock(return_value=("field_name", ()))
 
     sql, params = lookup.as_sql(None, None)
     assert sql == "field_name = %s"
-    assert params == [None]
+    assert params == (None,)
 
 
 def test_iscc_id_field_value_to_string():

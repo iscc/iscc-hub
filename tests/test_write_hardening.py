@@ -542,3 +542,18 @@ def test_admin_change_page_unredaction_writes_only_the_flag(api_client, example_
     assert row_values(iscc_id) == {**before, "redacted": False}
     assert api_client.get(f"/{iscc_id}").status_code == 200
     assert log_leaves() == leaves
+
+
+@pytest.mark.django_db(transaction=True)
+# django-unfold's own get_action_choices() lacks action_location; it needs an upstream fix
+@pytest.mark.filterwarnings("ignore:Overriding get_action_choices")
+def test_admin_search_finds_declaration_by_iscc_id(api_client, example_keypair, did_resolved, client):
+    """The admin list search finds a declaration by its ISCC-ID, with or without prefix and in any case."""
+    iscc_id = declare(api_client, example_keypair, "admin search target")
+    declare(api_client, example_keypair, "admin search other")
+    client = admin_client(client)
+    url = reverse("admin:iscc_hub_isccdeclaration_changelist")
+    for query in (iscc_id, iscc_id.removeprefix("ISCC:"), iscc_id.lower()):
+        response = client.get(url, {"q": query})
+        assert response.status_code == 200
+        assert [str(IsccID(row.iscc_id)) for row in response.context["cl"].result_list] == [iscc_id]

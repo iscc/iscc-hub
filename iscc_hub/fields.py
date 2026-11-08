@@ -39,18 +39,17 @@ class IsccIDFieldIContains(IContains):
             return "%s", [b""]  # Empty bytes won't match any valid ISCC-ID
 
     def as_sql(self, compiler, connection):
-        # type: (object, object) -> tuple[str, list]
+        # type: (object, object) -> tuple[str, tuple]
         """Generate SQL for exact binary match (since we normalize to exact ISCC-ID)."""
         lhs, lhs_params = self.process_lhs(compiler, connection)  # type: ignore[arg-type]
         rhs, rhs_params = self.process_rhs(compiler, connection)  # type: ignore[arg-type]
 
         # If we have empty bytes (invalid ISCC-ID), return no matches
         if rhs_params and rhs_params[0] == b"":
-            return "0=1", []  # Always false condition
+            return "0=1", ()  # Always false condition
 
-        # Use exact match for binary comparison
-        params = lhs_params + rhs_params
-        return f"{lhs} = {rhs}", params
+        # Use exact match for binary comparison. Django passes the lhs params as a tuple, process_rhs returns a list.
+        return f"{lhs} = {rhs}", (*lhs_params, *rhs_params)
 
 
 class IsccIDField(models.BinaryField):
