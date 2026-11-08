@@ -72,20 +72,20 @@ little slower.
 
 ## Acceptance policies
 
-These policies make the hub reject declarations that the protocol permits. Policies A, B and C are on by default.
-Permissioned mode is off by default.
+These policies make the hub reject declarations that the protocol permits. Permissioned mode is off by default. All
+other policies are on by default.
 
-| Variable                      | Default | Value                                                                  |
-| ----------------------------- | ------- | ---------------------------------------------------------------------- |
-| `ISCC_HUB_REQUIRE_DID`        | `true`  | Policy A. The signature must name a `did:web` controller               |
-| `ISCC_HUB_VERIFY_DID`         | `true`  | Policy B. The DID document of the controller must list the signing key |
-| `ISCC_HUB_REQUIRE_FULL_UNITS` | `true`  | Policy C. The declaration must include its ISCC-UNITs                  |
-| `ISCC_HUB_DID_CACHE_TTL`      | `3600`  | Seconds that the hub keeps a successful DID check                      |
-| `ISCC_HUB_OPEN_ACCESS`        | `true`  | `false` turns on permissioned mode                                     |
+| Variable                      | Default | Value                                                                          |
+| ----------------------------- | ------- | ------------------------------------------------------------------------------ |
+| `ISCC_HUB_REQUIRE_DID`        | `true`  | DID controller required. The signature must name a `did:web` controller        |
+| `ISCC_HUB_VERIFY_DID`         | `true`  | DID verification. The DID document of the controller must list the signing key |
+| `ISCC_HUB_REQUIRE_FULL_UNITS` | `true`  | Full ISCC-UNITs. The declaration must include its ISCC-UNITs                   |
+| `ISCC_HUB_DID_CACHE_TTL`      | `3600`  | Seconds that the hub keeps a successful DID check                              |
+| `ISCC_HUB_OPEN_ACCESS`        | `true`  | `false` turns on permissioned mode                                             |
 
-With policy B, the hub fetches the DID document of each new controller over HTTPS. The hub fetches only from public IP
-addresses. If the hub cannot get the document, it rejects the declaration with status 503 and a `Retry-After` header.
-Turn policy B off only if your declarers cannot publish a DID document.
+With DID verification, the hub fetches the DID document of each new controller over HTTPS. The hub fetches only from
+public IP addresses. If the hub cannot get the document, it rejects the declaration with status 503 and a `Retry-After`
+header. Turn DID verification off only if your declarers cannot publish a DID document.
 
 ### Permissioned mode
 

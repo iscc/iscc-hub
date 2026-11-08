@@ -17,7 +17,7 @@ optional.
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `iscc_hub/api.py`             | Ninja endpoints: `/declaration`, receipt, delete, `/lookup`, `/search`, `/health`, DID document, JSON resolve |
 | `iscc_hub/validators.py`      | All write-path validation of `IsccNote` and `IsccNoteDelete`. Pure, no I/O                                    |
-| `iscc_hub/identity.py`        | Policy B: fetches and checks the `did:web` document of the controller (SSRF-guarded, cached per worker)       |
+| `iscc_hub/identity.py`        | DID verification: fetches and checks the `did:web` document of the controller (SSRF-guarded, cached per worker)       |
 | `iscc_hub/sequencer.py`       | Single-writer transaction: ISCC-ID, log record and view row in one commit                                     |
 | `iscc_hub/iscc_id.py`         | `IsccID`: 52-bit µs timestamp + 12-bit hub ID; header from `ISCC_HUB_REALM`                                   |
 | `iscc_hub/receipt.py`         | Builds the `IsccReceipt` (W3C VC) signed with `ISCC_HUB_SECKEY`                                               |
@@ -40,7 +40,7 @@ optional.
 | `specs/`                      | Older protocol drafts. The IEPs are authoritative                                                             |
 
 Request flow for `POST /declaration`: `middleware` → `api.declaration` → `validators.validate_iscc_note` → permission
-check (`PubKey`) → `identity` (policy B) → `sequencer.sequence_iscc_note` → 201 `{iscc_id, seq}`.
+check (`PubKey`) → `identity` (DID verification) → `sequencer.sequence_iscc_note` → 201 `{iscc_id, seq}`.
 
 ## Decision dispatch
 
@@ -82,7 +82,7 @@ hashing and height-8 tiles, `/log/` paths, ISCC-ID encoding, signature scope and
 | `DELETE /declaration/{iscc_id}` | One `LogRecord` (deletion), removes the `IsccDeclaration` row                   |
 | Admin redact or unredact        | `IsccDeclaration.redacted` only                                                 |
 | `GET /log/checkpoint`           | May rebuild the cached checkpoint                                               |
-| Policy B check                  | Outbound HTTPS GET of `https://<domain>/.well-known/did.json`; per-worker cache |
+| DID verification                | Outbound HTTPS GET of `https://<domain>/.well-known/did.json`; per-worker cache |
 | `sync_hubs` command             | Creates or updates `Hub` rows from the hub list; never deletes rows             |
 
 ## Task recipes

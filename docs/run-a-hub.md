@@ -26,8 +26,8 @@ Make sure that:
 - The server clock is synchronized. Each ISCC-ID contains the time of the hub, and wrong times stay in the IDs forever.
     On most Linux systems, `timedatectl` must show `System clock synchronized: yes`.
 - The server can open outbound HTTPS connections to any public host. The hub downloads the hub list from GitHub, fetches
-    the DID documents of declarers (policy B) and sends searches to the search server. If policy B cannot fetch a DID
-    document, the hub rejects the declaration.
+    the DID documents of declarers (DID verification policy) and sends searches to the search server. If the hub cannot
+    fetch a DID document, it rejects the declaration.
 - The domain points to the server before the reverse proxy requests a TLS certificate. Otherwise the certificate can be
     delayed by DNS caches and the limits of the certificate authority.
 

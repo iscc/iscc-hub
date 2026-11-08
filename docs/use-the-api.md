@@ -107,17 +107,20 @@ For real content, generate the codes from the file with [iscc-sdk](https://githu
 
 ## Rules for declarations
 
-| Field       | Rule                                                                                |
-| ----------- | ----------------------------------------------------------------------------------- |
-| `$schema`   | Required. `http://purl.org/iscc/schema/iscc-note-0.8.0.json`                        |
-| `iscc_code` | Required. A valid ISCC-CODE                                                         |
-| `datahash`  | Required. The BLAKE3 multihash of the content. It must match the Instance-Code      |
-| `nonce`     | Required. 32 hex characters. The first 12 bits are the hub ID                       |
-| `signature` | Required. Made by `iscc_crypto.sign_json`. Policy A requires a `did:web` controller |
-| `units`     | Required by policy C. Each unit must be a valid 256-bit ISCC-UNIT                   |
-| `timestamp` | Optional. Exactly `YYYY-MM-DDTHH:MM:SS.sssZ`, near the hub clock                    |
-| `gateway`   | Optional. URL or URI template of your gateway for this ISCC-ID                      |
-| `metahash`  | Optional. BLAKE3 multihash of your metadata                                         |
+| Field       | Rule                                                                                      |
+| ----------- | ----------------------------------------------------------------------------------------- |
+| `$schema`   | Required. `http://purl.org/iscc/schema/iscc-note-0.8.0.json`                              |
+| `iscc_code` | Required. A valid ISCC-CODE                                                               |
+| `datahash`  | Required. The BLAKE3 multihash of the content. It must match the Instance-Code            |
+| `nonce`     | Required. 32 hex characters. The first 12 bits are the hub ID                             |
+| `signature` | Required. Made by `iscc_crypto.sign_json`. By default it must name a `did:web` controller |
+| `units`     | Required by default. Each unit must be a valid 256-bit ISCC-UNIT                          |
+| `timestamp` | Optional. Exactly `YYYY-MM-DDTHH:MM:SS.sssZ`, near the hub clock                          |
+| `gateway`   | Optional. URL or URI template of your gateway for this ISCC-ID                            |
+| `metahash`  | Optional. BLAKE3 multihash of your metadata                                               |
+
+"By default" means that the hub uses the default [acceptance policies](how-it-works.md#acceptance-policies). A hub can
+use different policies.
 
 A request can have at most 8192 bytes. A hub rejects a second declaration of the same data hash. To declare the same
 data again, send the header `X-Force-Declaration: true`.

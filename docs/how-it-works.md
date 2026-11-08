@@ -70,12 +70,12 @@ declaration does not resolve and does not show in lookups on that hub. Redaction
 The protocol lets each hub add stricter rules. The rules can only reject more, never accept more. The reference hub has
 these policies:
 
-| Policy             | Default | Rule                                                                                       |
-| ------------------ | ------- | ------------------------------------------------------------------------------------------ |
-| A                  | on      | The signature must name a `did:web` controller                                             |
-| B                  | on      | The DID document of the controller must list the signing key. The hub fetches the document |
-| C                  | on      | The declaration must include its ISCC-UNITs                                                |
-| Permissioned mode  | off     | Only keys that the operator added in the admin interface can declare                       |
+| Policy                  | Default | Rule                                                                                       |
+| ----------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| DID controller required | on      | The signature must name a `did:web` controller                                             |
+| DID verification        | on      | The DID document of the controller must list the signing key. The hub fetches the document |
+| Full ISCC-UNITs         | on      | The declaration must include its ISCC-UNITs                                                |
+| Permissioned mode       | off     | Only keys that the operator added in the admin interface can declare                       |
 
 A hub in permissioned mode is still public: everyone can resolve its ISCC-IDs, search it and read its log. Only the
 declarations are limited.
