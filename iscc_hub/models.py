@@ -38,7 +38,7 @@ class Hub(models.Model):
     pubkey = PubkeyField(
         unique=True,
         db_index=True,
-        help_text="Ed25519 public key of the hub for signature verification",
+        help_text="Ed25519 public key from the hub list, for information only. Clients use the DID document key",
     )
 
     # Network endpoint

@@ -417,33 +417,16 @@ class TestHubAdmin:
         admin_request.user.is_superuser = False
         assert admin_obj.has_add_permission(admin_request) is False
 
-    def test_has_change_permission_get(self, admin_request):
+    def test_has_change_permission(self, admin_request):
         # type: (HttpRequest) -> None
-        """Test that viewing hubs is allowed."""
+        """Test that no users can change hubs, for any request method (synced from authoritative list)."""
         admin_obj = HubAdmin(Hub, site)
-        admin_request.method = "GET"
-        # Test with superuser
-        admin_request.user.is_superuser = True
-        assert admin_obj.has_change_permission(admin_request) is True
-        assert admin_obj.has_change_permission(admin_request, Hub()) is True
-        # Test with regular user
-        admin_request.user.is_superuser = False
-        assert admin_obj.has_change_permission(admin_request) is True
-        assert admin_obj.has_change_permission(admin_request, Hub()) is True
-
-    def test_has_change_permission_post(self, admin_request):
-        # type: (HttpRequest) -> None
-        """Test that editing hubs is prevented."""
-        admin_obj = HubAdmin(Hub, site)
-        admin_request.method = "POST"
-        # Test with superuser
-        admin_request.user.is_superuser = True
-        assert admin_obj.has_change_permission(admin_request) is False
-        assert admin_obj.has_change_permission(admin_request, Hub()) is False
-        # Test with regular user
-        admin_request.user.is_superuser = False
-        assert admin_obj.has_change_permission(admin_request) is False
-        assert admin_obj.has_change_permission(admin_request, Hub()) is False
+        for method in ("GET", "POST"):
+            admin_request.method = method
+            for is_superuser in (True, False):
+                admin_request.user.is_superuser = is_superuser
+                assert admin_obj.has_change_permission(admin_request) is False
+                assert admin_obj.has_change_permission(admin_request, Hub()) is False
 
     def test_has_delete_permission(self, admin_request):
         # type: (HttpRequest) -> None
@@ -457,3 +440,23 @@ class TestHubAdmin:
         admin_request.user.is_superuser = False
         assert admin_obj.has_delete_permission(admin_request) is False
         assert admin_obj.has_delete_permission(admin_request, Hub()) is False
+
+
+@pytest.mark.django_db
+@pytest.mark.filterwarnings("ignore:Overriding get_action_choices")
+def test_hub_change_page_is_read_only(admin_client):
+    # type: (Any) -> None
+    """The hub page shows no editable fields, and a save is refused (synced from authoritative list)."""
+    hub = Hub.objects.create(
+        hub_id=42, pubkey="z6MkqbHELZopsq6eKrn6qxiAgRoVvwp2Vp7mPfKsvrbYmGwJ", url="https://hub.example.com"
+    )
+    url = f"/admin/iscc_hub/hub/{hub.hub_id}/change/"
+    response = admin_client.get(url)
+    assert response.status_code == 200
+    assert response.context["adminform"].form.fields == {}
+    assert b'name="_save"' not in response.content
+    response = admin_client.post(url, {"url": "https://other.example.com", "active": ""})
+    assert response.status_code == 403
+    hub.refresh_from_db()
+    assert hub.url == "https://hub.example.com"
+    assert hub.active is True

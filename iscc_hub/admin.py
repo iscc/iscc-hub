@@ -84,8 +84,8 @@ class HubAdmin(ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         # type: (HttpRequest, Hub | None) -> bool
-        """Allow viewing but not editing hubs (synced from authoritative list)."""
-        return request.method == "GET"
+        """Show hubs read-only: the hub list download overwrites every field."""
+        return False
 
     def has_delete_permission(self, request, obj=None):
         # type: (HttpRequest, Hub | None) -> bool
