@@ -39,7 +39,8 @@ An entry has four fields:
 
 ## Steps
 
-1. Open the list of your network and select a hub ID that no entry uses. Hub IDs go from 0 to 4095.
+1. Open the list of your network and select the next free hub ID: the highest hub ID in the list plus 1. This keeps the
+    hub IDs without gaps. If an open pull request already uses this hub ID, select the next one. Hub IDs go up to 4095.
 2. Deploy your hub with this hub ID and the matching realm. See [Run a hub](run-a-hub.md).
 3. Check that `https://<your domain>/.well-known/did.json` shows your public key.
 4. Fork [iscc/iscc-hub](https://github.com/iscc/iscc-hub) and add your entry to the list.

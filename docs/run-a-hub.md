@@ -19,7 +19,7 @@ You need:
 - A domain name for the hub, for example `hub.example.com`. The domain is part of the identity of the hub. Do not change
     it later.
 - A reverse proxy that terminates TLS, for example Caddy, nginx or Traefik.
-- A hub ID. Select a free hub ID in the hub list of your network. See [Join the network](join-the-network.md).
+- A hub ID. Select the next free hub ID in the hub list of your network. See [Join the network](join-the-network.md).
 
 Make sure that:
 
