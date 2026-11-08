@@ -3,14 +3,22 @@ import binascii
 import base58
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models.lookups import IContains
+from django.db.models.lookups import Lookup
 from django.forms import CharField
 
 from iscc_hub.iscc_id import IsccID
 
 
-class IsccIDFieldIContains(IContains):
-    """Custom icontains lookup for IsccIDField that handles ISCC-ID string matching."""
+class IsccIDFieldIContains(Lookup):
+    """
+    Search lookup for IsccIDField, registered as icontains so the admin search uses it.
+
+    It normalizes the search term to an ISCC-ID and compares the binary column for equality. It is a plain Lookup,
+    not IContains: IContains casts the column to text (``UPPER(col::text)`` on PostgreSQL), which cannot equal bytes.
+    """
+
+    lookup_name = "icontains"
+    prepare_rhs = False
 
     def process_rhs(self, compiler, connection):
         # type: (object, object) -> tuple[str, list]
