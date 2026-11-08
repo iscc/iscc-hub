@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 from django.contrib import admin
+from django.contrib.admin import ActionLocation
 from django.contrib.admin.sites import site
 from django.http import HttpRequest
 from django.test import RequestFactory
@@ -199,9 +200,9 @@ class TestIsccDeclarationAdmin:
         # Mock super().get_actions to return a dict with delete_selected
         original_get_actions = admin.ModelAdmin.get_actions
 
-        def mock_get_actions(self, request):
-            # type: (Any, Any) -> dict
-            actions = original_get_actions(self, request)
+        def mock_get_actions(self, request, action_location=ActionLocation.CHANGE_LIST):
+            # type: (Any, Any, ActionLocation) -> dict
+            actions = original_get_actions(self, request, action_location)
             # Ensure delete_selected is in the dict to test the removal
             actions["delete_selected"] = "mock_action"
             return actions

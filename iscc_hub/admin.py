@@ -4,6 +4,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from django.contrib import admin, messages
+from django.contrib.admin import ActionLocation  # type: ignore[attr-defined]  # Django 6.1, not yet in django-types
 from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import Group
@@ -219,10 +220,10 @@ class IsccDeclarationAdmin(ModelAdmin):
     creation_time.short_description = "Declaration Time"
     creation_time.admin_order_field = "iscc_id"
 
-    def get_actions(self, request):
-        # type: (HttpRequest) -> dict[str, Any]
+    def get_actions(self, request, action_location=ActionLocation.CHANGE_LIST):
+        # type: (HttpRequest, ActionLocation) -> dict[str, Any]
         """Add custom batch actions."""
-        actions = super().get_actions(request)
+        actions = super().get_actions(request, action_location)  # type: ignore[call-arg]
         if "delete_selected" in actions:
             del actions["delete_selected"]
         return actions
