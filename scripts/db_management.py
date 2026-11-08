@@ -22,7 +22,6 @@ os.environ["DJANGO_SETTINGS_MODULE"] = "iscc_hub.settings"
 # Set default environment variables if not set
 os.environ.setdefault("ISCC_HUB_ID", "1")
 os.environ.setdefault("ISCC_HUB_DOMAIN", "localhost:8000")
-os.environ.setdefault("ISCC_HUB_SECKEY", "zHuboDevelopmentKeyDoNotUseInProduction")
 
 django.setup()
 

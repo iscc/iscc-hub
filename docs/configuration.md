@@ -10,7 +10,7 @@ You configure the hub with environment variables. The hub reads them at start. T
 
 ## Required
 
-The hub does not start if one of these variables is missing.
+The hub does not start if one of these variables is missing, or if `ISCC_HUB_SECKEY` is not a valid key.
 
 | Variable            | Value                                                                                                           |
 | ------------------- | --------------------------------------------------------------------------------------------------------------- |

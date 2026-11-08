@@ -31,7 +31,6 @@ os.environ["DJANGO_SETTINGS_MODULE"] = "iscc_hub.settings"
 os.environ["ISCC_HUB_DB_NAME"] = temp_db_path
 os.environ.setdefault("ISCC_HUB_ID", "1")
 os.environ.setdefault("ISCC_HUB_DOMAIN", "hub.example.com")
-os.environ.setdefault("ISCC_HUB_SECKEY", "zHuboTestKeyFixtureGeneration")
 
 django.setup()
 
