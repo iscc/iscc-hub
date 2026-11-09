@@ -28,7 +28,7 @@ The documentation is at **[hub.iscc.codes](https://hub.iscc.codes/)**:
 - [Operations](https://hub.iscc.codes/operations/): backups, upgrades and monitoring
 - [Use the API](https://hub.iscc.codes/use-the-api/): declare, resolve and search
 
-Release images are at `ghcr.io/iscc/iscc-hub`. Pin an exact version, for example `ghcr.io/iscc/iscc-hub:0.1.1`.
+Release images are at `ghcr.io/iscc/iscc-hub`. Pin an exact version, for example `ghcr.io/iscc/iscc-hub:0.1.2`.
 
 ## Development
 

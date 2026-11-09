@@ -3,6 +3,12 @@
 All notable changes to iscc-hub. Release images are at `ghcr.io/iscc/iscc-hub:<version>`. The
 [documentation](https://hub.iscc.codes/) describes how to run and upgrade a hub.
 
+## 0.1.2
+
+### Fixed
+
+- The API docs page at `/docs` stayed blank since Redoc 3 was released. It now loads a pinned Redoc 2 version.
+
 ## 0.1.1
 
 First versioned release. Hubs that run the `dev` image (version 0.1.0) should move to this release. Existing databases

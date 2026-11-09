@@ -90,7 +90,7 @@ Write `compose.yaml`. Replace the domain and the hub ID:
 ```yaml title="compose.yaml"
 services:
   iscc-hub:
-    image: ghcr.io/iscc/iscc-hub:0.1.1
+    image: ghcr.io/iscc/iscc-hub:0.1.2
     restart: unless-stopped
     ports:
       - 127.0.0.1:8000:8000
@@ -261,7 +261,7 @@ services:
         max-size: "10m"
         max-file: "5"
   iscc-hub:
-    image: ghcr.io/iscc/iscc-hub:0.1.1
+    image: ghcr.io/iscc/iscc-hub:0.1.2
     restart: unless-stopped
     # Start the hub only when the database accepts connections
     depends_on:
@@ -325,7 +325,7 @@ docker run -d --name iscc-hub --restart unless-stopped \
     -p 127.0.0.1:8000:8000 \
     --stop-timeout 45 \
     --log-driver json-file --log-opt max-size=10m --log-opt max-file=5 \
-    ghcr.io/iscc/iscc-hub:0.1.1
+    ghcr.io/iscc/iscc-hub:0.1.2
 ```
 
 ## Build the image yourself
@@ -333,6 +333,6 @@ docker run -d --name iscc-hub --restart unless-stopped \
 ```bash
 git clone https://github.com/iscc/iscc-hub
 cd iscc-hub
-git checkout v0.1.1
+git checkout v0.1.2
 docker build --target production -t iscc-hub .
 ```
