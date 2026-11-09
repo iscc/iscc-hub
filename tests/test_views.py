@@ -1,5 +1,8 @@
 """Tests for HTML views."""
 
+import re
+from pathlib import Path
+
 import iscc_crypto as icr
 import pytest
 from django.test import Client, override_settings
@@ -719,3 +722,12 @@ def test_iscc_id_resolve_redirect_false_case_insensitive():
         # Should show detail page for all case variants
         assert response.status_code == 200
         assert b"ISCC-CODE" in response.content
+
+
+def test_api_docs_page_pins_redoc_2():
+    # type: () -> None
+    """The API docs page loads a pinned Redoc 2 bundle: Redoc 3 does not load as a classic script."""
+    html = (Path(__file__).parents[1] / "iscc_hub/static/docs/index.html").read_text(encoding="utf-8")
+    scripts = re.findall(r'<script src="([^"]+)"', html)
+    assert len(scripts) == 1
+    assert re.fullmatch(r"https://cdn\.redoc\.ly/redoc/v2\.\d+\.\d+/bundles/redoc\.standalone\.js", scripts[0])
