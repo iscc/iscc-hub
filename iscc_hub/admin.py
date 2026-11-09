@@ -3,7 +3,8 @@
 from typing import Any
 from urllib.parse import urlparse
 
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.contrib.admin import ActionLocation  # type: ignore[attr-defined]  # Django 6.1, not yet in django-types
 from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import Group
@@ -14,6 +15,7 @@ from unfold.admin import ModelAdmin
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 from unfold.paginator import InfinitePaginator
 
+from iscc_hub.iscc_id import IsccID
 from iscc_hub.models import Hub, IsccDeclaration, PubKey, User
 
 admin.site.unregister(Group)
@@ -82,8 +84,8 @@ class HubAdmin(ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         # type: (HttpRequest, Hub | None) -> bool
-        """Allow viewing but not editing hubs (synced from authoritative list)."""
-        return request.method == "GET"
+        """Show hubs read-only: the hub list download overwrites every field."""
+        return False
 
     def has_delete_permission(self, request, obj=None):
         # type: (HttpRequest, Hub | None) -> bool
@@ -211,8 +213,6 @@ class IsccDeclarationAdmin(ModelAdmin):
         # type: (IsccDeclaration) -> str
         """Extract creation timestamp from ISCC-ID."""
         if obj.iscc_id:
-            from iscc_hub.iscc_id import IsccID
-
             iscc_obj = IsccID(obj.iscc_id)
             return iscc_obj.timestamp_iso
         return "—"
@@ -220,10 +220,10 @@ class IsccDeclarationAdmin(ModelAdmin):
     creation_time.short_description = "Declaration Time"
     creation_time.admin_order_field = "iscc_id"
 
-    def get_actions(self, request):
-        # type: (HttpRequest) -> dict[str, Any]
+    def get_actions(self, request, action_location=ActionLocation.CHANGE_LIST):
+        # type: (HttpRequest, ActionLocation) -> dict[str, Any]
         """Add custom batch actions."""
-        actions = super().get_actions(request)
+        actions = super().get_actions(request, action_location)  # type: ignore[call-arg]
         if "delete_selected" in actions:
             del actions["delete_selected"]
         return actions
@@ -243,6 +243,18 @@ class IsccDeclarationAdmin(ModelAdmin):
         self.message_user(request, f"{updated} declaration(s) unredacted.")
 
     actions = ["redact", "unredact"]
+
+    def save_model(self, request, obj, form, change):
+        # type: (HttpRequest, IsccDeclaration, Any, bool) -> None
+        """
+        Write only the redaction flag to an existing row.
+
+        A plain save would re-insert a row deleted by a signed DELETE after the admin loaded it, and would
+        rewrite every other column. The row stays as the sequencer wrote it, except for the flag.
+        """
+        if not IsccDeclaration.objects.filter(pk=obj.pk).update(redacted=obj.redacted):
+            message = f"Declaration {IsccID(obj.iscc_id)} was deleted and was not changed."
+            self.message_user(request, message, messages.WARNING)
 
     def has_add_permission(self, request):
         # type: (HttpRequest) -> bool

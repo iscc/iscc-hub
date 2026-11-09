@@ -36,7 +36,9 @@ SIGNATURE_VERSION = "ISCC-SIG v1.0"
 MAX_UNITS_ARRAY_SIZE = 4  # Prevent DOS attacks
 MAX_STRING_LENGTH = 2048  # Maximum length for string fields
 DID_WEB_PREFIX = "did:web:"
-FULL_UNIT_BITS = 256  # Policy C: required body length for every non-Instance ISCC-UNIT
+FULL_UNIT_BITS = 256  # Required body length for every provided ISCC-UNIT
+RFC3339_UTC_MILLIS = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\.[0-9]{3}Z")
+MULTIBASE_BASE58 = re.compile(r"z[1-9A-HJ-NP-Za-km-z]+")
 
 # Allowlists for the declared `$schema` wire value (matches the published schemas' const)
 SUPPORTED_ISCC_NOTE_SCHEMAS = {"http://purl.org/iscc/schema/iscc-note-0.8.0.json"}
@@ -84,9 +86,10 @@ def validate_iscc_note(
 
     Performs format validation, cryptographic verification, and security checks on ISCC
     declaration data before notarization. Validates field formats, timestamps, signatures,
-    and ensures data integrity between related fields. The DID-presence (A) and full-length
-    units (C) policies are pure, no-I/O checks applied only when enabled, after the signature
-    is proven valid so an invalid signature still reports a signature error.
+    and ensures data integrity between related fields. Provided units must always carry 256-bit
+    bodies. The DID-presence (A) and units-required (C) policies are pure, no-I/O checks applied
+    only when enabled, after the signature is proven valid so an invalid signature still reports
+    a signature error.
 
     :param data: Raw request body bytes
     :param verify_signature: Whether to verify the cryptographic signature (default: True)
@@ -94,7 +97,7 @@ def validate_iscc_note(
     :param require_timestamp: Whether a declarer-supplied timestamp is required (default: False)
     :param timestamp_tolerance_seconds: Max deviation (s) for a provided timestamp; ≤0 disables (default: 0)
     :param require_did: Policy A — require a ``did:web`` controller in the signature (default: False)
-    :param require_full_units: Policy C — require a 256-bit body for every provided unit (default: False)
+    :param require_full_units: Policy C — require the ``units`` array (default: False)
     :return: Validated IsccNote data ready for notarization
     :raises ValidationError: If validation fails with detailed error information
     """
@@ -147,12 +150,12 @@ def validate_iscc_note(
     if verify_signature:
         verify_signature_cryptographically(data_dict)
 
-    # Policy A (DID presence) and C (full-length units) run after the signature is proven
+    # Policy A (DID presence) and C (units required) run after the signature is proven
     # valid: an invalid signature must still report a signature error, not a policy error.
     if require_did:
         validate_controller_present_did_web(data_dict["signature"])
     if require_full_units:
-        validate_units_present_full_length(data_dict)
+        validate_units_present(data_dict)
 
     return data_dict
 
@@ -251,29 +254,27 @@ def validate_controller_present_did_web(signature):
         raise IdentityError("signature.controller must be a did:web URI", code="did_required", status_code=422)
 
 
-def validate_units_present_full_length(data):
+def validate_units_present(data):
     # type: (dict) -> None
     """
-    Require ``units`` to be present and every provided unit to be full length (Policy C).
+    Require ``units`` to be present (Policy C).
 
-    Coverage and correspondence are already guaranteed by ``validate_units_reconstruction``
-    (it rebuilds the exact composite from ``units + datahash``); this layers the one invariant
-    reconstruction does not enforce — every provided non-Instance unit carries a 256-bit body.
+    Well-formedness, length and correspondence of provided units are checked by
+    ``validate_units_reconstruction`` whether or not this policy is enabled.
 
     :param data: The parsed IsccNote dictionary
-    :raises FieldValidationError: If units are missing or any provided unit is shorter than 256-bit
+    :raises FieldValidationError: If units are missing
     """
     if "units" not in data:
         raise FieldValidationError("units", "units is required by server policy", code="validation_failed")
-    validate_units_full_length(data["units"])
 
 
 def validate_units_full_length(units):
     # type: (list) -> None
     """
-    Require every provided ISCC-UNIT to carry a full 256-bit body (Policy C).
+    Require every provided ISCC-UNIT to carry a full 256-bit body.
 
-    :param units: List of pre-validated ISCC-UNIT strings (excluding the Instance-Code)
+    :param units: List of strictly validated ISCC-UNIT strings (excluding the Instance-Code)
     :raises FieldValidationError: If any unit's body is not exactly 256 bits, naming its MainType
     """
     for unit in units:
@@ -480,6 +481,10 @@ def validate_timestamp(timestamp_str, tolerance_seconds=0, reference_time=None):
         if len(ms_part) != 3:
             raise TimestampError("timestamp must have exactly 3 digits for milliseconds")
 
+        # isoparse also accepts other ISO 8601 forms, for example week dates
+        if not RFC3339_UTC_MILLIS.fullmatch(timestamp_str):
+            raise ValueError("timestamp is not in the required form")
+
     except (ValueError, TypeError) as e:
         if isinstance(e, TimestampError):
             raise
@@ -597,7 +602,8 @@ def validate_signature_structure(signature):
     Validate signature structure, fields, and version.
 
     Validates required fields (version, proof, pubkey) and optional fields
-    (controller, keyid). Ensures signature version matches expected format.
+    (controller, keyid). Ensures signature version matches expected format, controller and
+    keyid are strings, and proof and pubkey are exact multibase base58-btc strings.
 
     :param signature: The signature dictionary to validate
     :raises SignatureError: If signature structure is invalid
@@ -628,12 +634,21 @@ def validate_signature_structure(signature):
                 # Update message to be more specific for signature fields
                 new_message = e.message.replace(f"Optional field '{field}'", f"Optional field '{field}' in signature")
                 raise FieldValidationError(field, new_message, e.code) from e
+            if not isinstance(signature[field], str):
+                raise FieldValidationError(
+                    field, f"Optional field '{field}' in signature must be a string", code="invalid_format"
+                )
 
     # Check for unknown fields in signature
     allowed_signature_fields = required_signature_fields | optional_fields_signature
     unknown_signature_fields = set(signature.keys()) - allowed_signature_fields
     if unknown_signature_fields:
         raise SignatureError(f"Unknown fields in signature not allowed: {', '.join(sorted(unknown_signature_fields))}")
+
+    # The Base58 decoder strips trailing whitespace, so a successful verification does not prove the encoding
+    for field in ("proof", "pubkey"):
+        if not isinstance(signature[field], str) or not MULTIBASE_BASE58.fullmatch(signature[field]):
+            raise SignatureError(f"Invalid {field} in signature: must be multibase base58-btc")
 
 
 def verify_signature_cryptographically(data):
@@ -824,9 +839,10 @@ def validate_units_reconstruction(units, datahash, iscc_code):
     """
     Validate that units array and datahash can reconstruct the provided iscc_code.
 
-    Validates that the provided ISCC-UNITs plus the Instance-Code derived from
-    datahash can reconstruct the original ISCC-CODE. Ensures units have ISCC-BODYs
-    larger than 64-bit for improved discovery. Limits array size to prevent DOS.
+    Requires each ISCC-UNIT to be strictly well-formed (canonical string form, supported
+    version, body length matching its header) and to carry a 256-bit body. Validates that the provided ISCC-UNITs plus
+    the Instance-Code derived from datahash can reconstruct the original ISCC-CODE. Limits
+    array size to prevent DOS.
 
     :param units: List of ISCC unit strings (excluding Instance-Code)
     :param datahash: Pre-validated datahash string
@@ -849,6 +865,11 @@ def validate_units_reconstruction(units, datahash, iscc_code):
             raise FieldValidationError("units", f"units[{i}] must be a string", code="invalid_format")
 
     try:
+        # Reconstruction tolerates noncanonical spellings and ignores unit versions, so check each unit strictly first
+        for unit in units:
+            ic.iscc_validate(unit, strict=True)
+        validate_units_full_length(units)
+
         # Convert datahash to Instance-Code and add to units
         instance_code = datahash_to_instance_code(datahash)
         all_codes = units + [instance_code]
@@ -984,8 +1005,9 @@ def validate_iscc_id(iscc_id, hub_id=None):
     """
     Validate ISCC-ID format and optionally check hub ID match.
 
-    Validates that the ISCC-ID has the correct MainType (ID) and version (V1).
-    Optionally validates that the embedded hub ID matches the expected value.
+    Validates that the ISCC-ID has the correct MainType (ID) and version (V1) and is the
+    canonical string this Hub issues for its realm. Optionally validates that the embedded
+    hub ID matches the expected value.
 
     :param iscc_id: The ISCC-ID string to validate
     :param hub_id: Optional hub ID (0-4095) to validate against embedded value
@@ -997,6 +1019,11 @@ def validate_iscc_id(iscc_id, hub_id=None):
             raise
     except Exception as e:
         raise IsccIdError("Invalid ISCC-ID format") from e
+
+    # Decoding keeps only the body, so other realms and spellings would name the same record
+    canonical = str(IsccID(iscc_id))
+    if iscc_id != canonical:
+        raise IsccIdError(f"ISCC-ID is not in canonical form for this Hub's realm; expected {canonical}")
 
     if hub_id is not None:
         iscc_id_obj = IsccID(iscc_id)

@@ -7,7 +7,7 @@ info:
     **Important**: This API uses content negotiation. All requests must include the
     `Accept: application/json` header to receive JSON responses. Requests without this
     header will be routed to HTML views instead of the JSON API.
-  version: 0.1.0
+  version: 0.1.2
   x-logo:
     url: "/img/iscc-logo-white.png"
     backgroundColor: "#0054b2"
@@ -248,11 +248,13 @@ paths:
           4xx/5xx/malformed document) is rejected with **503** (`did_unresolvable`) and a
           `Retry-After` header, since the failure is transient and the client should
           retry.
-        - **Full-length units required.** Every ISCC-UNIT in `units` MUST carry a 256-bit
-          body (`ISCC_HUB_REQUIRE_FULL_UNITS`); a shorter unit is rejected with **422**.
+        - **Units required.** The `units` array MUST be present (`ISCC_HUB_REQUIRE_FULL_UNITS`);
+          a note without it is rejected with **422**.
 
         Deployments may disable any of these policies via configuration; when disabled the
-        permissive wire schema applies.
+        permissive wire schema applies. Independent of these policies, every ISCC-UNIT in
+        `units` MUST be strictly well-formed and carry a 256-bit body; any other unit is
+        rejected with **422**.
       operationId: declare
       parameters:
         - name: X-Force-Declaration
@@ -395,7 +397,7 @@ paths:
         DID verification is enabled (`ISCC_HUB_VERIFY_DID`) the controller is resolved and
         MUST authorize the signing key — this resolution runs only after the ownership check
         passes, so only the legitimate owner triggers it. An unresolvable controller yields
-        **503** (`did_unresolvable`) with a `Retry-After` header. The full-length units
+        **503** (`did_unresolvable`) with a `Retry-After` header. The units-required
         policy does not apply to deletions (a deletion carries no `iscc_code`).
 
         **Side Effects:**
@@ -409,7 +411,10 @@ paths:
           schema:
             type: string
             pattern: "^ISCC:[A-Z2-7]{16}$"
-          description: The ISCC-ID of the declaration to delete
+          description: |
+            The ISCC-ID of the declaration to delete, exactly as issued by this Hub. Other
+            spellings of the same ISCC-ID (another realm, lowercase, no `ISCC:` prefix) are
+            rejected with **422**.
           example: "ISCC:MAIGIEGXNGY664AB"
       requestBody:
         required: true

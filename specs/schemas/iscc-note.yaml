@@ -64,8 +64,8 @@ properties:
     maxItems: 4
     description: |
       Extended similarity-preserving ISCC-UNITs of the declared
-      ISCC-CODE. MUST NOT include the Instance-Code, which is derivable
-      from `datahash`.
+      ISCC-CODE, each with a 256-bit body. MUST NOT include the
+      Instance-Code, which is derivable from `datahash`.
     items:
       $ref: "./common.yaml#/properties/iscc_unit"
 examples:

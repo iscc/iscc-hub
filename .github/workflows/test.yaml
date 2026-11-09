@@ -13,21 +13,23 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.12"]
+        python-version: ["3.14"]
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v3
+      uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
-        version: "latest"
+        version: "0.13.7"
 
     - name: Set up Python ${{ matrix.python-version }}
       run: uv python install ${{ matrix.python-version }}
 
     - name: Install dependencies
-      run: uv sync --all-extras --dev
+      run: uv sync --locked --all-extras --dev
 
     - name: Run complete CI pipeline
       run: uv run poe ci
@@ -52,6 +54,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
+      UV_PYTHON: "3.14"
       ISCC_HUB_DB_ENGINE: postgres
       ISCC_HUB_DB_HOST: localhost
       ISCC_HUB_DB_PORT: "5432"
@@ -59,18 +62,18 @@ jobs:
       ISCC_HUB_DB_PASSWORD: postgres
       ISCC_HUB_DB_NAME_PG: iscc_hub
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v3
+      uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
-        version: "latest"
+        version: "0.13.7"
 
     - name: Set up Python
-      run: uv python install 3.12
+      run: uv python install 3.14
 
     - name: Install dependencies
-      run: uv sync --all-extras --dev
+      run: uv sync --locked --all-extras --dev
 
     - name: Run the suite against PostgreSQL
       run: uv run poe test-postgres

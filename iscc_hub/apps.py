@@ -1,3 +1,4 @@
+import iscc_crypto as icr
 from django.apps import AppConfig
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -16,6 +17,20 @@ class IsccHubConfig(AppConfig):
         """Perform app initialization when Django starts."""
         # Validate HUB ID configuration
         self.validate_hub_id()
+        self.validate_hub_seckey()
+
+    def validate_hub_seckey(self):
+        # type: () -> None
+        """
+        Validate that the signing key decodes to an Ed25519 key.
+
+        The hub uses the key only when it signs, so an empty or broken value would otherwise start a hub that
+        reports healthy but fails on every receipt, checkpoint and DID document request.
+        """
+        try:
+            icr.key_from_secret(settings.ISCC_HUB_SECKEY)
+        except (ValueError, AttributeError) as error:
+            raise ImproperlyConfigured(f"ISCC_HUB_SECKEY is not a valid Ed25519 secret key: {error}") from error
 
     def validate_hub_id(self):
         # type: () -> None

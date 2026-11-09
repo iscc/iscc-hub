@@ -106,3 +106,34 @@ def test_validate_hub_id_none_value():
 
         with pytest.raises(ImproperlyConfigured, match="ISCC_HUB_ID is not configured"):
             app_config.validate_hub_id()
+
+
+def test_validate_hub_seckey_accepts_configured_key():
+    """The configured signing key passes."""
+    apps.get_app_config("iscc_hub").validate_hub_seckey()
+
+
+@pytest.mark.parametrize(
+    "seckey",
+    [
+        "",
+        "abc",
+        "z123",
+        "z3u2RDonZ81AFKiw8QCPKcsyg8Yy2MmYQNxfBn51SS2QmMi0",
+        None,
+    ],
+)
+def test_validate_hub_seckey_rejects_invalid_key(seckey):
+    """An empty, truncated or malformed signing key stops the start instead of failing on first use."""
+    app_config = apps.get_app_config("iscc_hub")
+    with override_settings(ISCC_HUB_SECKEY=seckey):
+        with pytest.raises(ImproperlyConfigured, match="ISCC_HUB_SECKEY is not a valid Ed25519 secret key"):
+            app_config.validate_hub_seckey()
+
+
+def test_ready_rejects_empty_seckey():
+    """ready() runs the signing key check."""
+    app_config = apps.get_app_config("iscc_hub")
+    with override_settings(ISCC_HUB_SECKEY=""):
+        with pytest.raises(ImproperlyConfigured, match="ISCC_HUB_SECKEY"):
+            app_config.ready()

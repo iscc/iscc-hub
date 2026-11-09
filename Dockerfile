@@ -1,11 +1,12 @@
 # Multi-stage Dockerfile for ISCC Hub
 # Supports development and production environments
 
-# Base stage with UV installer
-FROM python:3.12-slim AS base
+# Base stage with UV installer. The base image is pinned by digest, so OS and Python updates
+# only arrive when the digest is changed.
+FROM python:3.14-slim@sha256:af8a5aa14780025dbfbcfbc81bd8a91ebd87711dd5b0f48ed71090949dd7cb1d AS base
 
 # Install UV using the official installer
-COPY --from=ghcr.io/astral-sh/uv:0.5.16 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 /uv /usr/local/bin/uv
 
 # Set common environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -92,9 +93,10 @@ RUN chmod +x /entrypoint.sh
 # Create data directory and media directory for static file serving
 RUN mkdir -p /app/data /app/iscc_hub/static/media
 
-# Health check
+# Health check. It sends the hub domain as Host header, because the default ALLOWED_HOSTS
+# contains only ISCC_HUB_DOMAIN and Django rejects other host names with 400.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://127.0.0.1:${PORT:-8000}/health || exit 1
+    CMD curl -fsS -H "Host: ${ISCC_HUB_DOMAIN}" http://127.0.0.1:${PORT:-8000}/health || exit 1
 
 # Expose default port
 EXPOSE 8000
